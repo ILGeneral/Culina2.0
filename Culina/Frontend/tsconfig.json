@@ -1,0 +1,24 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    /* ✅ Strict type checking */
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* ✅ Align module + resolution for Node16 (Expo 50+ expects this) */
+    "target": "esnext",
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "jsx": "react-native",
+
+    /* ✅ Quality-of-life flags */
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    /* ✅ Tailwind/NativeWind type definitions */
+    "types": ["nativewind/types"]
+  }
+}
