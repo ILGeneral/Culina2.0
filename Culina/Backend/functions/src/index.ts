@@ -26,7 +26,7 @@ async function getUserContext(uid: string) {
   return { preferences, inventory };
 }
 
-/* 1️⃣ Generate Recipe (Groq API) */
+/* Generate Recipe (Groq API) */
 export const generateRecipe = onCall(
   async (data: any, context: CallableContext) => {
     const uid = context.auth?.uid;
@@ -99,7 +99,7 @@ ${JSON.stringify(inventory, null, 2)}
   }
 );
 
-/* 2️⃣ Confirm Recipe Use */
+/*  Confirm Recipe Use */
 export const confirmRecipeUse = onCall(
   async (data: any, context: CallableContext) => {
     const uid = context.auth?.uid;
@@ -160,7 +160,7 @@ export const confirmRecipeUse = onCall(
   }
 );
 
-/* 3️⃣ Rate Recipe */
+/*  Rate Recipe */
 export const rateRecipe = onCall(
   async (data: any, context: CallableContext) => {
     const uid = context.auth?.uid;
@@ -216,7 +216,7 @@ export const rateRecipe = onCall(
   }
 );
 
-/* 4️⃣ Submit Report */
+/* Submit Report */
 export const submitReport = onCall(
   async (data: any, context: CallableContext) => {
     const uid = context.auth?.uid;
