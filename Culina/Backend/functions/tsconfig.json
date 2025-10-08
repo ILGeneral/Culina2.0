@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    /* === Basic build setup === */
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "lib",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "moduleResolution": "node",
+    "isolatedModules": true,
+
+    /* === Firebase / Node environment === */
+    "types": ["node", "firebase-functions", "firebase-admin"],
+    "forceConsistentCasingInFileNames": true,
+
+    /* === Source maps for debugging === */
+    "sourceMap": true
+  },
+  "compileOnSave": true,
+  "include": ["src"],
+  "exclude": ["node_modules", "lib", "**/*.spec.ts"]
+}
