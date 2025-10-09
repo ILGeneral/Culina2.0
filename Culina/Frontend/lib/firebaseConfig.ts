@@ -7,16 +7,16 @@ const firebaseConfig = {
   apiKey: "AIzaSyAGsx_FhTWt-hHvoPZwdg9j5CVkoy77ZJQ",
   authDomain: "culinatwoo.firebaseapp.com",
   projectId: "culinatwoo",
-  storageBucket: "culinatwoo.firebasestorage.app",
+  storageBucket: "culinatwoo.appspot.com",
   messagingSenderId: "1075153987793",
   appId: "1:1075153987793:web:bd1426392f0437cb413df0",
   measurementId: "G-5W3QPDM3KF"
 };
 
-// ✅ Initialize Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// ✅ Initialize Firestore, Auth, Storage
+// Initialize Firestore, Auth, Storage
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
