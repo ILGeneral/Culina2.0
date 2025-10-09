@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRecipes } from "@/hooks/useRecipes";
 import { useRouter } from "expo-router";
 import AnimatedRecipeCard from "@/components/home/AnimatedRecipeCard";
+import { Package, User } from "lucide-react-native";
 
 export default function HomeScreen() {
   const { recipes, loading } = useRecipes();
@@ -19,10 +20,27 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white px-5 pt-5">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text className="text-3xl font-bold text-green-700 mb-6">Culina Recipes</Text>
+    <SafeAreaView className="flex-1 bg-white">
+      {/* Header */}
+      <View className="flex-row justify-between items-center px-5 pt-5 pb-3 border-b border-gray-200">
+        <Text className="text-3xl font-bold text-green-700">Culina Recipes</Text>
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={() => router.push("/inventory" as any)}
+            className="bg-green-100 rounded-full p-2"
+          >
+            <Package color="#16a34a" size={24} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/profile")}
+            className="bg-green-100 rounded-full p-2"
+          >
+            <User color="#16a34a" size={24} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} className="px-5 pt-5">
         {recipes.length === 0 ? (
           <Text className="text-gray-500 text-center mt-20">No recipes found. Add one to get started!</Text>
         ) : (

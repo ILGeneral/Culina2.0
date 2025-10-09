@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useInventory } from "@/hooks/useInventory";
-import { Plus, Edit2, Trash2, Camera, X } from "lucide-react-native";
+import { Plus, Edit2, Trash2, Camera, X, ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { detectFoodFromImage } from "@/lib/clarifai";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -73,7 +73,7 @@ export default function InventoryScreen() {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
       if (!photo?.uri) return;
   
-      // ✅ Upload to Firebase Storage
+      // Upload to Firebase Storage
       const userId = auth.currentUser?.uid;
       if (!userId) {
         Alert.alert("Error", "You must be logged in to upload.");
@@ -82,7 +82,7 @@ export default function InventoryScreen() {
   
       const uploadedUrl = await uploadImageAsync(photo.uri, userId);
   
-      // ✅ Call Clarifai with the public URL
+      // Call Clarifai with the public URL
       const predictions = await detectFoodFromImage(uploadedUrl);
       const topItem = predictions[0];
   
@@ -98,7 +98,7 @@ export default function InventoryScreen() {
                   name: topItem.name,
                   quantity: 1,
                   unit: "pcs",
-                  imageUrl: uploadedUrl, // ✅ saved in Firestore
+                  imageUrl: uploadedUrl, // Save in Firestore
                 }),
             },
             { text: "Cancel", style: "cancel" },
@@ -175,7 +175,12 @@ export default function InventoryScreen() {
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View className="flex-row justify-between items-center px-5 pt-5 pb-3 border-b border-gray-200">
-        <Text className="text-3xl font-bold text-green-700">Your Pantry 🥬</Text>
+        <View className="flex-row items-center gap-3">
+          <TouchableOpacity onPress={() => router.back()}>
+            <ArrowLeft color="#16a34a" size={24} />
+          </TouchableOpacity>
+          <Text className="text-3xl font-bold text-green-700">Your Pantry 🥬</Text>
+        </View>
 
         <View className="flex-row gap-2">
           <TouchableOpacity

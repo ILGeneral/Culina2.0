@@ -40,9 +40,9 @@ export default function Login() {
         <Text className="text-white text-center font-semibold">Login</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/register/Step1")}>
+      <TouchableOpacity onPress={() => router.push("/register")}>
         <Text className="text-center text-gray-600 mt-4">
-          Don’t have an account? <Text className="text-green-600">Sign up</Text>
+          Don't have an account? <Text className="text-green-600">Sign up</Text>
         </Text>
       </TouchableOpacity>
     </View>
