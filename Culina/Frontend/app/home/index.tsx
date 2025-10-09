@@ -1,84 +1,75 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, SafeAreaView, ScrollView, TouchableOpacity } from "react-native";
+import React from "react";
+import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRecipes } from "@/hooks/useRecipes";
 import { useRouter } from "expo-router";
-import Header from "@/components/home/Header";
-import SearchBar from "@/components/home/SearchBar";
-import CategoryTabs from "@/components/home/CategoryTabs";
-import RecipeCard from "@/components/home/RecipeCard";
-
-interface Recipe {
-  id: string;
-  title: string;
-  imageUrl: string;
-  estKcal: number;
-  source: string;
-}
 
 export default function HomeScreen() {
+  const { recipes, loading } = useRecipes();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState("All");
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-
-  // Mock data for now
-  useEffect(() => {
-    setRecipes([
-      {
-        id: "1",
-        title: "Garlic Butter Pasta",
-        imageUrl: "https://images.unsplash.com/photo-1603133872878-684f36ec1a26",
-        estKcal: 540,
-        source: "AI",
-      },
-      {
-        id: "2",
-        title: "Vegan Buddha Bowl",
-        imageUrl: "https://images.unsplash.com/photo-1601050690597-7a4cc03c7b22",
-        estKcal: 420,
-        source: "Human",
-      },
-      {
-        id: "3",
-        title: "Spicy Tuna Roll (Edited)",
-        imageUrl: "https://images.unsplash.com/photo-1553621042-f6e147245754",
-        estKcal: 380,
-        source: "Edited",
-      },
-    ]);
-  }, []);
-
-  const filtered =
-    activeTab === "All"
-      ? recipes
-      : recipes.filter((r) => r.source === activeTab);
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#16a34a" />
+        <Text className="mt-3 text-gray-600">Loading recipes...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <Header />
-      <ScrollView className="px-5">
-        <SearchBar />
-        <CategoryTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+    <SafeAreaView className="flex-1 bg-white px-5 pt-5">
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text className="text-3xl font-bold text-green-700 mb-6">🍽️ Culina Recipes</Text>
 
-        <Text className="text-lg font-semibold text-gray-700 mt-4 mb-2">
-          Recommended Recipes 🍽️
-        </Text>
+        {recipes.length === 0 ? (
+          <Text className="text-gray-500 text-center mt-20">No recipes found. Add one to get started!</Text>
+        ) : (
+          <View className="space-y-5">
+            {recipes.map((recipe) => (
+              <TouchableOpacity
+                key={recipe.id}
+                onPress={() => router.push(`/recipe/${recipe.id}`)}
+                className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100"
+              >
+                <Image source={{ uri: recipe.imageUrl }} className="w-full h-48" resizeMode="cover" />
 
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <RecipeCard recipe={item} onPress={() => router.push(`/recipe/${item.id}`)} />
-          )}
-          scrollEnabled={false}
-        />
+                <View className="p-4">
+                  <Text className="text-lg font-semibold text-gray-800 mb-1">{recipe.title}</Text>
+                  <Text className="text-gray-500 text-sm mb-2" numberOfLines={2}>
+                    {recipe.description || "No description"}
+                  </Text>
+
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-green-700 font-medium">{recipe.estKcal} kcal</Text>
+                    <View
+                      className={`px-3 py-1 rounded-full ${
+                        recipe.source === "AI"
+                          ? "bg-purple-100"
+                          : recipe.source === "Edited"
+                          ? "bg-yellow-100"
+                          : "bg-green-100"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-semibold ${
+                          recipe.source === "AI"
+                            ? "text-purple-700"
+                            : recipe.source === "Edited"
+                            ? "text-yellow-700"
+                            : "text-green-700"
+                        }`}
+                      >
+                        {recipe.source}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
-
-      <TouchableOpacity
-        className="absolute bottom-8 right-8 bg-green-600 p-5 rounded-full shadow-lg"
-        onPress={() => router.push("/generateRecipe")}
-      >
-        <Text className="text-white text-xl font-bold">＋</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
