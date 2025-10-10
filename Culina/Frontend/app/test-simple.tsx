@@ -1,15 +1,9 @@
-import React from "react";
-import "./global.css";
-import { StatusBar } from "expo-status-bar";
 import { View, Text, StyleSheet } from "react-native";
 
-export default function App() {
+export default function TestSimple() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>
-        Culina 2.0 🍳
-      </Text>
-      <StatusBar style="auto" />
+      <Text style={styles.text}>🎉 IT WORKS! This is Culina App!</Text>
     </View>
   );
 }
@@ -17,8 +11,8 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "#dcfce7",
   },
   text: {

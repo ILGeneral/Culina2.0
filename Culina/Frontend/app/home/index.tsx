@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRecipes } from "@/hooks/useRecipes";
 import { useRouter } from "expo-router";
@@ -12,46 +12,98 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white">
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#16a34a" />
-        <Text className="mt-3 text-gray-600">Loading recipes...</Text>
+        <Text style={styles.loadingText}>Loading recipes...</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-5 pt-5 pb-3 border-b border-gray-200">
-        <Text className="text-3xl font-bold text-green-700">Culina Recipes</Text>
-        <View className="flex-row gap-3">
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Culina Recipes</Text>
+        <View style={styles.headerButtons}>
           <TouchableOpacity
             onPress={() => router.push("/inventory" as any)}
-            className="bg-green-100 rounded-full p-2"
+            style={styles.iconButton}
           >
             <Package color="#16a34a" size={24} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile")}
-            className="bg-green-100 rounded-full p-2"
+            style={styles.iconButton}
           >
             <User color="#16a34a" size={24} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} className="px-5 pt-5">
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         {recipes.length === 0 ? (
-          <Text className="text-gray-500 text-center mt-20">No recipes found. Add one to get started!</Text>
+          <Text style={styles.emptyText}>No recipes found. Add one to get started!</Text>
         ) : (
-          <View className="space-y-5">
-          {recipes.map((recipe, index) => (
-            <AnimatedRecipeCard key={recipe.id} recipe={recipe} index={index} />
-          ))}
-        </View>
-
+          <View style={styles.recipeList}>
+            {recipes.map((recipe, index) => (
+              <AnimatedRecipeCard key={recipe.id} recipe={recipe} index={index} />
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#6b7280",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#16a34a",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  iconButton: {
+    backgroundColor: "#dcfce7",
+    borderRadius: 20,
+    padding: 8,
+  },
+  scrollView: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  emptyText: {
+    color: "#9ca3af",
+    textAlign: "center",
+    marginTop: 80,
+  },
+  recipeList: {
+    gap: 20,
+  },
+});

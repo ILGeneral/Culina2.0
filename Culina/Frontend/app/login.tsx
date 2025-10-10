@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
@@ -19,32 +19,80 @@ export default function Login() {
   };
 
   return (
-    <View className="flex-1 justify-center px-6 bg-white">
-      <Text className="text-2xl font-bold mb-6 text-center">Welcome back</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Welcome to Culina</Text>
 
       <TextInput
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
-        className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
+        style={styles.input}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
       <TextInput
         placeholder="Password"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-        className="border border-gray-300 rounded-lg px-4 py-2 mb-5"
+        style={styles.input}
       />
 
-      <TouchableOpacity onPress={handleLogin} className="bg-green-600 py-3 rounded-lg">
-        <Text className="text-white text-center font-semibold">Login</Text>
+      <TouchableOpacity onPress={handleLogin} style={styles.button}>
+        <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/register")}>
-        <Text className="text-center text-gray-600 mt-4">
-          Don't have an account? <Text className="text-green-600">Sign up</Text>
+        <Text style={styles.linkText}>
+          Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 24,
+    textAlign: "center",
+    color: "#16a34a",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#16a34a",
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  buttonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  linkText: {
+    textAlign: "center",
+    color: "#6b7280",
+    marginTop: 16,
+  },
+  linkHighlight: {
+    color: "#16a34a",
+    fontWeight: "600",
+  },
+});

@@ -17,6 +17,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore, Auth, Storage
+// Note: The AsyncStorage warning can be safely ignored for development.
+// Auth state will persist in memory during the session.
+// For production, consider using @react-native-firebase/auth instead of firebase/auth
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);

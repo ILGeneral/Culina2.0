@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -92,19 +93,15 @@ export default function OnboardingScreen() {
   };
 
   const renderItem = ({ item }: any) => (
-    <View className="w-full flex-1 items-center justify-center px-6" style={{ width }}>
-      <Image source={item.image} className="w-72 h-72 mb-6" resizeMode="contain" />
-      <Text className="text-2xl font-bold text-center text-green-700 mb-3">
-        {item.title}
-      </Text>
-      <Text className="text-gray-600 text-center text-base leading-6 mb-10">
-        {item.description}
-      </Text>
+    <View style={[styles.slide, { width }]}>
+      <Image source={item.image} style={styles.image} resizeMode="contain" />
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.description}>{item.description}</Text>
     </View>
   );
 
   return (
-    <View className="flex-1 bg-white">
+    <View style={styles.container}>
       <FlatList
         data={slides}
         renderItem={renderItem}
@@ -119,21 +116,68 @@ export default function OnboardingScreen() {
       />
 
       {/* Pagination Dots */}
-      <View className="flex-row justify-center mb-8">
+      <View style={styles.pagination}>
         {slides.map((_, index) => (
           <Dot key={index.toString()} index={index} />
         ))}
       </View>
 
       {/* Button */}
-      <TouchableOpacity
-        onPress={handleNext}
-        className="bg-green-600 py-3 mx-10 mb-10 rounded-lg"
-      >
-        <Text className="text-white text-center font-semibold text-lg">
+      <TouchableOpacity onPress={handleNext} style={styles.button}>
+        <Text style={styles.buttonText}>
           {currentIndex === slides.length - 1 ? "Proceed" : "Next"}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  slide: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  image: {
+    width: 288,
+    height: 288,
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+    color: "#16a34a",
+    marginBottom: 12,
+  },
+  description: {
+    fontSize: 16,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 40,
+  },
+  pagination: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  button: {
+    backgroundColor: "#16a34a",
+    paddingVertical: 12,
+    marginHorizontal: 40,
+    marginBottom: 40,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 18,
+  },
+});

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
@@ -52,27 +53,27 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-white px-6 py-10">
-      <Text className="text-3xl font-bold text-center mb-6 text-green-700">
-        Create your Culina account 🍳
-      </Text>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <Text style={styles.title}>Create your account!</Text>
 
       {/* Step 1: Account Info */}
-      <View className="mb-6">
-        <Text className="text-lg font-semibold mb-2">Account Information</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account Information</Text>
 
         <TextInput
           placeholder="Email"
           value={email}
           onChangeText={setEmail}
-          className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
+          style={styles.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
         />
 
         <TextInput
           placeholder="Username"
           value={username}
           onChangeText={setUsername}
-          className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
+          style={styles.input}
         />
 
         <TextInput
@@ -80,7 +81,7 @@ export default function RegisterScreen() {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
+          style={styles.input}
         />
 
         <TextInput
@@ -88,49 +89,160 @@ export default function RegisterScreen() {
           secureTextEntry
           value={confirm}
           onChangeText={setConfirm}
-          className="border border-gray-300 rounded-lg px-4 py-2"
+          style={styles.input}
         />
       </View>
 
       {/* Step 2: Preferences */}
-      <View className="mb-6">
-        <Text className="text-lg font-semibold mb-2">Preferences</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Preferences</Text>
 
-        <TextInput
-          placeholder="Dietary Preference (e.g. Vegan, Keto)"
-          value={diet}
-          onChangeText={setDiet}
-          className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
-        />
+        <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Dietary Preference</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={diet}
+              onValueChange={(itemValue) => setDiet(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select dietary preference..." value="" />
+              <Picker.Item label="No Restriction" value="none" />
+              <Picker.Item label="Vegetarian" value="vegetarian" />
+              <Picker.Item label="Vegan" value="vegan" />
+              <Picker.Item label="Pescatarian" value="pescatarian" />
+              <Picker.Item label="Keto" value="keto" />
+              <Picker.Item label="Paleo" value="paleo" />
+              <Picker.Item label="Low Carb" value="low-carb" />
+              <Picker.Item label="Gluten Free" value="gluten-free" />
+            </Picker>
+          </View>
+        </View>
 
-        <TextInput
-          placeholder="Religious Preference (e.g. Halal, Kosher)"
-          value={religion}
-          onChangeText={setReligion}
-          className="border border-gray-300 rounded-lg px-4 py-2 mb-3"
-        />
+        <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Religious Preference</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={religion}
+              onValueChange={(itemValue) => setReligion(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select religious preference..." value="" />
+              <Picker.Item label="No Restriction" value="none" />
+              <Picker.Item label="Halal" value="halal" />
+              <Picker.Item label="Kosher" value="kosher" />
+              <Picker.Item label="Hindu (No Beef)" value="hindu" />
+              <Picker.Item label="Buddhist (Vegetarian)" value="buddhist" />
+            </Picker>
+          </View>
+        </View>
 
-        <TextInput
-          placeholder="Calorie Plan (e.g. 2000 kcal/day)"
-          value={calories}
-          onChangeText={setCalories}
-          className="border border-gray-300 rounded-lg px-4 py-2"
-        />
+        <View style={styles.pickerContainer}>
+          <Text style={styles.pickerLabel}>Daily Calorie Goal</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={calories}
+              onValueChange={(itemValue) => setCalories(itemValue)}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select calorie goal..." value="" />
+              <Picker.Item label="1200 kcal/day (Weight Loss)" value="1200" />
+              <Picker.Item label="1500 kcal/day (Light Loss)" value="1500" />
+              <Picker.Item label="1800 kcal/day (Maintenance)" value="1800" />
+              <Picker.Item label="2000 kcal/day (Moderate)" value="2000" />
+              <Picker.Item label="2200 kcal/day (Active)" value="2200" />
+              <Picker.Item label="2500 kcal/day (Very Active)" value="2500" />
+              <Picker.Item label="3000 kcal/day (Athlete)" value="3000" />
+            </Picker>
+          </View>
+        </View>
       </View>
 
-      <TouchableOpacity
-        onPress={handleRegister}
-        className="bg-green-600 py-4 rounded-lg"
-      >
-        <Text className="text-white text-center font-semibold text-lg">Register</Text>
+      <TouchableOpacity onPress={handleRegister} style={styles.button}>
+        <Text style={styles.buttonText}>Register</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/login")}>
-        <Text className="text-center text-gray-600 mt-4">
+        <Text style={styles.linkText}>
           Already have an account?{" "}
-          <Text className="text-green-700 font-semibold">Log in</Text>
+          <Text style={styles.linkHighlight}>Log in</Text>
         </Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  contentContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 24,
+    color: "#16a34a",
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 12,
+    color: "#1f2937",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#16a34a",
+    paddingVertical: 16,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  buttonText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 18,
+  },
+  linkText: {
+    textAlign: "center",
+    color: "#6b7280",
+    marginTop: 16,
+  },
+  linkHighlight: {
+    color: "#16a34a",
+    fontWeight: "600",
+  },
+  pickerContainer: {
+    marginBottom: 16,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    overflow: "hidden",
+  },
+  picker: {
+    height: Platform.OS === "ios" ? 180 : 50,
+  },
+});

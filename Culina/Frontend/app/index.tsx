@@ -1,27 +1,37 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebaseConfig";
-import { View, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 
 export default function Index() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        router.replace("/home");
-      } else {
-        router.replace("/login");
-      }
-    });
+    // Redirect to login after a brief moment
+    const timer = setTimeout(() => {
+      router.replace("/login");
+    }, 500);
 
-    return () => unsubscribe();
+    return () => clearTimeout(timer);
   }, []);
 
   return (
-    <View className="flex-1 justify-center items-center bg-white">
+    <View style={styles.container}>
       <ActivityIndicator size="large" color="#16a34a" />
+      <Text style={styles.text}>Loading Culina...</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  text: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6b7280",
+  },
+});

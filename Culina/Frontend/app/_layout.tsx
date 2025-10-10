@@ -1,12 +1,6 @@
-import { Stack } from "expo-router";
-import "../global.css";
+import "react-native-get-random-values";
+import { Slot } from "expo-router";
 
 export default function RootLayout() {
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
-  );
+  return <Slot />;
 }
