@@ -1,24 +1,10 @@
-const REQUIRED_ENV_VARS = [
-  "EXPO_PUBLIC_CLARIFAI_PAT",
-  "EXPO_PUBLIC_CLARIFAI_USER_ID",
-  "EXPO_PUBLIC_CLARIFAI_APP_ID",
-  "EXPO_PUBLIC_CLARIFAI_MODEL_ID",
-  "EXPO_PUBLIC_CLARIFAI_MODEL_VERSION_ID",
-] as const;
-
-function getEnvVariable(name: (typeof REQUIRED_ENV_VARS)[number]) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-const CLARIFAI_PAT = getEnvVariable("EXPO_PUBLIC_CLARIFAI_PAT");
-const CLARIFAI_USER_ID = getEnvVariable("EXPO_PUBLIC_CLARIFAI_USER_ID");
-const CLARIFAI_APP_ID = getEnvVariable("EXPO_PUBLIC_CLARIFAI_APP_ID");
-const CLARIFAI_MODEL_ID = getEnvVariable("EXPO_PUBLIC_CLARIFAI_MODEL_ID");
-const CLARIFAI_MODEL_VERSION_ID = getEnvVariable("EXPO_PUBLIC_CLARIFAI_MODEL_VERSION_ID");
+import {
+  CLARIFAI_APP_ID,
+  CLARIFAI_MODEL_ID,
+  CLARIFAI_MODEL_VERSION_ID,
+  CLARIFAI_PAT,
+  CLARIFAI_USER_ID,
+} from "@/lib/secrets";
 
 export async function detectFoodFromImage(imageUrl: string) {
   const raw = JSON.stringify({

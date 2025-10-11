@@ -8,18 +8,27 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useInventory } from "@/hooks/useInventory";
 import { Plus, Edit2, Trash2, Camera, X, ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { detectFoodFromImage } from "@/lib/clarifai";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { auth } from "@/lib/firebaseConfig";
 import { uploadImageAsync } from "@/lib/uploadImage";
+import { Image as RNImage } from "react-native";
+import {
+  CLARIFAI_PAT,
+  CLARIFAI_USER_ID,
+  CLARIFAI_APP_ID,
+  CLARIFAI_MODEL_ID,
+  CLARIFAI_MODEL_VERSION_ID,
+} from "@/lib/secrets";
 
 export default function InventoryScreen() {
-  const { inventory, loading, addIngredient, updateIngredient, deleteIngredient } = useInventory();
+  const { inventory, loading, addIngredient, updateIngredient, deleteIngredient } =
+    useInventory();
   const router = useRouter();
 
   // UI state
@@ -38,9 +47,20 @@ export default function InventoryScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<any>(null);
 
+  // Upload + detection states
+  const [uploading, setUploading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
   useEffect(() => {
     requestPermission();
   }, []);
+
+  // Prefetch thumbnails
+  useEffect(() => {
+    inventory.forEach((item) => {
+      if (item.imageUrl) RNImage.prefetch(item.imageUrl);
+    });
+  }, [inventory]);
 
   const resetForm = () => {
     setName("");
@@ -66,52 +86,108 @@ export default function InventoryScreen() {
     setModalVisible(true);
   };
 
-  // 🧠 Clarifai camera handler
+  // 🍳 Detect ingredient via Clarifai
+  const detectFoodFromImage = async (imageUrl: string) => {
+    try {
+      const body = JSON.stringify({
+        user_app_id: {
+          user_id: CLARIFAI_USER_ID,
+          app_id: CLARIFAI_APP_ID,
+        },
+        inputs: [
+          {
+            data: {
+              image: { url: imageUrl },
+            },
+          },
+        ],
+      });
+
+      const res = await fetch(
+        `https://api.clarifai.com/v2/models/${CLARIFAI_MODEL_ID}/versions/${CLARIFAI_MODEL_VERSION_ID}/outputs`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Key ${CLARIFAI_PAT}`,
+            "Content-Type": "application/json",
+          },
+          body,
+        }
+      );
+
+      const json = await res.json();
+      if (!json.outputs?.[0]?.data?.concepts) {
+        throw new Error("No results found");
+      }
+
+      const predictions = json.outputs[0].data.concepts.map((c: any) => ({
+        name: c.name,
+        confidence: c.value,
+      }));
+
+      return predictions;
+    } catch (err) {
+      console.error("Clarifai error:", err);
+      return [];
+    }
+  };
+
+  // 📸 Capture → upload → detect
   const handleTakePhoto = async () => {
     try {
       if (!cameraRef.current) return;
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
       if (!photo?.uri) return;
-  
-      // Upload to Firebase Storage
+
+      setPhotoPreview(photo.uri);
+      setUploading(true);
+
       const userId = auth.currentUser?.uid;
       if (!userId) {
         Alert.alert("Error", "You must be logged in to upload.");
+        setUploading(false);
         return;
       }
-  
+
+      // Upload to Firebase Storage
       const uploadedUrl = await uploadImageAsync(photo.uri, userId);
-  
-      // Call Clarifai with the public URL
+
+      // Detect ingredient using Clarifai
       const predictions = await detectFoodFromImage(uploadedUrl);
-      const topItem = predictions[0];
-  
-      if (topItem) {
-        Alert.alert(
-          "Detected Ingredient",
-          `Top match: ${topItem.name} (${(topItem.confidence * 100).toFixed(1)}%)`,
-          [
-            {
-              text: "Add to Inventory",
-              onPress: () =>
-                addIngredient({
-                  name: topItem.name,
-                  quantity: 1,
-                  unit: "pcs",
-                  imageUrl: uploadedUrl, // Save in Firestore
-                }),
-            },
-            { text: "Cancel", style: "cancel" },
-          ]
-        );
-      } else {
-        Alert.alert("No recognizable food detected.");
-      }
-    } catch (err) {
-      Alert.alert("Error", "Failed to analyze image.");
-      console.error(err);
-    } finally {
+      setUploading(false);
       setCameraVisible(false);
+
+      if (!predictions || predictions.length === 0) {
+        Alert.alert("No recognizable food detected.");
+        return;
+      }
+
+      const topItem = predictions[0];
+      Alert.alert(
+        "Detected Ingredient",
+        `Top match: ${topItem.name} (${(topItem.confidence * 100).toFixed(1)}%)`,
+        [
+          {
+            text: "Add to Inventory",
+            onPress: async () =>
+              addIngredient({
+                name: topItem.name,
+                quantity: 1,
+                unit: "pcs",
+                imageUrl: uploadedUrl,
+              }),
+          },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+    } catch (err) {
+      console.error("Detection failed:", err);
+      setUploading(false);
+      setCameraVisible(false);
+      Alert.alert("Error", "Failed to analyze image.");
+    } finally {
+      setPhotoPreview(null);
     }
   };
 
@@ -154,7 +230,7 @@ export default function InventoryScreen() {
         onPress: async () => {
           try {
             await deleteIngredient(id);
-          } catch (err) {
+          } catch {
             Alert.alert("Error", "Failed to delete ingredient.");
           }
         },
@@ -203,7 +279,7 @@ export default function InventoryScreen() {
         </View>
       </View>
 
-      {/* Inventory list */}
+      {/* Inventory List */}
       {inventory.length === 0 ? (
         <View className="flex-1 justify-center items-center">
           <Text className="text-gray-500">Your pantry is empty.</Text>
@@ -218,19 +294,30 @@ export default function InventoryScreen() {
               key={item.id}
               className="flex-row justify-between items-center py-3 border-b border-gray-100"
             >
-              <View>
-                <Text className="text-gray-900 font-semibold">{item.name}</Text>
-                <Text className="text-gray-500 text-sm">
-                  {item.quantity} {item.unit}{" "}
-                  {item.type ? `• ${item.type}` : ""}
-                </Text>
+              <View className="flex-row items-center gap-3 flex-1">
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    className="w-12 h-12 rounded-lg bg-gray-100"
+                  />
+                ) : (
+                  <View className="w-12 h-12 rounded-lg bg-gray-200 justify-center items-center">
+                    <Text className="text-gray-400 text-xs">No Img</Text>
+                  </View>
+                )}
+
+                <View className="flex-1">
+                  <Text className="text-gray-900 font-semibold">{item.name}</Text>
+                  <Text className="text-gray-500 text-sm">
+                    {item.quantity} {item.unit} {item.type ? `• ${item.type}` : ""}
+                  </Text>
+                </View>
               </View>
 
-              <View className="flex-row gap-3">
+              <View className="flex-row gap-3 ml-3">
                 <TouchableOpacity onPress={() => openEditModal(item)} className="p-1">
                   <Edit2 size={18} color="#16a34a" />
                 </TouchableOpacity>
-
                 <TouchableOpacity
                   onPress={() => item.id && handleDelete(item.id)}
                   className="p-1"
@@ -303,14 +390,10 @@ export default function InventoryScreen() {
         </View>
       </Modal>
 
-      {/* 📸 Camera Modal */}
+      {/* Camera Modal */}
       <Modal animationType="slide" transparent visible={cameraVisible}>
         <View className="flex-1 bg-black">
-          <CameraView
-            style={{ flex: 1 }}
-            facing="back"
-            ref={cameraRef}
-          />
+          <CameraView style={{ flex: 1 }} facing="back" ref={cameraRef} />
 
           <TouchableOpacity
             onPress={handleTakePhoto}
@@ -327,6 +410,22 @@ export default function InventoryScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
+
+      {/* Upload Overlay */}
+      {uploading && (
+        <View className="absolute top-0 left-0 right-0 bottom-0 bg-black/70 justify-center items-center z-50">
+          {photoPreview && (
+            <Image
+              source={{ uri: photoPreview }}
+              className="w-40 h-40 rounded-xl mb-6"
+            />
+          )}
+          <ActivityIndicator size="large" color="#22c55e" />
+          <Text className="text-white mt-3 text-lg font-semibold">
+            Analyzing image...
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

@@ -1,29 +1,22 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGsx_FhTWt-hHvoPZwdg9j5CVkoy77ZJQ",
   authDomain: "culinatwoo.firebaseapp.com",
   projectId: "culinatwoo",
-  storageBucket: "culinatwoo.appspot.com",
+  storageBucket: "culinatwoo.firebasestorage.app",
   messagingSenderId: "1075153987793",
   appId: "1:1075153987793:web:bd1426392f0437cb413df0",
-  measurementId: "G-5W3QPDM3KF"
+  measurementId: "G-5W3QPDM3KF",
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firestore, Auth, Storage
-// Note: The AsyncStorage warning can be safely ignored for development.
-// Auth state will persist in memory during the session.
-// For production, consider using @react-native-firebase/auth instead of firebase/auth
-export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
+export const db = getFirestore(app);
+export const functions = getFunctions(app);
 
-// ✅ Export collection references (required for Firestore utils)
-export const recipesCollection = collection(db, "recipes");
-export const usersCollection = collection(db, "users");
+export default app;

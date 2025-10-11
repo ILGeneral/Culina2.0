@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 export default function TestSimple() {
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>🎉 IT WORKS! This is Culina App!</Text>
+      <Text style={styles.text}> Hello World </Text>
     </View>
   );
 }
