@@ -12,7 +12,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/onboarding");
+      router.replace("/(auth)/onboarding" as unknown as never);
     } catch (err: any) {
       Alert.alert("Login failed", err.message);
     }
@@ -42,7 +42,7 @@ export default function Login() {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/register")}>
+      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}> 
         <Text style={styles.linkText}>
           Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
         </Text>

@@ -1,53 +1,30 @@
-import { GROQ_API_KEY, GROQ_MODEL } from "@/lib/secrets";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/lib/firebaseConfig";
 
-export async function generateRecipeFromInventory(
-  ingredients: any[],
-  preferences: { diet?: string; religion?: string; caloriePlan?: string }
-) {
-  const prompt = `
-You are a culinary AI assistant that creates creative, healthy recipes.
-
-User Preferences:
-- Diet: ${preferences.diet || "None"}
-- Religion: ${preferences.religion || "None"}
-- Calorie Goal: ${preferences.caloriePlan || "Maintain weight"}
-
-Available ingredients (with quantity & units):
-${ingredients.map(i => `${i.name} - ${i.quantity} ${i.unit}`).join(", ")}
-
-Please generate one recipe that fits all preferences and uses only these ingredients.
-Return the result as structured JSON with these keys:
-{
-  "title": string,
-  "description": string,
-  "ingredients": string[],
-  "instructions": string[],
-  "servings": number,
-  "estimatedCalories": number
+// Define consistent types
+export interface Recipe {
+  id?: string;
+  title: string;
+  description?: string;
+  ingredients: string[];
+  instructions: string[];
+  servings?: number;
+  estimatedCalories?: number;
 }
-`;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.6,
-    }),
-  });
-
-  if (!response.ok) throw new Error("Groq API request failed");
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-
+export const generateRecipe = async (
+  ingredients: string[],
+  preferences: string[]
+): Promise<Recipe> => {
   try {
-    return JSON.parse(content);
+    const callable = httpsCallable(functions, "generateRecipe");
+    const response = await callable({ ingredients, preferences });
+
+    // If backend returns { recipe: {...} }, unwrap it.
+    const data = response.data as any;
+    return data.recipe ? (data.recipe as Recipe) : (data as Recipe);
   } catch (err) {
-    throw new Error("Invalid JSON response from AI");
+    console.error("Error generating recipe:", err);
+    throw err;
   }
-}
+};

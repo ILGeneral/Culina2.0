@@ -17,7 +17,9 @@ import {
   getDocs,
   writeBatch,
 } from "firebase/firestore";
-import { ArrowLeft, UtensilsCrossed, RotateCcw } from "lucide-react-native";
+import { ArrowLeft, UtensilsCrossed, RotateCcw, Star } from "lucide-react-native";
+import { rateRecipe } from "@/lib/functions/rateRecipe";
+
 
 interface InventoryItem {
   id: string;
@@ -224,12 +226,24 @@ export default function RecipeDetailsScreen() {
 
       await batch.commit();
       setLastDeducted([]); // clear history after undo
-      Alert.alert("🔄 Undo Successful", "Inventory quantities have been restored!");
+      Alert.alert("Undo Successful!", "Inventory quantities have been restored!");
     } catch (err) {
       console.error("UndoCook Error:", err);
       Alert.alert("Error", "Failed to restore ingredient quantities.");
     }
   };
+
+// Rate Recipe
+const handleRateRecipe = async (rating: number) => {
+  if (!recipe?.id) return;
+  try {
+    await rateRecipe(recipe.id, rating);
+    Alert.alert("⭐ Thank you!", `You rated this recipe ${rating} stars.`);
+  } catch (err) {
+    console.error("RateRecipe Error:", err);
+    Alert.alert("Error", "Failed to submit rating.");
+  }
+};
 
   useEffect(() => {
     fetchRecipe();
@@ -323,6 +337,13 @@ export default function RecipeDetailsScreen() {
               </View>
             </TouchableOpacity>
           )}
+        </View>
+        <View className="flex-row justify-around mt-5 mb-10">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity key={star} onPress={() => handleRateRecipe(star)}>
+              <Star color="#facc15" size={28} />
+            </TouchableOpacity>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

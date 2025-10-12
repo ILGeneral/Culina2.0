@@ -1,59 +1,37 @@
-import React from "react";
-import { Tabs } from "expo-router";
-import { Home, Box, Bookmark, User } from "lucide-react-native";
-import { useColorScheme } from "react-native";
+import { Stack } from "expo-router";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth } from "@/lib/firebaseConfig";
+import { useRouter } from "expo-router";
+import { useAuthState } from "react-firebase-hooks/auth"; // ✅ ensure installed
 
-export default function TabsLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  const [user] = useAuthState(auth);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-  const activeColor = colorScheme === "dark" ? "#4ADE80" : "#16a34a"; // green-500
-  const inactiveColor = "#9CA3AF"; // gray-400
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      if (user) {
+        router.replace("/(tabs)/home");
+      } else {
+        router.replace("/(auth)/login");
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) return null;
 
   return (
-    <Tabs
+    <Stack
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: activeColor,
-        tabBarInactiveTintColor: inactiveColor,
-        tabBarStyle: {
-          backgroundColor: colorScheme === "dark" ? "#1E293B" : "#ffffff",
-          borderTopWidth: 0.5,
-          borderTopColor: "#e5e7eb",
-          height: 60,
-          paddingBottom: 6,
-          paddingTop: 6,
-        },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
       }}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: "Inventory",
-          tabBarIcon: ({ color, size }) => <Box color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="saved"
-        options={{
-          title: "Saved",
-          tabBarIcon: ({ color, size }) => <Bookmark color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
-        }}
-      />
-    </Tabs>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    </Stack>
   );
 }

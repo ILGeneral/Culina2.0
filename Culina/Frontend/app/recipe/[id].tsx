@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebaseConfig"; // ✅ adjust if your Firestore is in firebase.ts
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { ArrowLeft } from "lucide-react-native"; // install: npm i lucide-react-native
+import { db } from "@/lib/firebaseConfig";
+import { ArrowLeft } from "lucide-react-native";
+import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 
 type Recipe = {
   id: string;
@@ -59,7 +66,7 @@ export default function RecipeDetailsScreen() {
   }
 
   return (
-    <Animated.View entering={FadeIn.duration(500)} exiting={FadeOut.duration(400)} className="flex-1 bg-white">
+    <AnimatedPageWrapper>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* 🍲 Header Image */}
         <View className="relative">
@@ -152,6 +159,6 @@ export default function RecipeDetailsScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </Animated.View>
+    </AnimatedPageWrapper>
   );
 }

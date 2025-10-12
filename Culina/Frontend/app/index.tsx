@@ -1,23 +1,29 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
+import { auth } from "@/lib/firebaseConfig";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
 export default function Index() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to login after a brief moment
-    const timer = setTimeout(() => {
-      router.replace("/login");
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      if (user) {
+        // ✅ Redirect authenticated users to tabs/home
+        router.replace("/(tabs)/home");
+      } else {
+        // ✅ Redirect unauthenticated users to login
+        router.replace("/(auth)/login");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   return (
-    <View style={styles.container}>
+    <View className="flex-1 justify-center items-center bg-white">
       <ActivityIndicator size="large" color="#16a34a" />
-      <Text style={styles.text}>Loading Culina...</Text>
+      <Text className="mt-3 text-gray-600 text-base">Loading your session...</Text>
     </View>
   );
 }

@@ -216,36 +216,59 @@ export const rateRecipe = onCall(
   }
 );
 
-/* Submit Report */
 export const submitReport = onCall(
   async (data: any, context: CallableContext) => {
-    const uid = context.auth?.uid;
+    // 🧩 Ensure user is authenticated
+    const uid = context?.auth?.uid;
     if (!uid) {
       throw new functions.https.HttpsError("unauthenticated", "Login required");
     }
 
-    const { type, description, appVersion, device } = data as {
-      type: string;
-      description: string;
-      appVersion?: string;
-      device?: string;
-    };
+    // Safely extract fields from client data
+    const type = data?.type ?? null;
+    const description = data?.description ?? null;
+    const appVersion = data?.appVersion ?? "unknown";
+    const device = data?.device ?? "unknown";
 
-    const doc = await db.collection("reports").add({
-      reporterId: uid,
-      type,
-      description,
-      appVersion,
-      device,
-      emailSent: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Validation for required fields
+    if (!type || !description) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing required fields: 'type' and/or 'description'."
+      );
+    }
 
-    return { reportId: doc.id };
+    try {
+      // Save the report in Firestore
+      const doc = await db.collection("reports").add({
+        reporterId: uid,
+        type,
+        description,
+        appVersion,
+        device,
+        emailSent: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log(`✅ Report created by ${uid}: ${doc.id}`);
+
+      // Return standardized response
+      return {
+        success: true,
+        message: "Report successfully submitted.",
+        reportId: doc.id,
+      };
+    } catch (error: any) {
+      console.error("❌ Error in submitReport:", error);
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to submit report. Please try again later."
+      );
+    }
   }
 );
 
-/* 5️⃣ Simple test endpoint */
+/* Simple test endpoint */
 export const helloTest = functions.https.onRequest((req, res) => {
   res.send("✅ Culina backend is alive!");
 });

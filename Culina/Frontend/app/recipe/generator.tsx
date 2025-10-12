@@ -10,9 +10,16 @@ import {
 } from "react-native";
 import { ChefHat, Save, UtensilsCrossed } from "lucide-react-native";
 import { useInventory } from "@/hooks/useInventory";
-import { generateRecipeFromInventory } from "@/lib/generateRecipe";
 import { auth, db } from "@/lib/firebaseConfig";
-import { doc, setDoc, serverTimestamp, getDocs, collection, writeBatch } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  serverTimestamp,
+  getDocs,
+  collection,
+  writeBatch,
+} from "firebase/firestore";
+import { generateRecipe, Recipe } from "@/lib/generateRecipe";
 
 interface InventoryItem {
   id: string;
@@ -21,16 +28,6 @@ interface InventoryItem {
   unit?: string;
   type?: string;
   caloriesPerUnit?: number;
-}
-
-interface Recipe {
-  id?: string;
-  title: string;
-  description?: string;
-  ingredients: string[];
-  instructions: string[];
-  servings?: number;
-  estimatedCalories?: number;
 }
 
 export default function RecipeGeneratorScreen() {
@@ -43,23 +40,22 @@ export default function RecipeGeneratorScreen() {
   const handleGenerate = async () => {
     try {
       setLoading(true);
-      const preferences = {
-        diet: "Vegetarian",
-        religion: "None",
-        caloriePlan: "Maintain",
-      };
+      const ingredients = inventory.map((i) => i.name);
+      const data = await generateRecipe(ingredients, ["Vegetarian", "Maintain Calories"]);
 
-      const result = await generateRecipeFromInventory(inventory, preferences);
-      setRecipe(result);
+      if (data?.title && data?.ingredients && data?.instructions) {
+        setRecipe(data);
+      } else {
+        Alert.alert("Error", "Recipe generation failed.");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("❌ GenerateRecipe Error:", err);
       Alert.alert("Error", "Failed to generate recipe. Try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🧠 Save generated recipe to Firestore
   const handleSave = async () => {
     if (!recipe) return;
     try {
@@ -74,10 +70,10 @@ export default function RecipeGeneratorScreen() {
       await setDoc(newRecipeRef, {
         ...recipe,
         createdAt: serverTimestamp(),
-        source: "AI",
+        source: "AI (Cloud)",
       });
 
-      Alert.alert("Saved!", "Recipe added to your collection.");
+      Alert.alert("✅ Saved!", "Recipe added to your collection.");
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Could not save recipe.");
@@ -86,7 +82,6 @@ export default function RecipeGeneratorScreen() {
     }
   };
 
-  // 🍳 Deduct ingredients from inventory
   const handleCookThis = async () => {
     if (!recipe) return;
     try {
@@ -100,25 +95,24 @@ export default function RecipeGeneratorScreen() {
       const batch = writeBatch(db);
       const invRef = collection(db, "users", uid, "inventory");
       const snapshot = await getDocs(invRef);
-      const invData: InventoryItem[] = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...(doc.data() as Omit<InventoryItem, "id">) })
-      );
-      
+      const invData: InventoryItem[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<InventoryItem, "id">),
+      }));
 
-      // Try to match ingredient names (simple contains-based matching)
       recipe.ingredients.forEach((ri: string) => {
-        const match = invData.find((inv: any) =>
+        const match = invData.find((inv) =>
           ri.toLowerCase().includes(inv.name.toLowerCase())
         );
         if (match) {
           const ref = doc(invRef, match.id);
-          const newQty = Math.max(0, (match.quantity || 0) - 1); // default 1 deduction
+          const newQty = Math.max(0, (match.quantity || 0) - 1);
           batch.update(ref, { quantity: newQty });
         }
       });
 
       await batch.commit();
-      Alert.alert("Success", "Ingredients deducted from inventory!");
+      Alert.alert("✅ Success", "Ingredients deducted from inventory!");
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Failed to update inventory.");
@@ -130,7 +124,9 @@ export default function RecipeGeneratorScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white px-5 pt-5">
       <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-3xl font-bold text-green-700">AI Recipe Maker 🧑‍🍳</Text>
+        <Text className="text-3xl font-bold text-green-700">
+          AI Recipe Maker 🧑‍🍳
+        </Text>
         <ChefHat color="#16a34a" size={28} />
       </View>
 
@@ -161,25 +157,35 @@ export default function RecipeGeneratorScreen() {
       {recipe && (
         <ScrollView className="space-y-3">
           <Text className="text-2xl font-bold text-green-700">{recipe.title}</Text>
-          <Text className="text-gray-600 italic">{recipe.description}</Text>
+          {recipe.description && (
+            <Text className="text-gray-600 italic">{recipe.description}</Text>
+          )}
 
-          <Text className="text-lg font-semibold mt-4 text-green-700">Ingredients</Text>
-          {recipe.ingredients.map((ing: string, i: number) => (
-            <Text key={i} className="text-gray-700">• {ing}</Text>
+          <Text className="text-lg font-semibold mt-4 text-green-700">
+            Ingredients
+          </Text>
+          {recipe.ingredients.map((ing, i) => (
+            <Text key={i} className="text-gray-700">
+              • {ing}
+            </Text>
           ))}
 
-          <Text className="text-lg font-semibold mt-4 text-green-700">Instructions</Text>
-          {recipe.instructions.map((step: string, i: number) => (
-            <Text key={i} className="text-gray-700">{i + 1}. {step}</Text>
+          <Text className="text-lg font-semibold mt-4 text-green-700">
+            Instructions
+          </Text>
+          {recipe.instructions.map((step, i) => (
+            <Text key={i} className="text-gray-700">
+              {i + 1}. {step}
+            </Text>
           ))}
 
           <View className="mt-4 bg-green-50 rounded-lg p-3">
             <Text className="text-gray-800">
-              Servings: {recipe.servings} | Estimated: {recipe.estimatedCalories} kcal
+              Servings: {recipe.servings ?? "N/A"} | Estimated:{" "}
+              {recipe.estimatedCalories ?? "N/A"} kcal
             </Text>
           </View>
 
-          {/* Save and Cook buttons */}
           <View className="flex-row justify-between mt-5 gap-3">
             <TouchableOpacity
               onPress={handleSave}
