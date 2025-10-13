@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
 import { useRouter } from "expo-router";
-import { useAuthState } from "react-firebase-hooks/auth"; // ✅ ensure installed
+import { useAuthState } from "react-firebase-hooks/auth"; // ensure installed
 
 export default function RootLayout() {
   const [user] = useAuthState(auth);

@@ -1,10 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 import {
   initializeAuth,
-  getAuth,
-  type Auth,
-} from "firebase/auth";
-import { getReactNativePersistence } from "firebase/auth/react-native"; 
+  getReactNativePersistence,
+} from "firebase/auth/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -37,5 +36,12 @@ try {
 const db = getFirestore(app);
 const storage = getStorage(app);
 const functions = getFunctions(app);
+
+// Export collection references
+import { collection } from "firebase/firestore";
+
+export const recipesCollection = collection(db, "recipes");
+export const usersCollection = collection(db, "users");
+export const ingredientsCollection = collection(db, "ingredients");
 
 export { app, auth, db, storage, functions };
