@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebaseConfig"; // or "@/lib/firebase" depending on your setup
-import { getAuth } from "firebase/auth";
+import { db, auth } from "@/lib/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 
 export type Ingredient = {
   id?: string;
   name: string;
   quantity: number;
   unit: string;
-  type?: string; // e.g. "Meat", "Vegetable"
+  type?: string;
   caloriesPerUnit?: number;
-  imageUrl?: string; // Firebase Storage URL
+  imageUrl?: string;
   createdAt?: any;
   updatedAt?: any;
 };
@@ -18,33 +18,59 @@ export type Ingredient = {
 export function useInventory() {
   const [inventory, setInventory] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
-  const auth = getAuth();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
+  // Step 1: Wait for auth to be ready
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const invRef = collection(db, "users", user.uid, "inventory");
-    const q = query(invRef, orderBy("name", "asc"));
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      const items: Ingredient[] = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Ingredient[];
-      setInventory(items);
-      setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+      setAuthReady(true);
+      if (!user) {
+        setLoading(false);
+        setInventory([]);
+      }
     });
+    return unsubscribe;
+  }, []);
 
-    return () => unsub();
-  }, [auth.currentUser]);
+  // Step 2: Set up Firestore listener only after auth token is ready
+  useEffect(() => {
+    if (!userId || !authReady) return;
 
-  //  Add ingredient
+    // Add a small delay to ensure auth token has fully propagated
+    const timer = setTimeout(() => {
+      const invRef = collection(db, "users", userId, "inventory");
+      const q = query(invRef, orderBy("name", "asc"));
+
+      const unsub = onSnapshot(
+        q,
+        (snapshot) => {
+          const items: Ingredient[] = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          })) as Ingredient[];
+          setInventory(items);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Inventory snapshot error:", error);
+          setLoading(false);
+        }
+      );
+
+      // Cleanup function
+      return () => unsub();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [userId, authReady]);
+
+  // Add ingredient
   const addIngredient = async (item: Omit<Ingredient, "id">) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    if (!userId) throw new Error("Not authenticated");
 
-    const ref = collection(db, "users", user.uid, "inventory");
+    const ref = collection(db, "users", userId, "inventory");
     await addDoc(ref, {
       ...item,
       createdAt: new Date(),
@@ -54,10 +80,9 @@ export function useInventory() {
 
   // Update ingredient
   const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    if (!userId) throw new Error("Not authenticated");
 
-    const ref = doc(db, "users", user.uid, "inventory", id);
+    const ref = doc(db, "users", userId, "inventory", id);
     await updateDoc(ref, {
       ...updates,
       updatedAt: new Date(),
@@ -66,10 +91,9 @@ export function useInventory() {
 
   // Delete ingredient
   const deleteIngredient = async (id: string) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    if (!userId) throw new Error("Not authenticated");
 
-    const ref = doc(db, "users", user.uid, "inventory", id);
+    const ref = doc(db, "users", userId, "inventory", id);
     await deleteDoc(ref);
   };
 
