@@ -11,6 +11,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.2",
+    "@gorhom/bottom-sheet": "^5.2.6",
     "@react-native-async-storage/async-storage": "^1.24.0",
     "@react-native-firebase/storage": "^23.4.0",
     "@react-native-picker/picker": "2.11.1",
@@ -20,6 +21,7 @@
     "expo-camera": "~17.0.8",
     "expo-constants": "~18.0.9",
     "expo-image-picker": "^17.0.8",
+    "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.8",
     "expo-router": "~6.0.11",
     "expo-status-bar": "~3.0.8",

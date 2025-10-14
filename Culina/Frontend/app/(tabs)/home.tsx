@@ -13,7 +13,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#16a34a" />
+        <ActivityIndicator size="large" color="#128AFAFF" />
         <Text style={styles.loadingText}>Loading recipes...</Text>
       </SafeAreaView>
     );
@@ -29,13 +29,13 @@ export default function HomeScreen() {
             onPress={() => router.push("/inventory" as any)}
             style={styles.iconButton}
           >
-            <Package color="#16a34a" size={24} />
+            <Package color="#128AFAFF" size={24} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/profile")}
             style={styles.iconButton}
           >
-            <User color="#16a34a" size={24} />
+            <User color="#128AFAFF" size={24} />
           </TouchableOpacity>
         </View>
       </View>
@@ -83,14 +83,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#16a34a",
+    color: "#128AFAFF",
   },
   headerButtons: {
     flexDirection: "row",
     gap: 12,
   },
   iconButton: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: "#DCF3FCFF",
     borderRadius: 20,
     padding: 8,
   },

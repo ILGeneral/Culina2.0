@@ -55,16 +55,16 @@ export default function ProfileScreen() {
     <SafeAreaView className="flex-1 bg-white">
       <View className="flex-row items-center px-5 pt-5 pb-3 border-b border-gray-200">
         <TouchableOpacity onPress={() => router.back()} className="mr-3">
-          <ArrowLeft color="#16a34a" size={24} />
+          <ArrowLeft color="#128AFAFF" size={24} />
         </TouchableOpacity>
-        <Text className="text-2xl font-bold text-green-700">Profile</Text>
+        <Text className="text-2xl font-bold text-blue-700">Profile</Text>
       </View>
 
       <ScrollView className="flex-1 px-5 pt-5">
         {/* User Info */}
         <View className="items-center mb-6">
-          <View className="bg-green-100 rounded-full p-6 mb-3">
-            <User color="#16a34a" size={48} />
+          <View className="bg-blue-100 rounded-full p-6 mb-3">
+            <User color="#128AFAFF" size={48} />
           </View>
           <Text className="text-2xl font-bold text-gray-800">
             {userData?.username || auth.currentUser?.displayName || "User"}

@@ -15,9 +15,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#16a34a",
-        tabBarInactiveTintColor: "gray",
-        tabBarStyle: { backgroundColor: "white" },
+        tabBarActiveTintColor: "#000000FF",
+        tabBarInactiveTintColor: "#E6E6E6FF",
+        tabBarStyle: { backgroundColor: "#42A5F5" },
       }}
       tabBar={(props) => (
         <Animated.View style={[animatedStyle]}>

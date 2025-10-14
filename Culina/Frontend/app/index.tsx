@@ -10,10 +10,10 @@ export default function Index() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
       if (user) {
-        // ✅ Redirect authenticated users to tabs/home
+        // Redirect authenticated users to tabs/home
         router.replace("/(tabs)/home");
       } else {
-        // ✅ Redirect unauthenticated users to login
+        // Redirect unauthenticated users to login
         router.replace("/(auth)/login");
       }
     });
@@ -22,7 +22,7 @@ export default function Index() {
 
   return (
     <View className="flex-1 justify-center items-center bg-white">
-      <ActivityIndicator size="large" color="#16a34a" />
+      <ActivityIndicator size="large" color="#128AFAFF" />
       <Text className="mt-3 text-gray-600 text-base">Loading your session...</Text>
     </View>
   );

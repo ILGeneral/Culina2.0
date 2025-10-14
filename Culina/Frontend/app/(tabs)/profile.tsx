@@ -1,154 +1,287 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
   ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, AlertTriangle, Edit3, Settings } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { LogOut, AlertTriangle, Edit3 } from "lucide-react-native";
 import { auth, db } from "@/lib/firebaseConfig";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [user, setUser] = useState<any>(null);
-  const [profileDetails, setProfileDetails] = useState<{ displayName?: string; email?: string } | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Listen for the current user state
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (currentUser?.uid) {
-        setLoadingProfile(true);
-        getDoc(doc(db, "users", currentUser.uid))
-          .then((snapshot) => {
-            if (snapshot.exists()) {
-              const data = snapshot.data() as { username?: string; email?: string; displayName?: string };
-              setProfileDetails({
-                displayName: data.username || data.displayName,
-                email: data.email,
-              });
-            } else {
-              setProfileDetails(null);
-            }
-          })
-          .catch((err) => {
-            console.error("Failed to load profile details", err);
-            setProfileDetails(null);
-          })
-          .finally(() => setLoadingProfile(false));
-      } else {
-        setProfileDetails(null);
+  // Toast animation
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastColor, setToastColor] = useState("#128AFA");
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  // Refresh data on focus
+  useFocusEffect(
+    useCallback(() => {
+      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        setUser(currentUser);
+        if (currentUser) await fetchUserData(currentUser.uid);
+        else setLoading(false);
+      });
+
+      // Show toast once then clear params
+      if (params.toastMessage) {
+        const toastType = params.toastType === "error" ? "#DC2626" : "#16a34a";
+        showToast(String(params.toastMessage), toastType);
+
+        // Clear the params to prevent repeated display
+        router.setParams({});
       }
-    });
 
-    return () => unsubscribe();
-  }, []);
+      return () => unsubscribe();
+    }, [params])
+  );
+
+  const showToast = (message: string, color: string) => {
+    setToastMessage(message);
+    setToastColor(color);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setToastMessage(""));
+      }, 2000);
+    });
+  };
+
+  const fetchUserData = async (uid: string) => {
+    try {
+      const docRef = doc(db, "users", uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) setUserData(docSnap.data());
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      showToast("❌ Failed to load profile", "#DC2626");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
     router.replace("/login");
   };
 
-  const handleReportIssue = () => router.push("/report" as any);
-  const handleEditProfile = () => router.push("/edit-profile" as any);
-  const handlePreferences = () => router.push("/preferences" as any);
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#128AFA" />
+        <Text style={{ color: "#6b7280", marginTop: 8 }}>
+          Loading your profile...
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView showsVerticalScrollIndicator={false} className="px-6 pt-6">
-        {/* Header */}
-        <View className="items-center mb-8">
-          <Image
-            source={{
-              uri:
-                user?.photoURL ||
-                "https://cdn-icons-png.flaticon.com/512/847/847969.png",
-            }}
-            className="w-28 h-28 rounded-full mb-3"
-          />
-          <Text className="text-2xl font-bold text-green-700">
-            {profileDetails?.displayName || user?.displayName || user?.email?.split("@")[0] || "Guest User"}
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* HEADER */}
+        <LinearGradient
+          colors={["#128AFA", "#6EC4FF"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{
+                uri:
+                  user?.photoURL ||
+                  "https://cdn-icons-png.flaticon.com/512/847/847969.png",
+              }}
+              style={styles.avatar}
+            />
+          </View>
+          <Text style={styles.username}>
+            {userData?.username || user?.displayName || "User"}
           </Text>
-          <Text className="text-gray-500">
-            {profileDetails?.email || user?.email || (loadingProfile ? "Loading email..." : "No email")}
+          <Text style={styles.email}>
+            {userData?.email || user?.email || "No email"}
           </Text>
-        </View>
+        </LinearGradient>
 
-        {/* Info Card */}
-        <View className="bg-green-50 p-5 rounded-2xl mb-6 shadow-sm">
-          <Text className="text-lg font-semibold text-green-800 mb-2">
-            Account Details
+        {/* DETAILS CARD */}
+        <LinearGradient
+          colors={["#128AFA", "#6EC4FF"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.infoCard}
+        >
+          <Text style={styles.sectionTitle}>Your Preferences</Text>
+          <Text style={styles.infoText}>
+            🥗 Dietary Preference:{" "}
+            <Text style={styles.highlight}>
+              {userData?.preferences?.diet || "Not set"}
+            </Text>
           </Text>
-          <Text className="text-gray-700">
-            UID: {user?.uid || "Unavailable"}
+          <Text style={styles.infoText}>
+            🔥 Calorie Plan:{" "}
+            <Text style={styles.highlight}>
+              {userData?.preferences?.caloriePlan
+                ? `${userData.preferences.caloriePlan} kcal/day`
+                : "Not set"}
+            </Text>
           </Text>
-          <Text className="text-gray-700 mt-1">
-            Preferences: (To be displayed here)
-          </Text>
-        </View>
 
-        {/* Quick Actions */}
-        <View className="space-y-4 mb-8">
           <TouchableOpacity
-            onPress={handleEditProfile}
-            className="flex-row items-center justify-between bg-green-100 p-4 rounded-xl"
+            onPress={() =>
+              router.push({
+                pathname: "/editProfile",
+                params: { fromProfile: "true" },
+              })
+            }
+            style={styles.editButton}
           >
-            <View className="flex-row items-center">
-              <Edit3 color="#166534" size={22} />
-              <Text className="ml-3 text-green-800 font-semibold text-lg">
-                Edit Profile
-              </Text>
-            </View>
-            <Text className="text-green-700">{">"}</Text>
+            <Edit3 color="#0056B8FF" size={20} />
+            <Text style={styles.editText}>Edit Profile</Text>
           </TouchableOpacity>
+        </LinearGradient>
 
-          <TouchableOpacity
-            onPress={handlePreferences}
-            className="flex-row items-center justify-between bg-green-100 p-4 rounded-xl"
-          >
-            <View className="flex-row items-center">
-              <Settings color="#166534" size={22} />
-              <Text className="ml-3 text-green-800 font-semibold text-lg">
-                Preferences
-              </Text>
-            </View>
-            <Text className="text-green-700">{">"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Support Section */}
+        {/* SUPPORT + LOGOUT */}
         <TouchableOpacity
-          onPress={handleReportIssue}
-          className="bg-orange-500 py-4 px-5 rounded-xl mb-4 flex-row items-center justify-center shadow-md"
+          onPress={() => router.push("/report")}
+          style={[styles.actionButton, { backgroundColor: "#BB3939FF" }]}
         >
           <AlertTriangle color="#fff" size={20} />
-          <Text className="text-white text-lg font-semibold ml-2">
-            Report an Issue
-          </Text>
+          <Text style={styles.actionText}>Report an Issue</Text>
         </TouchableOpacity>
 
-        {/* Logout */}
         <TouchableOpacity
           onPress={handleLogout}
-          className="bg-gray-700 py-4 px-5 rounded-xl flex-row items-center justify-center"
+          style={[styles.actionButton, { backgroundColor: "#4b5563" }]}
         >
           <LogOut color="#fff" size={20} />
-          <Text className="text-white text-lg font-semibold ml-2">
-            Logout
-          </Text>
+          <Text style={styles.actionText}>Logout</Text>
         </TouchableOpacity>
 
-        {/* Footer */}
-        <Text className="text-center text-gray-400 text-sm mt-8 mb-4">
-          Culina 2.0 © 2025
-        </Text>
+        <Text style={styles.footer}>Culina 2.0 © 2025</Text>
       </ScrollView>
+
+      {/* Toast */}
+      {toastMessage ? (
+        <Animated.View
+          style={[
+            styles.toast,
+            { backgroundColor: toastColor, opacity: fadeAnim },
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      ) : null}
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  headerGradient: {
+    alignItems: "center",
+    paddingVertical: 40,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  avatarContainer: {
+    borderWidth: 3,
+    borderColor: "#fff",
+    borderRadius: 80,
+    padding: 3,
+    marginBottom: 12,
+  },
+  avatar: { width: 100, height: 100, borderRadius: 80 },
+  username: { fontSize: 22, fontWeight: "bold", color: "#fff" },
+  email: { color: "#EDFEFFFF", fontSize: 14 },
+  infoCard: {
+    backgroundColor: "#E9FCFFFF",
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#DAEBFFFF",
+    marginBottom: 8,
+  },
+  infoText: { fontSize: 15, color: "#DAEBFFFF", marginTop: 4 },
+  highlight: { color: "#DAEBFFFF", fontWeight: "600" },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    backgroundColor: "#DFF6FFFF",
+    paddingVertical: 10,
+    borderRadius: 10,
+    justifyContent: "center",
+  },
+  editText: { color: "#163865FF", fontWeight: "600", marginLeft: 6 },
+  actionButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  actionText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  footer: {
+    textAlign: "center",
+    color: "#9ca3af",
+    marginVertical: 20,
+  },
+  toast: {
+    position: "absolute",
+    bottom: 50,
+    alignSelf: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  toastText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+});

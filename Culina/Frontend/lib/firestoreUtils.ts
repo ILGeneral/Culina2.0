@@ -15,10 +15,10 @@ export const addRecipe = async (data: {
       visibility: data.visibility || "public",
       createdAt: serverTimestamp(),
     });
-    console.log("✅ Recipe added with ID:", docRef.id);
+    console.log("Recipe added with ID:", docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error("❌ Error adding recipe:", error);
+    console.error("Error adding recipe:", error);
     throw error;
   }
 };
