@@ -57,6 +57,15 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
+            name="recipe_gen"
+            options={{
+              title: "Recipe Generator",
+              tabBarIcon: ({ color, size }) => (
+                <Ionicons name="add-outline" color={color} size={size} />
+              ),
+            }}
+          />
+          <Tabs.Screen
             name="profile"
             options={{
               title: "Profile",
