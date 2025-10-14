@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Animated } from "react-native";
-import { BottomTabBar } from "@react-navigation/bottom-tabs"; // ✅ Replace Tabs.Bar
+import { BottomTabBar } from "@react-navigation/bottom-tabs"; // Replace Tabs.Bar
 import React, { useRef } from "react";
 
 export default function TabsLayout() {
@@ -28,7 +28,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
+          title: "Homepage",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" color={color} size={size} />
           ),
