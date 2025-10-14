@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -140,6 +141,7 @@ export default function InventoryScreen() {
     setUnit("");
     setUnitChip(null);
     setImg(null);
+    setSuggest([]);
     setFormVisible(true);
   };
 
@@ -156,6 +158,7 @@ export default function InventoryScreen() {
     setUnit("");
     setUnitChip(null);
     setImg(null);
+    setSuggest([]);
     setCamOpen(true);
   };
 
@@ -211,6 +214,7 @@ export default function InventoryScreen() {
     setUnit(it.unit);
     setUnitChip(UNITS.includes(it.unit) ? it.unit : null);
     setImg(it.imageUrl);
+    setSuggest([]);
     setFormVisible(true);
   };
 
@@ -321,6 +325,101 @@ export default function InventoryScreen() {
         </BottomSheetView>
       </BottomSheetModal>
 
+      <Modal visible={formVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={s.formWrap}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={s.formBackdrop}>
+            <Pressable style={{ flex: 1 }} onPress={() => setFormVisible(false)} />
+            <View style={s.formCard}>
+              <ScrollView
+                contentContainerStyle={s.formContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={s.formTitle}>
+                  {editing ? "Edit Ingredient" : "Add Ingredient"}
+                </Text>
+                {(img || name.trim()) && (
+                  <Image
+                    source={{ uri: img ?? mealThumb(name.trim()) }}
+                    style={s.formImg}
+                  />
+                )}
+                <Text style={s.label}>Name</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={onChangeName}
+                  placeholder="e.g. Tomato"
+                  style={s.input}
+                  autoCapitalize="words"
+                />
+                {suggest.length > 0 && (
+                  <View style={s.suggestWrap}>
+                    {suggest.map((sg) => (
+                      <TouchableOpacity
+                        key={sg}
+                        style={s.suggestChip}
+                        onPress={() => {
+                          setName(sg);
+                          setSuggest([]);
+                        }}
+                      >
+                        <Text style={s.suggestTxt}>{sg}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                <Text style={s.label}>Quantity</Text>
+                <TextInput
+                  value={qty}
+                  onChangeText={(t) => setQty(sanitizeQuantity(t))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  style={s.input}
+                />
+                <Text style={s.label}>Unit</Text>
+                <View style={s.unitWrap}>
+                  {UNITS.map((u) => (
+                    <TouchableOpacity
+                      key={u}
+                      style={[s.unitChip, unitChip === u && s.unitChipOn]}
+                      onPress={() => {
+                        setUnitChip(u);
+                        setUnit("");
+                      }}
+                    >
+                      <Text style={[s.unitChipTxt, unitChip === u && s.unitChipTxtOn]}>{u}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TextInput
+                  value={unit}
+                  onChangeText={(t) => {
+                    setUnit(t);
+                    setUnitChip(null);
+                  }}
+                  placeholder="Custom unit (optional)"
+                  style={s.input}
+                />
+                <View style={s.btnRow}>
+                  <TouchableOpacity
+                    style={[s.formBtn, s.cancelBtn]}
+                    onPress={() => setFormVisible(false)}
+                  >
+                    <Text style={[s.formBtnTxt, s.cancelBtnTxt]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.formBtn, s.saveBtn]} onPress={save}>
+                    <Text style={s.formBtnTxt}>{editing ? "Update" : "Save"}</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* camera */}
       <Modal visible={camOpen} animationType="fade">
         <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: "black" }}>
@@ -421,6 +520,74 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   sheetTxt: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  formWrap: { flex: 1 },
+  formBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(17,24,39,0.55)",
+    justifyContent: "flex-end",
+  },
+  formCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    maxHeight: SCREEN_HEIGHT * 0.85,
+  },
+  formContent: { paddingBottom: 12, gap: 12 },
+  formTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
+  formImg: {
+    width: "100%",
+    height: 140,
+    borderRadius: 16,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  label: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  input: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  suggestWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: -4,
+    gap: 8,
+  },
+  suggestChip: {
+    backgroundColor: "#eef2f7",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  suggestTxt: { color: "#1f2937", fontWeight: "600" },
+  unitWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  unitChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "#f3f4f6",
+  },
+  unitChipOn: { backgroundColor: "#128AFA" },
+  unitChipTxt: { color: "#111827", fontWeight: "600" },
+  unitChipTxtOn: { color: "#fff" },
+  btnRow: { flexDirection: "row", gap: 12, marginTop: 20 },
+  formBtn: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  cancelBtn: { backgroundColor: "#f3f4f6" },
+  cancelBtnTxt: { color: "#111827" },
+  saveBtn: { backgroundColor: "#128AFA" },
+  formBtnTxt: { fontSize: 16, fontWeight: "700", color: "#fff" },
   camOverlay: {
     position: "absolute",
     bottom: 40,
