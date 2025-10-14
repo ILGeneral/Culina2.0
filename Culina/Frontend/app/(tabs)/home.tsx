@@ -23,7 +23,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Culina Recipes</Text>
+        <Text style={styles.headerTitle}>Culina</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             onPress={() => router.push("/inventory" as any)}
