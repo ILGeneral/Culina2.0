@@ -1,14 +1,11 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "@/lib/firebaseConfig";
+import { getAuth } from "firebase/auth";
 import type { Recipe } from "@/types/recipe";
+
+const API_BASE = 'https://culina-backend.vercel.app/api';
 
 interface GenerateRecipeData {
   ingredients: string[];
   preferences?: string[];
-}
-
-interface GenerateRecipeResponse {
-  recipe: Recipe;
 }
 
 export const generateRecipe = async (
@@ -16,20 +13,56 @@ export const generateRecipe = async (
   preferences: string[] = []
 ): Promise<Recipe> => {
   try {
-    const callable = httpsCallable<GenerateRecipeData, GenerateRecipeResponse>(
-      functions,
-      "generateRecipe"
-    );
+    // Get Firebase Auth token
+    const auth = getAuth();
+    const user = auth.currentUser;
     
-    const response = await callable({ ingredients, preferences });
+    if (!user) {
+      throw new Error('Not authenticated - please log in');
+    }
     
-    console.log("Recipe generated:", response.data);
+    console.log('🔑 Getting auth token...');
+    const token = await user.getIdToken();
+    console.log('✅ Token obtained');
     
-    // Backend returns { recipe: {...} }
-    return response.data.recipe;
+    console.log('📡 Calling backend API...');
+    console.log('Ingredients:', ingredients);
+    console.log('Preferences:', preferences);
+    
+    // Call Vercel backend API with updated model
+    const response = await fetch(`${API_BASE}/generate-recipe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant'  // ✅ Updated model
+      }),
+    });
+
+    console.log('📥 Response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('📄 Raw response:', responseText.substring(0, 200));
+
+    if (!response.ok) {
+      throw new Error(`Backend error (${response.status}): ${responseText}`);
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse response as JSON:', responseText);
+      throw new Error('Backend returned invalid JSON');
+    }
+    
+    console.log("✅ Recipe generated:", data.recipe);
+    
+    return data.recipe;
   } catch (err: any) {
-    console.error("Recipe generation failed:", err);
-    console.error("Error code:", err.code);
+    console.error("❌ Recipe generation failed:", err);
     console.error("Error message:", err.message);
     throw err;
   }
