@@ -25,7 +25,7 @@ export default function SavedRecipesScreen() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // 🔹 Load saved recipes from Firestore
+  //  Load saved recipes from Firestore
   const fetchRecipes = async () => {
     try {
       setLoading(true);
@@ -53,7 +53,7 @@ export default function SavedRecipesScreen() {
     }
   };
 
-  // 🔹 Delete a recipe
+  // Delete a recipe
   const handleDelete = async (id: string) => {
     Alert.alert("Delete Recipe", "Are you sure you want to delete this recipe?", [
       { text: "Cancel", style: "cancel" },
