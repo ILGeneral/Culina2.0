@@ -1,11 +1,16 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import fetch from "node-fetch";
-import { onCall, CallableContext } from "firebase-functions/v1/https";
+import {onCall, CallableContext} from "firebase-functions/v1/https";
+
 admin.initializeApp();
 const db = admin.firestore();
 
-/* Helper: load user prefs + inventory */
+/**
+ * Helper function to load user preferences and inventory.
+ * @param {string} uid - The user ID.
+ * @return {Promise<object>} User preferences and inventory.
+ */
 async function getUserContext(uid: string) {
   const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists) {
@@ -16,36 +21,49 @@ async function getUserContext(uid: string) {
   const invSnap = await db
     .collection("users")
     .doc(uid)
-    .collection("inventory")
+    .collection("ingredients")
     .get();
   const inventory = invSnap.docs.map((d) => ({
     id: d.id,
     ...d.data(),
   }));
 
-  return { preferences, inventory };
+  return {preferences, inventory};
 }
 
-/* Generate Recipe (Groq API) */
+/**
+ * Generates a recipe using the Groq API based on user inventory and prefs.
+ * @param {object} data - The data passed to the function.
+ * @param {CallableContext} context - The context of the function call.
+ * @return {Promise<{recipe: object}>} The generated recipe.
+ */
 export const generateRecipe = onCall(
-  async (data: any, context: CallableContext) => {
+  async (data: {model?: string}, context: CallableContext) => {
     const uid = context.auth?.uid;
     if (!uid) {
-      throw new functions.https.HttpsError("unauthenticated", "Login required");
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Login required"
+      );
     }
 
-    const { preferences, inventory } = await getUserContext(uid);
+    const {preferences, inventory} = await getUserContext(uid);
+    const diet = preferences?.diet;
+    const religion = preferences?.religion;
+    const caloriePlan = preferences?.caloriePlan;
     const prompt = `
-You are a culinary assistant. Create ONE recipe that uses ONLY ingredients from the user's inventory.
-Honor dietary preference: ${preferences?.diet}, religious preference: ${preferences?.religion}, calorie goal: ${preferences?.caloriePlan}.
+You are a culinary assistant. Create ONE recipe that uses ONLY
+ingredients from the user's inventory.
+Honor dietary preference: ${diet}, religious preference: ${religion},
+calorie goal: ${caloriePlan}.
 Return strict JSON:
 {
-  "title": string,
-  "shortDesc": string,
-  "servings": number,
-  "estKcal": number,
-  "ingredients": [{"name":string,"qty":number,"unit":string,"kcal":number}],
-  "steps": [string]
+  "title": "string",
+  "description": "string",
+  "ingredients": ["string"],
+  "instructions": ["string"],
+  "servings": "number",
+  "estimatedCalories": "number"
 }
 Inventory:
 ${JSON.stringify(inventory, null, 2)}
@@ -54,27 +72,37 @@ ${JSON.stringify(inventory, null, 2)}
     const GROQ_API_KEY = functions.config().groq?.key;
     const model = data?.model || "llama3-70b-8192";
 
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-      }),
-    });
+    const resp = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{role: "user", content: prompt}],
+          temperature: 0.4,
+          response_format: {type: "json_object"},
+        }),
+      }
+    );
 
     if (!resp.ok) {
-      throw new functions.https.HttpsError("internal", "Groq request failed");
+      throw new functions.https.HttpsError(
+        "internal",
+        "Groq request failed"
+      );
     }
 
-    const json = (await resp.json()) as any;
+    interface GroqResponse {
+      choices?: {message?: {content?: string}}[];
+    }
+    const json = (await resp.json()) as GroqResponse;
     const content = json?.choices?.[0]?.message?.content ?? "";
 
-    let recipe: any;
+    let recipe: object;
     try {
       recipe = JSON.parse(content);
     } catch {
@@ -84,37 +112,37 @@ ${JSON.stringify(inventory, null, 2)}
       );
     }
 
-    const docRef = await db.collection("recipes").add({
-      ownerId: uid,
-      ...recipe,
-      source: "AI",
-      visibility: "private",
-      editedByUser: false,
-      tags: [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return { recipeId: docRef.id, recipe };
+    return {recipe};
   }
 );
 
-/*  Confirm Recipe Use */
+/**
+ * Confirms a recipe has been cooked and deducts ingredients.
+ * @param {object} data - Must contain 'recipeId'.
+ * @param {CallableContext} context - The context of the function call.
+ * @return {Promise<{ok: boolean}>} A success object.
+ */
 export const confirmRecipeUse = onCall(
-  async (data: any, context: CallableContext) => {
+  async (data: {recipeId: string}, context: CallableContext) => {
     const uid = context.auth?.uid;
     if (!uid) {
-      throw new functions.https.HttpsError("unauthenticated", "Login required");
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Login required"
+      );
     }
 
-    const { recipeId } = data as { recipeId: string };
+    const {recipeId} = data;
     const recipeRef = db.collection("recipes").doc(recipeId);
-    const invCol = db.collection("users").doc(uid).collection("inventory");
+    const invCol = db.collection("users").doc(uid).collection("ingredients");
 
     await db.runTransaction(async (tx) => {
       const recSnap = await tx.get(recipeRef);
       if (!recSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Recipe not found");
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Recipe not found"
+        );
       }
 
       if (recSnap.get("ownerId") !== uid) {
@@ -126,49 +154,67 @@ export const confirmRecipeUse = onCall(
 
       const ingredients = recSnap.get("ingredients") || [];
       const invSnap = await invCol.get();
-      const byName = new Map(
+
+      const byName = new Map<string, {
+        ref: admin.firestore.DocumentReference;
+        data: admin.firestore.DocumentData
+      }>(
         invSnap.docs.map((d) => [
           d.get("name").toLowerCase(),
-          { ref: d.ref, data: d.data() },
+          {ref: d.ref, data: d.data()},
         ])
       );
 
       // Verify and deduct
       for (const ing of ingredients) {
-        const inv = byName.get(ing.name.toLowerCase());
+        const ingName = ing.name?.toLowerCase() || ing.toLowerCase();
+        const inv = byName.get(ingName);
         if (!inv) {
           throw new functions.https.HttpsError(
             "failed-precondition",
-            `Missing ${ing.name}`
+            `Missing ${ing.name || ing}`
           );
         }
-        if (inv.data.quantity < ing.qty || inv.data.unit !== ing.unit) {
+
+        const qtyNeeded = typeof ing === "string" ? 1 : (ing.qty || 1);
+        if (inv.data.quantity < qtyNeeded) {
           throw new functions.https.HttpsError(
             "failed-precondition",
-            `Not enough ${ing.name} or unit mismatch`
+            `Not enough ${ing.name || ing}`
           );
         }
 
         tx.update(inv.ref, {
-          quantity: Math.max(0, inv.data.quantity - ing.qty),
+          quantity: Math.max(0, inv.data.quantity - qtyNeeded),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
       }
     });
 
-    return { ok: true };
+    return {ok: true};
   }
 );
 
-/*  Rate Recipe */
+/**
+ * Rates a recipe on a scale of 1-5.
+ * @param {object} data - Must contain 'recipeId' and 'score'.
+ * @param {CallableContext} context - The context of the function call.
+ * @return {Promise<{ok: boolean}>} A success object.
+ */
 export const rateRecipe = onCall(
-  async (data: any, context: CallableContext) => {
+  async (
+    data: {recipeId: string; score: number},
+    context: CallableContext
+  ) => {
     const uid = context.auth?.uid;
     if (!uid) {
-      throw new functions.https.HttpsError("unauthenticated", "Login required");
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Login required"
+      );
     }
 
-    const { recipeId, score } = data as { recipeId: string; score: number };
+    const {recipeId, score} = data;
     if (![1, 2, 3, 4, 5].includes(score)) {
       throw new functions.https.HttpsError(
         "invalid-argument",
@@ -182,7 +228,10 @@ export const rateRecipe = onCall(
     await db.runTransaction(async (tx) => {
       const rec = await tx.get(recipeRef);
       if (!rec.exists) {
-        throw new functions.https.HttpsError("not-found", "Recipe not found");
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Recipe not found"
+        );
       }
       if (rec.get("ownerId") === uid) {
         throw new functions.https.HttpsError(
@@ -209,28 +258,34 @@ export const rateRecipe = onCall(
       const count = scores.length;
       const avg = count ? scores.reduce((a, b) => a + b, 0) / count : 0;
 
-      tx.update(recipeRef, { ratings: { count, avg } });
+      tx.update(recipeRef, {ratings: {count, avg}});
     });
 
-    return { ok: true };
+    return {ok: true};
   }
 );
 
+/**
+ * Submits a user report or feedback.
+ * @param {object} data - Report data including type and description.
+ * @param {CallableContext} context - The context of the function call.
+ * @return {Promise<object>} A success object with the report ID.
+ */
 export const submitReport = onCall(
-  async (data: any, context: CallableContext) => {
-    // 🧩 Ensure user is authenticated
+  async (data: Record<string, unknown>, context: CallableContext) => {
     const uid = context?.auth?.uid;
     if (!uid) {
-      throw new functions.https.HttpsError("unauthenticated", "Login required");
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Login required"
+      );
     }
 
-    // Safely extract fields from client data
     const type = data?.type ?? null;
     const description = data?.description ?? null;
     const appVersion = data?.appVersion ?? "unknown";
     const device = data?.device ?? "unknown";
 
-    // Validation for required fields
     if (!type || !description) {
       throw new functions.https.HttpsError(
         "invalid-argument",
@@ -239,7 +294,6 @@ export const submitReport = onCall(
     }
 
     try {
-      // Save the report in Firestore
       const doc = await db.collection("reports").add({
         reporterId: uid,
         type,
@@ -250,16 +304,12 @@ export const submitReport = onCall(
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`✅ Report created by ${uid}: ${doc.id}`);
-
-      // Return standardized response
       return {
         success: true,
         message: "Report successfully submitted.",
         reportId: doc.id,
       };
-    } catch (error: any) {
-      console.error("❌ Error in submitReport:", error);
+    } catch (error) {
       throw new functions.https.HttpsError(
         "internal",
         "Failed to submit report. Please try again later."
@@ -268,7 +318,9 @@ export const submitReport = onCall(
   }
 );
 
-/* Simple test endpoint */
+/**
+ * Simple test endpoint to verify backend is running.
+ */
 export const helloTest = functions.https.onRequest((req, res) => {
-  res.send("✅ Culina backend is alive!");
+  res.send("Culina backend is alive!");
 });
