@@ -12,23 +12,20 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebaseConfig";
 import { ArrowLeft } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
+import type { Recipe } from "@/types/recipe";
 
-type Recipe = {
+type RecipeDoc = Recipe & {
   id: string;
-  title: string;
-  description?: string;
-  imageUrl?: string;
-  estKcal?: number;
-  servings?: number;
-  ingredients?: { name: string; qty: string }[];
-  steps?: string[];
+  ingredients?: (string | { name: string; qty?: string })[];
+  instructions?: string[];
+  estimatedCalories?: number;
   source?: "AI" | "Edited" | "Human";
 };
 
 export default function RecipeDetailsScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<RecipeDoc | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +34,9 @@ export default function RecipeDetailsScreen() {
         const ref = doc(db, "recipes", String(id));
         const snap = await getDoc(ref);
         if (snap.exists()) {
-          setRecipe({ id: snap.id, ...snap.data() } as Recipe);
+          const data = snap.data() as Partial<RecipeDoc>;
+          if (data.title && Array.isArray(data.ingredients) && Array.isArray(data.instructions))
+            setRecipe({ id: snap.id, ...data } as RecipeDoc);
         }
       } catch (err) {
         console.error("Error loading recipe:", err);
@@ -95,10 +94,10 @@ export default function RecipeDetailsScreen() {
 
           {/* 🔹 Info Chips */}
           <View className="flex-row flex-wrap gap-2 mb-4">
-            {recipe.estKcal && (
+            {recipe.estimatedCalories && (
               <View className="bg-green-100 px-3 py-1 rounded-full">
                 <Text className="text-green-700 text-sm font-medium">
-                  {recipe.estKcal} kcal
+                  {recipe.estimatedCalories} kcal
                 </Text>
               </View>
             )}
@@ -124,21 +123,30 @@ export default function RecipeDetailsScreen() {
               <Text className="text-xl font-semibold text-green-700 mb-2">
                 Ingredients
               </Text>
-              {recipe.ingredients.map((ing, idx) => (
-                <Text key={idx} className="text-gray-700 mb-1">
-                  • {ing.name} – {ing.qty}
-                </Text>
-              ))}
+              {recipe.ingredients.map((ing: string | { name: string; qty?: string }, idx: number) => {
+                if (typeof ing === "string")
+                  return (
+                    <Text key={idx} className="text-gray-700 mb-1">
+                      • {ing}
+                    </Text>
+                  );
+                return (
+                  <Text key={idx} className="text-gray-700 mb-1">
+                    • {ing.name}
+                    {ing.qty ? ` – ${ing.qty}` : ""}
+                  </Text>
+                );
+              })}
             </>
           )}
 
           {/* 👩‍🍳 Instructions */}
-          {recipe.steps && recipe.steps.length > 0 && (
+          {recipe.instructions && recipe.instructions.length > 0 && (
             <>
               <Text className="text-xl font-semibold text-green-700 mt-5 mb-2">
                 Instructions
               </Text>
-              {recipe.steps.map((step, idx) => (
+              {recipe.instructions.map((step: string, idx: number) => (
                 <Text key={idx} className="text-gray-700 mb-2">
                   {idx + 1}. {step}
                 </Text>

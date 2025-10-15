@@ -19,7 +19,7 @@ import {
 } from "firebase/firestore";
 import { ArrowLeft, UtensilsCrossed, RotateCcw, Star } from "lucide-react-native";
 import { rateRecipe } from "@/lib/functions/rateRecipe";
-
+import type { Recipe } from "@/types/recipe";
 
 interface InventoryItem {
   id: string;
@@ -30,17 +30,7 @@ interface InventoryItem {
   caloriesPerUnit?: number;
 }
 
-interface Recipe {
-  id?: string;
-  title: string;
-  description?: string;
-  ingredients: string[];
-  instructions: string[];
-  servings?: number;
-  estimatedCalories?: number;
-}
-
-/* ✅ STEP 1 — Unit conversion map */
+/* STEP 1 — Unit conversion map */
 const unitConversions: Record<string, Record<string, number>> = {
   g: { kg: 0.001 },
   kg: { g: 1000 },
@@ -66,7 +56,7 @@ function convertUnit(amount: number, from?: string, to?: string): number {
   return amount; // fallback if no conversion found
 }
 
-/* ✅ STEP 3 — Parse ingredient text */
+/* STEP 3 — Parse ingredient text */
 function parseIngredients(lines: string[]) {
   const fractionToDecimal = (str: string): number => {
     if (str.includes("/")) {
@@ -103,7 +93,7 @@ export default function RecipeDetailsScreen() {
     { id: string; previousQty: number; newQty: number }[]
   >([]);
 
-  /* 🔹 Fetch recipe details */
+  /* Fetch recipe details */
   const fetchRecipe = async () => {
     try {
       setLoading(true);
@@ -153,7 +143,14 @@ export default function RecipeDetailsScreen() {
         ...(doc.data() as Omit<InventoryItem, "id">),
       }));
 
-      const parsed = parseIngredients(recipe.ingredients);
+      const ingredientsAsStrings = recipe.ingredients.map((ing) => {
+        if (typeof ing === 'string') {
+          return ing;
+        }
+        return `${ing.qty || ''} ${ing.name}`.trim();
+      });
+
+      const parsed = parseIngredients(ingredientsAsStrings);
       const batch = writeBatch(db);
       const deductions: { id: string; previousQty: number; newQty: number }[] =
         [];
@@ -188,7 +185,7 @@ export default function RecipeDetailsScreen() {
         await batch.commit();
         setLastDeducted(deductions);
         Alert.alert(
-          "✅ Cooked Successfully",
+          "Cooked Successfully",
           `Ingredients updated for ${deductedCount} items. You can undo this action.`
         );
       } else {
@@ -205,7 +202,7 @@ export default function RecipeDetailsScreen() {
     }
   };
 
-  /* 🔁 Undo Cook — Restore previous quantities */
+  /* Undo Cook — Restore previous quantities */
   const handleUndoCook = async () => {
     if (lastDeducted.length === 0) {
       Alert.alert("Nothing to Undo", "No previous cooking deductions found.");
@@ -293,11 +290,20 @@ const handleRateRecipe = async (rating: number) => {
         <Text className="text-lg font-semibold mt-5 text-green-700">
           Ingredients
         </Text>
-        {recipe.ingredients?.map((ing: string, i: number) => (
-          <Text key={i} className="text-gray-700 mt-1">
-            • {ing}
-          </Text>
-        ))}
+        {recipe.ingredients?.map((ing, i) => {
+          if (typeof ing === 'string') {
+            return (
+              <Text key={i} className="text-gray-700 mt-1">
+                • {ing}
+              </Text>
+            );
+          }
+          return (
+            <Text key={i} className="text-gray-700 mt-1">
+              • {ing.qty ? `${ing.qty} ` : ''}{ing.name}
+            </Text>
+          );
+        })}
 
         {/* Instructions */}
         <Text className="text-lg font-semibold mt-5 text-green-700">

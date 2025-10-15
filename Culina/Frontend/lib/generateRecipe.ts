@@ -1,16 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebaseConfig";
-
-// Define consistent types
-export interface Recipe {
-  id?: string;
-  title: string;
-  description?: string;
-  ingredients: string[];
-  instructions: string[];
-  servings?: number;
-  estimatedCalories?: number;
-}
+import type { Recipe } from "@/types/recipe";
 
 export const generateRecipe = async (
   ingredients: string[],

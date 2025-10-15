@@ -19,7 +19,9 @@ import {
   collection,
   writeBatch,
 } from "firebase/firestore";
-import { generateRecipe, Recipe } from "@/lib/generateRecipe";
+import type { Recipe } from "@/types/recipe";
+import { generateRecipe } from "@/lib/generateRecipe";
+
 
 interface InventoryItem {
   id: string;
@@ -49,7 +51,7 @@ export default function RecipeGeneratorScreen() {
         Alert.alert("Error", "Recipe generation failed.");
       }
     } catch (err) {
-      console.error("❌ GenerateRecipe Error:", err);
+      console.error("GenerateRecipe Error:", err);
       Alert.alert("Error", "Failed to generate recipe. Try again.");
     } finally {
       setLoading(false);
@@ -93,16 +95,19 @@ export default function RecipeGeneratorScreen() {
       }
 
       const batch = writeBatch(db);
-      const invRef = collection(db, "users", uid, "inventory");
+      const invRef = collection(db, "users", uid, "ingredients"); // Changed from "inventory"
       const snapshot = await getDocs(invRef);
       const invData: InventoryItem[] = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as Omit<InventoryItem, "id">),
       }));
 
-      recipe.ingredients.forEach((ri: string) => {
+      // ✅ Fixed: Handle both string[] and object[] types
+      recipe.ingredients.forEach((ri) => {
+        const ingredientName = typeof ri === 'string' ? ri : ri.name;
+        
         const match = invData.find((inv) =>
-          ri.toLowerCase().includes(inv.name.toLowerCase())
+          ingredientName.toLowerCase().includes(inv.name.toLowerCase())
         );
         if (match) {
           const ref = doc(invRef, match.id);
@@ -164,9 +169,10 @@ export default function RecipeGeneratorScreen() {
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Ingredients
           </Text>
+          {/* ✅ Fixed: Handle both string and object types */}
           {recipe.ingredients.map((ing, i) => (
             <Text key={i} className="text-gray-700">
-              • {ing}
+              • {typeof ing === 'string' ? ing : `${ing.name}${ing.qty ? ` - ${ing.qty}` : ''}`}
             </Text>
           ))}
 

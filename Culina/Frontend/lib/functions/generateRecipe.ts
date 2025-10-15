@@ -1,5 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebaseConfig";
+import type { Recipe } from "@/types/recipe";
 
 interface GenerateRecipeResponse {
   recipe?: any;
