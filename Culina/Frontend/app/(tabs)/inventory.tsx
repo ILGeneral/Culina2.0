@@ -33,6 +33,7 @@ import {
 import { auth, db } from "@/lib/firebaseConfig";
 import { uploadImageAsync } from "@/lib/uploadImage";
 import { detectFoodFromImage } from "@/lib/clarifai";
+import Background from "@/components/Background";
 
 // —— helpers ——
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -251,7 +252,8 @@ export default function InventoryScreen() {
   );
 
   return (
-    <SafeAreaView style={s.container}>
+    <Background>
+      <SafeAreaView style={s.container}>
       {/* header */}
       <View style={s.head}>
         <Text style={s.title}>My Pantry</Text>
@@ -458,13 +460,14 @@ export default function InventoryScreen() {
           )}
         </View>
       </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </Background>
   );
 }
 
 // —— styles ——
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1 },
   center: { justifyContent: "center", alignItems: "center" },
   head: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 26, fontWeight: "bold", color: "#128AFA" },

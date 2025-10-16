@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "reac
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
+import Background from "@/components/Background";
 
 export default function Login() {
   const router = useRouter();
@@ -19,7 +20,8 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.container}>
+    <Background>
+      <View style={styles.container}>
       <Text style={styles.title}>Welcome to Culina</Text>
 
       <TextInput
@@ -42,12 +44,13 @@ export default function Login() {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}> 
+      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}>
         <Text style={styles.linkText}>
           Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
         </Text>
       </TouchableOpacity>
-    </View>
+      </View>
+    </Background>
   );
 }
 
@@ -56,7 +59,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#fff",
   },
   title: {
     fontSize: 28,

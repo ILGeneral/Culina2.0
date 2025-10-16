@@ -1,37 +1,70 @@
-import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { SplashScreen, Stack, useRouter } from "expo-router";
+import {
+  useFonts,
+  Baloo2_400Regular,
+  Baloo2_500Medium,
+  Baloo2_600SemiBold,
+  Baloo2_700Bold,
+  Baloo2_800ExtraBold,
+} from "@expo-google-fonts/baloo-2";
 import { auth } from "@/lib/firebaseConfig";
-import { useRouter } from "expo-router";
-import { useAuthState } from "react-firebase-hooks/auth"; // ensure installed
+import { useAuthState } from "react-firebase-hooks/auth";
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [user] = useAuthState(auth);
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [fontsLoaded, fontError] = useFonts({
+    Baloo2_400Regular,
+    Baloo2_500Medium,
+    Baloo2_600SemiBold,
+    Baloo2_700Bold,
+    Baloo2_800ExtraBold,
+  });
+  const [user, authLoading] = useAuthState(auth);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-      if (user) {
-        router.replace("/(tabs)/home");
-      } else {
-        router.replace("/(auth)/login");
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (fontsLoaded && !authLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, authLoading]);
 
-  if (loading) return null;
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+    if (user) {
+      router.replace("/(tabs)/home");
+    } else {
+      router.replace("/(auth)/login");
+    }
+  }, [user, authLoading, router]);
+
+  if ((!fontsLoaded && !fontError) || authLoading) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator size="large" color="#128AFA" />
+      </View>
+    );
+  }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="recipe/[id]" />
+      <Stack.Screen name="editProfile" />
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+});

@@ -5,6 +5,7 @@ import { useRecipes } from "@/hooks/useRecipes";
 import { useRouter } from "expo-router";
 import AnimatedRecipeCard from "@/components/home/AnimatedRecipeCard";
 import { Package, User } from "lucide-react-native";
+import Background from "@/components/Background";
 
 export default function HomeScreen() {
   const { recipes, loading } = useRecipes();
@@ -12,59 +13,61 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#128AFAFF" />
-        <Text style={styles.loadingText}>Loading recipes...</Text>
-      </SafeAreaView>
+      <Background>
+        <SafeAreaView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#128AFAFF" />
+          <Text style={styles.loadingText}>Loading recipes...</Text>
+        </SafeAreaView>
+      </Background>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Culina</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            onPress={() => router.push("/inventory" as any)}
-            style={styles.iconButton}
-          >
-            <Package color="#128AFAFF" size={24} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push("/profile")}
-            style={styles.iconButton}
-          >
-            <User color="#128AFAFF" size={24} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
-        {recipes.length === 0 ? (
-          <Text style={styles.emptyText}>No shared recipes found. Add one to get started!</Text>
-        ) : (
-          <View style={styles.recipeList}>
-            {recipes.map((recipe, index) => (
-              <AnimatedRecipeCard key={recipe.id} recipe={recipe} index={index} />
-            ))}
+    <Background>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Culina</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              onPress={() => router.push("/inventory" as any)}
+              style={styles.iconButton}
+            >
+              <Package color="#128AFAFF" size={24} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/profile")}
+              style={styles.iconButton}
+            >
+              <User color="#128AFAFF" size={24} />
+            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
+          {recipes.length === 0 ? (
+            <Text style={styles.emptyText}>No shared recipes found. Add one to get started!</Text>
+          ) : (
+            <View style={styles.recipeList}>
+              {recipes.map((recipe, index) => (
+                <AnimatedRecipeCard key={recipe.id} recipe={recipe} index={index} />
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 12,

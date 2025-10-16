@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
+import Background from "@/components/Background";
 
 type UserPrefsDoc = {
   dietaryPreference?: string;      // e.g., "Vegetarian", "Vegan", "Keto"
@@ -121,17 +122,20 @@ export default function RecipeGeneratorScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#128AFA" />
-        <Text style={styles.gray}>Loading your pantry...</Text>
-      </SafeAreaView>
+      <Background>
+        <SafeAreaView style={styles.center}>
+          <ActivityIndicator size="large" color="#128AFA" />
+          <Text style={styles.gray}>Loading your pantry...</Text>
+        </SafeAreaView>
+      </Background>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {!recipe ? (
-        <View style={styles.center}>
+    <Background>
+      <SafeAreaView style={styles.container}>
+        {!recipe ? (
+          <View style={styles.center}>
           <TouchableOpacity
             onPress={handleGenerate}
             disabled={generating}
@@ -148,33 +152,34 @@ export default function RecipeGeneratorScreen() {
               Preferences: {preferences.join(", ")}
             </Text>
           )}
-        </View>
-      ) : (
-        <ScrollView style={styles.scroll}>
-          <Text style={styles.title}>{recipe.title}</Text>
-          {recipe.description && <Text style={styles.desc}>{recipe.description}</Text>}
+          </View>
+        ) : (
+          <ScrollView style={styles.scroll}>
+            <Text style={styles.title}>{recipe.title}</Text>
+            {recipe.description && <Text style={styles.desc}>{recipe.description}</Text>}
 
-          <Text style={styles.section}>Ingredients</Text>
-          {recipe.ingredients?.map((i: string, idx: number) => (
-            <Text key={idx} style={styles.item}>• {i}</Text>
-          ))}
+            <Text style={styles.section}>Ingredients</Text>
+            {recipe.ingredients?.map((i: string, idx: number) => (
+              <Text key={idx} style={styles.item}>• {i}</Text>
+            ))}
 
-          <Text style={styles.section}>Instructions</Text>
-          {recipe.instructions?.map((s: string, idx: number) => (
-            <Text key={idx} style={styles.item}>{idx + 1}. {s}</Text>
-          ))}
+            <Text style={styles.section}>Instructions</Text>
+            {recipe.instructions?.map((s: string, idx: number) => (
+              <Text key={idx} style={styles.item}>{idx + 1}. {s}</Text>
+            ))}
 
-          <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.saveButton}>
-            <Text style={styles.saveText}>{saving ? "Saving..." : "Save Recipe"}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+            <TouchableOpacity onPress={handleSave} disabled={saving} style={styles.saveButton}>
+              <Text style={styles.saveText}>{saving ? "Saving..." : "Save Recipe"}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
+  container: { flex: 1, padding: 20 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   gray: { color: "#6b7280", marginTop: 10, textAlign: "center" },
   button: {

@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+import Background from "@/components/Background";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -83,7 +84,12 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <Background>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
       <Text style={styles.title}>Create your account!</Text>
 
       {/* Step 1: Account Info */}
@@ -219,14 +225,14 @@ export default function RegisterScreen() {
           <Text style={styles.linkHighlight}>Log in</Text>
         </Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   contentContainer: {
     paddingHorizontal: 24,
