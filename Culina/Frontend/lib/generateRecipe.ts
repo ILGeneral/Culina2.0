@@ -21,11 +21,11 @@ export const generateRecipe = async (
       throw new Error('Not authenticated - please log in');
     }
     
-    console.log('🔑 Getting auth token...');
+    console.log('Getting auth token...');
     const token = await user.getIdToken();
-    console.log('✅ Token obtained');
+    console.log('Token obtained');
     
-    console.log('📡 Calling backend API...');
+    console.log('Calling backend API...');
     console.log('Ingredients:', ingredients);
     console.log('Preferences:', preferences);
     
