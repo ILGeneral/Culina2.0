@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -80,53 +81,53 @@ export default function SavedRecipesScreen() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-5 pt-5 pb-3 border-b border-gray-200">
-        <View className="flex-row items-center gap-3">
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()}>
             <ArrowLeft color="#16a34a" size={24} />
           </TouchableOpacity>
-          <Text className="text-3xl font-bold text-green-700">Saved Recipes</Text>
+          <Text style={styles.headerTitle}>Saved Recipes</Text>
         </View>
 
         <TouchableOpacity onPress={fetchRecipes}>
-          <Text className="text-green-600 font-semibold">Refresh</Text>
+          <Text style={styles.refreshText}>Refresh</Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
-        <View className="flex-1 justify-center items-center">
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#16a34a" />
-          <Text className="mt-2 text-gray-500">Loading recipes...</Text>
+          <Text style={styles.loadingText}>Loading recipes...</Text>
         </View>
       ) : recipes.length === 0 ? (
-        <View className="flex-1 justify-center items-center">
+        <View style={styles.emptyContainer}>
           <ChefHat size={64} color="#9ca3af" />
-          <Text className="text-gray-500 mt-3">No saved recipes yet.</Text>
-          <Text className="text-gray-400 text-sm mt-1">
+          <Text style={styles.emptyPrimary}>No saved recipes yet.</Text>
+          <Text style={styles.emptySecondary}>
             Generate one in the AI Recipe Maker!
           </Text>
         </View>
       ) : (
-        <ScrollView className="px-5 pt-3">
+        <ScrollView style={styles.list}>
           {recipes.map((recipe) => (
             <TouchableOpacity
               key={recipe.id}
               onPress={() => router.push(`/recipe/${recipe.id}`)}
-              className="bg-green-50 rounded-2xl p-4 mb-3 active:opacity-80"
+              style={styles.recipeCard}
             >
-              <View className="flex-row justify-between items-center">
-                <View className="flex-1 pr-3">
-                  <Text className="text-xl font-bold text-green-800">
+              <View style={styles.recipeCardRow}>
+                <View style={styles.recipeContent}>
+                  <Text style={styles.recipeTitle}>
                     {recipe.title}
                   </Text>
                   {recipe.description ? (
-                    <Text className="text-gray-600 mt-1" numberOfLines={2}>
+                    <Text style={styles.recipeDescription} numberOfLines={2}>
                       {recipe.description}
                     </Text>
                   ) : null}
-                  <Text className="text-gray-500 mt-2 text-sm">
+                  <Text style={styles.recipeMeta}>
                     {recipe.servings
                       ? `Serves ${recipe.servings} | `
                       : ""}
@@ -137,7 +138,7 @@ export default function SavedRecipesScreen() {
                 </View>
                 <TouchableOpacity
                   onPress={() => handleDelete(recipe.id)}
-                  className="p-1"
+                  style={styles.deleteButton}
                 >
                   <Trash2 size={20} color="#dc2626" />
                 </TouchableOpacity>
@@ -149,3 +150,45 @@ export default function SavedRecipesScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerTitle: { marginLeft: 8, fontSize: 24, fontWeight: "700", color: "#047857" },
+  refreshText: { color: "#16a34a", fontWeight: "600" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { marginTop: 8, color: "#6b7280" },
+  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyPrimary: { color: "#6b7280", marginTop: 12 },
+  emptySecondary: { color: "#9ca3af", fontSize: 14, marginTop: 4 },
+  list: { paddingHorizontal: 20, paddingTop: 12 },
+  recipeCard: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 12,
+  },
+  recipeCardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  recipeContent: { flex: 1, paddingRight: 12 },
+  recipeTitle: { fontSize: 20, fontWeight: "700", color: "#065f46" },
+  recipeDescription: { color: "#4b5563", marginTop: 4 },
+  recipeMeta: { color: "#6b7280", marginTop: 8, fontSize: 14 },
+  deleteButton: { padding: 4 },
+});
