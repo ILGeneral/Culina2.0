@@ -42,7 +42,7 @@ export default function HomeScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
         {recipes.length === 0 ? (
-          <Text style={styles.emptyText}>No recipes found. Add one to get started!</Text>
+          <Text style={styles.emptyText}>No shared recipes found. Add one to get started!</Text>
         ) : (
           <View style={styles.recipeList}>
             {recipes.map((recipe, index) => (

@@ -11,6 +11,20 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+
+const ALLERGY_OPTIONS = [
+  "Peanuts",
+  "Tree Nuts",
+  "Shellfish",
+  "Fish",
+  "Eggs",
+  "Milk",
+  "Soy",
+  "Wheat",
+  "Sesame",
+  "Gluten",
+];
+
 import { useRouter } from "expo-router";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -25,15 +39,24 @@ export default function EditProfileScreen() {
   const [calories, setCalories] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [showAllergyList, setShowAllergyList] = useState(false);
+
+  const toggleAllergy = (value: string) => {
+    setAllergies((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  };
 
   useEffect(() => {
-    if (user) {
-      fetchData(user.uid);
-    } else {
+    const currentUser = auth.currentUser as User | null;
+    if (!currentUser) {
       setLoading(false);
       Alert.alert("Error", "No user is currently logged in.");
+      return;
     }
-  }, [user]);
+    fetchData(currentUser.uid);
+  }, []);
 
   const fetchData = async (uid: string) => {
     try {
@@ -44,6 +67,7 @@ export default function EditProfileScreen() {
         setUsername(data?.username || "");
         setDiet(data?.preferences?.diet || "");
         setCalories(data?.preferences?.caloriePlan || "");
+        setAllergies(data?.preferences?.allergies ?? []);
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -74,23 +98,21 @@ export default function EditProfileScreen() {
         username: username.trim(),
         "preferences.diet": diet,
         "preferences.caloriePlan": calories,
+        "preferences.allergies": allergies,
       });
 
       // Update Firebase Auth display name
       await updateProfile(user, { displayName: username.trim() });
 
       // Navigate back with toast success message
-      router.replace({
-        pathname: "/(tabs)/profile",
-        params: {
-          toastMessage: "Profile updated successfully!",
-          toastType: "success",
-        },
-      });
+          Alert.alert("Success", "Profile updated successfully!", [
+      { text: "OK", onPress: () => router.back() }
+    ]);
     } catch (error) {
       console.error("Error updating profile:", error);
 
-      // ❌ Navigate back with error toast message
+      // Navigate back with error toast message
+      Alert.alert("Error", "Failed to update profile. Please try again.");
       router.replace({
         pathname: "/(tabs)/profile",
         params: {
@@ -125,6 +147,37 @@ export default function EditProfileScreen() {
           value={username}
           onChangeText={setUsername}
         />
+      </View>
+
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.dropdownToggle}
+          onPress={() => setShowAllergyList((prev) => !prev)}
+        >
+          <Text style={styles.dropdownLabel}>
+            {showAllergyList ? "Hide Allergies" : "Show Allergies"}
+          </Text>
+          <Text style={styles.dropdownChevron}>{showAllergyList ? "▲" : "▼"}</Text>
+        </TouchableOpacity>
+        {showAllergyList && (
+          <View style={styles.checkboxList}>
+            {ALLERGY_OPTIONS.map((option) => {
+              const checked = allergies.includes(option);
+              return (
+                <TouchableOpacity
+                  key={option}
+                  style={styles.checkboxRow}
+                  onPress={() => toggleAllergy(option)}
+                >
+                  <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+                    {checked && <Text style={styles.checkboxMark}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxLabel}>{option}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* Dietary Preference */}
@@ -194,9 +247,13 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: 20 },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginBottom: 8,
+  },
+  helperText: {
+    color: "#6b7280",
     marginBottom: 8,
   },
   input: {
@@ -217,6 +274,75 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: Platform.OS === "ios" ? 180 : 50,
+  },
+  allergyList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  allergyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#dcfce7",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  allergyText: {
+    color: "#128AFA",
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  allergyRemove: {
+    color: "#128AFA",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  checkboxList: {
+    gap: 10,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#040505FF",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxBoxChecked: {
+    backgroundColor: "#128AFA",
+  },
+  checkboxMark: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: "#1f2937",
+  },
+  dropdownToggle: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  dropdownLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0B1116FF",
+  },
+  dropdownChevron: {
+    fontSize: 16,
+    color: "#191C1FFF",
   },
   saveButton: {
     backgroundColor: "#128AFA",

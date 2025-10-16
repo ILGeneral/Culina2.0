@@ -13,4 +13,5 @@ export type UserPreferences = {
   dietaryPreference?: string;
   religiousPreference?: string;
   caloriePlan?: string;
+  allergies?: string[];
 };

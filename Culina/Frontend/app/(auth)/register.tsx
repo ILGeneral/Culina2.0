@@ -1,10 +1,32 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Platform,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+
+const ALLERGY_OPTIONS = [
+  "Peanuts",
+  "Tree Nuts",
+  "Shellfish",
+  "Fish",
+  "Eggs",
+  "Milk",
+  "Soy",
+  "Wheat",
+  "Sesame",
+  "Gluten",
+];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -19,6 +41,13 @@ export default function RegisterScreen() {
   const [diet, setDiet] = useState("");
   const [religion, setReligion] = useState("");
   const [calories, setCalories] = useState("");
+  const [allergies, setAllergies] = useState<string[]>([]);
+
+  const toggleAllergy = (value: string) => {
+    setAllergies((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  };
 
   const handleRegister = async () => {
     if (!email || !username || !password || !confirm || !diet || !religion || !calories)
@@ -40,6 +69,7 @@ export default function RegisterScreen() {
           diet,
           religion,
           caloriePlan: calories,
+          allergies,
         },
         createdAt: new Date(),
       });
@@ -91,6 +121,28 @@ export default function RegisterScreen() {
           onChangeText={setConfirm}
           style={styles.input}
         />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Allergies</Text>
+        <Text style={styles.helperText}>Tap to select or deselect.</Text>
+        <View style={styles.checkboxList}>
+          {ALLERGY_OPTIONS.map((option) => {
+            const checked = allergies.includes(option);
+            return (
+              <TouchableOpacity
+                key={option}
+                onPress={() => toggleAllergy(option)}
+                style={styles.checkboxRow}
+              >
+                <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+                  {checked && <Text style={styles.checkboxMark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Step 2: Preferences */}
@@ -196,6 +248,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: "#1f2937",
   },
+  helperText: {
+    color: "#6b7280",
+    marginBottom: 8,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
@@ -244,5 +300,59 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: Platform.OS === "ios" ? 180 : 50,
+  },
+  allergyList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  allergyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#dcfce7",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  allergyText: {
+    color: "#166534",
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  allergyRemove: {
+    color: "#166534",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  checkboxList: {
+    gap: 10,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#16a34a",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxBoxChecked: {
+    backgroundColor: "#16a34a",
+  },
+  checkboxMark: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: "#1f2937",
   },
 });
