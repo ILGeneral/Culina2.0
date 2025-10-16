@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
     const decodedToken = await admin.auth().verifyIdToken(token);
     const uid = decodedToken.uid;
 
-    console.log('✅ User authenticated:', uid);
+    console.log('User authenticated:', uid);
 
     // Get user context
     const { preferences, inventory } = await getUserContext(uid);

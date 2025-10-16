@@ -6,6 +6,7 @@ export type Recipe = {
   instructions: string[];
   servings?: number;
   estimatedCalories?: number;
+  readyInMinutes?: number;
   source?: string;
   imageUrl?: string;
   createdAt?: any; 
