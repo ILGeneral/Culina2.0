@@ -40,7 +40,7 @@ export default function RegisterScreen() {
 
   // Step 2 fields
   const [diet, setDiet] = useState("");
-  const [religion, setReligion] = useState("");
+  const [religiousPreference, setReligiousPreference] = useState("");
   const [calories, setCalories] = useState("");
   const [allergies, setAllergies] = useState<string[]>([]);
 
@@ -51,7 +51,7 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if (!email || !username || !password || !confirm || !diet || !religion || !calories)
+    if (!email || !username || !password || !confirm || !diet || !religiousPreference || !calories)
       return Alert.alert("Please fill in all fields");
 
     if (password !== confirm)
@@ -68,7 +68,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         preferences: {
           diet,
-          religion,
+          religiousPreference,
           caloriePlan: calories,
           allergies,
         },
@@ -180,16 +180,16 @@ export default function RegisterScreen() {
           <Text style={styles.pickerLabel}>Religious Preference</Text>
           <View style={styles.pickerWrapper}>
             <Picker
-              selectedValue={religion}
-              onValueChange={(itemValue) => setReligion(itemValue)}
+              selectedValue={religiousPreference}
+              onValueChange={(itemValue) => setReligiousPreference(itemValue)}
               style={styles.picker}
             >
               <Picker.Item label="Select religious preference..." value="" />
-              <Picker.Item label="No Restriction" value="none" />
+              <Picker.Item label="None" value="none" />
               <Picker.Item label="Halal" value="halal" />
               <Picker.Item label="Kosher" value="kosher" />
-              <Picker.Item label="Hindu (No Beef)" value="hindu" />
-              <Picker.Item label="Buddhist (Vegetarian)" value="buddhist" />
+              <Picker.Item label="Hindu" value="hindu" />
+              <Picker.Item label="Buddhist" value="buddhist" />
             </Picker>
           </View>
         </View>

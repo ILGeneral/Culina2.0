@@ -35,6 +35,7 @@ export default function EditProfileScreen() {
 
   const [username, setUsername] = useState("");
   const [diet, setDiet] = useState("");
+  const [religiousPreference, setReligiousPreference] = useState("");
   const [calories, setCalories] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,6 +66,7 @@ export default function EditProfileScreen() {
         const data = docSnap.data();
         setUsername(data?.username || "");
         setDiet(data?.preferences?.diet || "");
+        setReligiousPreference(data?.preferences?.religiousPreference || "");
         setCalories(data?.preferences?.caloriePlan || "");
         setAllergies(data?.preferences?.allergies ?? []);
       }
@@ -95,6 +97,7 @@ export default function EditProfileScreen() {
       await updateDoc(docRef, {
         username: username.trim(),
         "preferences.diet": diet,
+        "preferences.religiousPreference": religiousPreference,
         "preferences.caloriePlan": calories,
         "preferences.allergies": allergies,
       });
@@ -189,6 +192,24 @@ export default function EditProfileScreen() {
               <Picker.Item label="Paleo" value="paleo" />
               <Picker.Item label="Low Carb" value="low-carb" />
               <Picker.Item label="Gluten Free" value="gluten-free" />
+            </Picker>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Religious Preference</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={religiousPreference}
+              onValueChange={setReligiousPreference}
+              style={styles.picker}
+            >
+              <Picker.Item label="Select religious preference..." value="" />
+              <Picker.Item label="None" value="none" />
+              <Picker.Item label="Halal" value="halal" />
+              <Picker.Item label="Kosher" value="kosher" />
+              <Picker.Item label="Hindu" value="hindu" />
+              <Picker.Item label="Buddhist" value="buddhist" />
             </Picker>
           </View>
         </View>
