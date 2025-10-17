@@ -17,6 +17,7 @@ interface RecipeData {
   tags?: string[];
   imageUrl?: string;
   createdAt?: any;
+  source?: string;
 }
 
 /**
@@ -56,6 +57,10 @@ export const shareRecipe = async (
       createdAt: recipe.createdAt || serverTimestamp(),
     };
 
+    if (recipe.source) {
+      sharedRecipeData.source = recipe.source;
+    }
+
     // Only add optional fields if they are defined
     if (recipe.servings !== undefined) {
       sharedRecipeData.servings = recipe.servings;
@@ -75,9 +80,18 @@ export const shareRecipe = async (
     if (recipe.cuisine !== undefined) {
       sharedRecipeData.cuisine = recipe.cuisine;
     }
-    if (recipe.tags !== undefined && recipe.tags.length > 0) {
-      sharedRecipeData.tags = recipe.tags;
+    if (recipe.tags !== undefined) {
+      const tags = Array.isArray(recipe.tags) ? [...recipe.tags] : [];
+      if (recipe.source === 'Human' && !tags.includes('Human')) {
+        tags.push('Human');
+      }
+      if (tags.length > 0) {
+        sharedRecipeData.tags = tags;
+      }
+    } else if (recipe.source === 'Human') {
+      sharedRecipeData.tags = ['Human'];
     }
+
     if (recipe.imageUrl !== undefined) {
       sharedRecipeData.imageUrl = recipe.imageUrl;
     }

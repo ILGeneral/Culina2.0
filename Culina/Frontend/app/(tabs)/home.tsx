@@ -63,6 +63,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.createButton}
+          activeOpacity={0.85}
+          onPress={() => router.push('/recipe/maker' as any)}
+        >
+          <Text style={styles.createButtonText}>Create Your Recipe</Text>
+        </TouchableOpacity>
+
         {/* Tab Selector */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -205,9 +213,23 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 8,
     gap: 12,
+  },
+  createButton: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    backgroundColor: '#128AFAFF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   tab: {
     flex: 1,
