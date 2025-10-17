@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebaseConfig"; // Make sure this path is correct
+import { db, auth } from "@/lib/firebaseConfig";
 import {
   ArrowLeft,
   Clock,
@@ -25,8 +25,8 @@ import {
   ChefHat,
   ClipboardPlus,
 } from "lucide-react-native";
-import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper"; // Make sure this path is correct
-import type { Recipe } from "@/types/recipe"; // Make sure this path is correct
+import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
+import type { Recipe } from "@/types/recipe";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
@@ -54,7 +54,7 @@ const HERO_HEIGHT = 320;
 
 export default function RecipeDetailsScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const { id, source } = useLocalSearchParams(); // Added 'source' parameter
   const [recipe, setRecipe] = useState<RecipeDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -115,6 +115,28 @@ export default function RecipeDetailsScreen() {
         }
         console.log(`2. Authenticated with UID: ${uid} for Recipe ID: ${id}`);
 
+        // Check if this is a shared recipe (from URL param or will try sharedRecipes first)
+        if (source === 'shared') {
+          console.log('3. Fetching from sharedRecipes collection (source param)...');
+          const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
+          const sharedSnap = await getDoc(sharedRecipeRef);
+          
+          console.log('4. Fetched from sharedRecipes. Exists:', sharedSnap.exists());
+          
+          if (sharedSnap.exists()) {
+            const data = sharedSnap.data();
+            console.log('5. SUCCESS: Found in sharedRecipes collection.', data);
+            setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
+            setLoading(false);
+            return;
+          } else {
+            console.log('5. Recipe not found in sharedRecipes collection.');
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Try user's personal recipes first
         const userRecipeRef = doc(db, "users", uid, "recipes", String(id));
         console.log("3. Trying to fetch from user's personal recipes...");
         const userRecipeSnap = await getDoc(userRecipeRef);
@@ -125,31 +147,44 @@ export default function RecipeDetailsScreen() {
           console.log("5. SUCCESS: Found recipe in user's collection.", data);
           setRecipe({ id: userRecipeSnap.id, ...data } as RecipeDoc);
           setSaved(true);
-          return; // Stop here if found
+          return;
         }
 
+        // Try sharedRecipes as fallback (in case accessed without source param)
+        console.log("6. Trying sharedRecipes collection as fallback...");
+        const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
+        const sharedSnap = await getDoc(sharedRecipeRef);
+        
+        if (sharedSnap.exists()) {
+          const data = sharedSnap.data();
+          console.log("7. SUCCESS: Found in sharedRecipes collection.", data);
+          setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
+          return;
+        }
+
+        // Final fallback to top-level recipes
         const topLevelRecipeRef = doc(db, "recipes", String(id));
-        console.log("6. Fallback: Trying to fetch from top-level recipes...");
+        console.log("8. Final fallback: Trying to fetch from top-level recipes...");
         const topLevelRecipeSnap = await getDoc(topLevelRecipeRef);
-        console.log("7. Fetched from top-level recipes. Exists:", topLevelRecipeSnap.exists());
+        console.log("9. Fetched from top-level recipes. Exists:", topLevelRecipeSnap.exists());
 
         if (topLevelRecipeSnap.exists()) {
           const data = topLevelRecipeSnap.data();
-          console.log("8. SUCCESS: Found recipe in top-level collection.", data);
+          console.log("10. SUCCESS: Found recipe in top-level collection.", data);
           setRecipe({ id: topLevelRecipeSnap.id, ...data } as RecipeDoc);
         } else {
-          console.log("9. Recipe not found in any collection.");
+          console.log("11. Recipe not found in any collection.");
         }
       } catch (err) {
         console.error("FETCH FAILED WITH ERROR:", err);
       } finally {
-        console.log("10. FINALLY: Setting loading to false.");
+        console.log("12. FINALLY: Setting loading to false.");
         setLoading(false);
       }
     };
 
     fetchRecipe();
-  }, [id]);
+  }, [id, source]); // Added 'source' to dependencies
 
   const toggleIngredient = (index: number) => {
     setCheckedIngredients((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));

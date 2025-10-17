@@ -132,7 +132,11 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.recipeList}>
               {displayedRecipes.map((recipe: SharedRecipe, index: number) => (
-                <AnimatedRecipeCard key={recipe.id} recipe={recipe} index={index} />
+                <AnimatedRecipeCard 
+                  key={recipe.id} 
+                  recipe={{ ...recipe, source: 'shared' } as any}
+                  index={index}
+                />
               ))}
             </View>
           )}
