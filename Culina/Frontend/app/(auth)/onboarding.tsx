@@ -85,7 +85,7 @@ export default function OnboardingScreen() {
           height: 8,
           width: dotWidth,
           borderRadius: 4,
-          backgroundColor: "#16a34a",
+          backgroundColor: "#128AFA",
           marginHorizontal: 4,
           opacity,
         }}
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#16a34a",
+    color: "#128AFA",
     marginBottom: 12,
   },
   description: {
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 12,
     marginHorizontal: 40,
     marginBottom: 40,

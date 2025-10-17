@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { Users, Flame, Globe } from "lucide-react-native";
+import { Users, Flame, UtensilsCrossed } from "lucide-react-native";
 
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
@@ -78,7 +78,8 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
   const calories = recipe.estimatedCalories || recipe.estKcal;
 
   // Determine display source
-  const displaySource = recipe.source === 'shared' ? 'Community' : recipe.source;
+  const displaySource = recipe.source === 'shared' ? undefined : recipe.source;
+  const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : undefined;
 
   return (
     <Animated.View
@@ -113,10 +114,11 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
           )}
 
           <Animated.View entering={FadeIn.delay(index * 100 + 150).duration(400)} style={styles.metaRow}>
-            <View style={[styles.metaPill, styles.communityPill]}>
-              <Globe size={14} color="#0284c7" />
-              <Text style={styles.metaText}>{displaySource || "Community"}</Text>
-            </View>
+            {!!displaySource && (
+              <View style={[styles.metaPill, styles.sourcePill]}>
+                <Text style={styles.metaText}>{displaySource}</Text>
+              </View>
+            )}
             {!!recipe.servings && (
               <View style={[styles.metaPill, styles.servingsPill]}>
                 <Users size={14} color="#0284c7" />
@@ -127,6 +129,11 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
               <View style={[styles.metaPill, styles.caloriesPill]}>
                 <Flame size={14} color="#f97316" />
                 <Text style={styles.metaText}>{calories} kcal</Text>
+              </View>
+            )}
+            {!!ingredientCount && (
+              <View style={[styles.metaPill, styles.ingredientsPill]}>
+                <Text style={styles.metaText}>🥕 {ingredientCount} ingredient{ingredientCount === 1 ? '' : 's'}</Text>
               </View>
             )}
             {!!sharedDate && (
@@ -203,7 +210,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
   },
-  communityPill: {
+  sourcePill: {
     backgroundColor: "#e0f2fe",
   },
   servingsPill: {
@@ -211,6 +218,9 @@ const styles = StyleSheet.create({
   },
   caloriesPill: {
     backgroundColor: "#fff7ed",
+  },
+  ingredientsPill: {
+    backgroundColor: "#f1f5f9",
   },
   datePill: {
     backgroundColor: "#f1f5f9",
