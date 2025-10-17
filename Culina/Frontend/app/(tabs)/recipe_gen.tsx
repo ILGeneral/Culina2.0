@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "@/lib/firebaseConfig";
-import { collection, getDocs, doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
 import Background from "@/components/Background";
@@ -33,6 +33,7 @@ type GeneratedRecipeCardProps = {
   onSave: () => void;
   onPress: () => void;
   saving: boolean;
+  inventoryCounts: Record<string, number>;
 };
 
 const MEASUREMENT_WORDS = new Set([
@@ -94,7 +95,7 @@ const stripUnits = (text: string) => {
   return remaining.length ? remaining.join(" ") : text.trim();
 };
 
-const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: GeneratedRecipeCardProps) => {
+const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventoryCounts }: GeneratedRecipeCardProps) => {
   const ingredientsPreview = Array.isArray(recipe.ingredients)
     ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
     : [];
@@ -103,6 +104,22 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: Generat
     if (typeof ingredient === "string") return stripUnits(ingredient);
     if (ingredient.name) return ingredient.name;
     return stripUnits(String(ingredient));
+  };
+
+  const getInventoryKey = (ingredient: string | { name: string; qty?: string }) => {
+    if (typeof ingredient === "string") return stripUnits(ingredient).toLowerCase();
+    return ingredient.name?.toLowerCase() ?? "";
+  };
+
+  const getInventoryCount = (ingredient: string | { name: string; qty?: string }) => {
+    const key = getInventoryKey(ingredient);
+    if (!key) return null;
+    if (inventoryCounts[key] !== undefined) return inventoryCounts[key];
+    if (key.endsWith("s")) {
+      const singular = key.slice(0, -1);
+      if (inventoryCounts[singular] !== undefined) return inventoryCounts[singular];
+    }
+    return null;
   };
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
@@ -125,11 +142,20 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: Generat
             {ingredientsPreview.length > 0 && (
               <View style={styles.previewSection}>
                 <Text style={styles.previewLabel}>Key ingredients</Text>
-                {ingredientsPreview.map((ingredient, idx) => (
-                  <Text key={idx} style={styles.previewItem}>
-                    • {formatIngredient(ingredient)}
-                  </Text>
-                ))}
+                {ingredientsPreview.map((ingredient, idx) => {
+                  const displayName = formatIngredient(ingredient);
+                  const count = getInventoryCount(ingredient);
+                  const countLabel =
+                    count === null ? "Not in pantry" : count === 0 ? "Out of stock" : `${count} in pantry`;
+                  return (
+                    <View key={idx} style={styles.previewItemRow}>
+                      <Text style={styles.previewItem}>• {displayName}</Text>
+                      <Text style={[styles.previewCount, (count === null || count === 0) && styles.previewCountLow]}>
+                        {countLabel}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
 
@@ -186,6 +212,7 @@ export default function RecipeGeneratorScreen() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
   const user = auth.currentUser;
   const router = useRouter();
 
@@ -217,6 +244,8 @@ export default function RecipeGeneratorScreen() {
   }, [ingredients, preferences]);
 
   useEffect(() => {
+    let unsubscribeInventory: (() => void) | undefined;
+
     const fetchUserData = async () => {
       if (!user) {
         setLoading(false);
@@ -224,9 +253,26 @@ export default function RecipeGeneratorScreen() {
       }
       try {
         const invRef = collection(db, "users", user.uid, "ingredients");
-        const invSnap = await getDocs(invRef);
-        const names = invSnap.docs.map((d) => d.data()?.name).filter(Boolean) as string[];
-        setIngredients(names);
+        unsubscribeInventory = onSnapshot(invRef, (snapshot) => {
+          const counts: Record<string, number> = {};
+          const names: string[] = [];
+
+          snapshot.docs.forEach((docSnap) => {
+            const data = docSnap.data() as { name?: string; quantity?: number };
+            if (!data?.name) return;
+            names.push(data.name);
+            const baseKey = data.name.toLowerCase();
+            const qty = typeof data.quantity === "number" ? data.quantity : 0;
+            counts[baseKey] = qty;
+            const strippedKey = stripUnits(data.name).toLowerCase();
+            if (strippedKey && strippedKey !== baseKey) {
+              counts[strippedKey] = qty;
+            }
+          });
+
+          setIngredients(names);
+          setInventoryCounts(counts);
+        });
 
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
@@ -245,6 +291,10 @@ export default function RecipeGeneratorScreen() {
       }
     };
     fetchUserData();
+
+    return () => {
+      unsubscribeInventory?.();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -373,6 +423,7 @@ export default function RecipeGeneratorScreen() {
                 onSave={() => handleSave(recipe)}
                 onPress={() => handleViewDetails(recipe)}
                 saving={saving}
+                inventoryCounts={inventoryCounts}
               />
             ))}
             </ScrollView>
@@ -422,7 +473,22 @@ const styles = StyleSheet.create({
   recipeDescription: { color: "#475569", fontSize: 15, lineHeight: 22, marginBottom: 16 },
   previewSection: { marginBottom: 16 },
   previewLabel: { fontSize: 14, fontWeight: "600", color: "#0f172a", marginBottom: 6 },
-  previewItem: { color: "#334155", marginBottom: 4, lineHeight: 20 },
+  previewItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 4,
+  },
+  previewItem: { color: "#334155", lineHeight: 20, flex: 1 },
+  previewCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  previewCountLow: {
+    color: "#b91c1c",
+  },
   recipeMetaContainer: {
     flexDirection: "row",
     flexWrap: "wrap",

@@ -11,14 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import {
-  collection,
-  getDocs,
-  deleteDoc,
-  doc,
-  orderBy,
-  query,
-} from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
   ArrowLeft,
   ChefHat,
@@ -57,6 +50,7 @@ type RecipeCardProps = {
   index: number;
   onPress: () => void;
   onDelete: (id: string) => void;
+  inventoryCounts: Record<string, number>;
 };
 
 const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => {
@@ -93,13 +87,29 @@ const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => 
   return ingredient.name || '';
 };
 
-const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, index, onPress, onDelete, inventoryCounts }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
   const ingredientsPreview = Array.isArray(recipe.ingredients)
     ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
     : [];
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
+
+  const getInventoryKey = (ingredient: string | { name: string; qty?: string }) => {
+    if (typeof ingredient === 'string') return formatNameOnly(ingredient).toLowerCase();
+    return ingredient.name?.toLowerCase() ?? '';
+  };
+
+  const getInventoryCount = (ingredient: string | { name: string; qty?: string }) => {
+    const key = getInventoryKey(ingredient);
+    if (!key) return null;
+    if (inventoryCounts[key] !== undefined) return inventoryCounts[key];
+    if (key.endsWith('s')) {
+      const singular = key.slice(0, -1);
+      if (inventoryCounts[singular] !== undefined) return inventoryCounts[singular];
+    }
+    return null;
+  };
 
   const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
     return formatNameOnly(ingredient);
@@ -130,11 +140,20 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
           {ingredientsPreview.length > 0 && (
             <View style={styles.previewSection}>
               <Text style={styles.previewLabel}>Key ingredients</Text>
-              {ingredientsPreview.map((ingredient, idx) => (
-                <Text key={idx} style={styles.previewItem}>
-                  • {formatIngredient(ingredient)}
-                </Text>
-              ))}
+              {ingredientsPreview.map((ingredient, idx) => {
+                const displayName = formatIngredient(ingredient);
+                const count = getInventoryCount(ingredient);
+                const countLabel =
+                  count === null ? 'Not in pantry' : count === 0 ? 'Out of stock' : `${count} in pantry`;
+                return (
+                  <View key={idx} style={styles.previewRow}>
+                    <Text style={styles.previewItem}>• {displayName}</Text>
+                    <Text style={[styles.previewCount, (count === null || count === 0) && styles.previewCountLow]}>
+                      {countLabel}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           )}
 
@@ -179,17 +198,12 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
 export default function SavedRecipesScreen() {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
   const router = useRouter();
 
-  const fetchRecipes = async () => {
+  const fetchRecipes = async (uid: string) => {
     try {
       setLoading(true);
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        Alert.alert('Error', 'Please log in to view your saved recipes.');
-        setLoading(false);
-        return;
-      }
       const recipesRef = collection(db, 'users', uid, 'recipes');
       const q = query(recipesRef, orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
@@ -205,6 +219,43 @@ export default function SavedRecipesScreen() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let unsubscribeInventory: (() => void) | undefined;
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
+
+    fetchRecipes(uid);
+
+    const invRef = collection(db, 'users', uid, 'ingredients');
+    unsubscribeInventory = onSnapshot(invRef, (snapshot) => {
+      const counts: Record<string, number> = {};
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data() as { name?: string; quantity?: number };
+        if (!data?.name) return;
+        const baseKey = data.name.toLowerCase();
+        const qty = typeof data.quantity === 'number' ? data.quantity : 0;
+        counts[baseKey] = qty;
+        const normalized = formatNameOnly(data.name).toLowerCase();
+        if (normalized && normalized !== baseKey) {
+          counts[normalized] = qty;
+        }
+        if (baseKey.endsWith('s')) {
+          counts[baseKey.slice(0, -1)] = qty;
+        }
+      });
+
+      setInventoryCounts(counts);
+    });
+
+    return () => {
+      unsubscribeInventory?.();
+    };
+  }, []);
 
   const handleDelete = async (id: string) => {
     Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
@@ -226,10 +277,6 @@ export default function SavedRecipesScreen() {
       },
     ]);
   };
-
-  useEffect(() => {
-    fetchRecipes();
-  }, []);
 
   return (
     <Background>
@@ -266,6 +313,7 @@ export default function SavedRecipesScreen() {
                 index={index}
                 onPress={() => router.push(`/recipe/${recipe.id}`)}
                 onDelete={handleDelete}
+                inventoryCounts={inventoryCounts}
               />
             ))}
           </ScrollView>
@@ -360,9 +408,24 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   previewItem: {
+    fontSize: 16,
     color: '#334155',
-    marginBottom: 4,
-    lineHeight: 20,
+    marginBottom: 6,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 6,
+  },
+  previewCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  previewCountLow: {
+    color: '#b91c1c',
   },
   recipeMetaContainer: {
     flexDirection: 'row',
