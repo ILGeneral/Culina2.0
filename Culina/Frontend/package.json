@@ -27,6 +27,7 @@
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.8",
     "expo-router": "~6.0.11",
+    "expo-speech": "^14.0.7",
     "expo-status-bar": "~3.0.8",
     "firebase": "^12.3.0",
     "lucide-react-native": "^0.545.0",
