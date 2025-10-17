@@ -56,6 +56,31 @@ const MenuItem = ({ icon, text, onPress, isDestructive = false }: MenuItemProps)
   </TouchableOpacity>
 );
 
+type PrefPillProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+};
+
+const PrefPill = ({ icon, label, value }: PrefPillProps) => (
+  <View style={styles.prefPill}>
+    <View style={styles.prefIcon}>{icon}</View>
+    <Text style={styles.prefLabel}>{label}</Text>
+    <Text style={styles.prefText}>{value}</Text>
+  </View>
+);
+
+const formatPreferenceValue = (value?: string) => {
+  if (!value) {
+    return "Not set";
+  }
+  return value
+    .toString()
+    .split(/[\s_-]+/)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+};
+
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -78,26 +103,41 @@ export default function ProfileScreen() {
     toastTranslateY.value = withDelay(2500, withTiming(100, { duration: 300 }));
   };
 
+  const toastParam = typeof params.toastMessage === "string" ? params.toastMessage : undefined;
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setLoading(true);
+        await fetchUserData(currentUser.uid);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
         setLoading(true);
-        setUser(currentUser);
-        if (currentUser) {
-          await fetchUserData(currentUser.uid);
-        } else {
-          setLoading(false);
-        }
-      });
-
-      if (params.toastMessage) {
-        showToast(String(params.toastMessage));
-        router.setParams({ toastMessage: "" }); // Clear param
+        fetchUserData(currentUser.uid);
+      } else {
+        setLoading(false);
       }
-
-      return () => unsubscribe();
-    }, [params])
+      return () => {};
+    }, [])
   );
+
+  useEffect(() => {
+    if (toastParam) {
+      showToast(String(toastParam));
+      router.setParams({ toastMessage: "" });
+    }
+  }, [router, showToast, toastParam]);
 
   const animatedHeaderStyle = useAnimatedStyle(() => {
     const height = interpolate(
@@ -141,10 +181,64 @@ export default function ProfileScreen() {
     };
   });
 
-  const fetchUserData = async (uid: string) => { /* ... (same as before) */ };
-  const handleLogout = async () => { /* ... (same as before) */ };
+  const preferences = userData?.preferences ?? {};
+  const allergiesList = Array.isArray(preferences.allergies) ? preferences.allergies : [];
+  const preferenceSummary = [
+    preferences.diet ? `Diet: ${formatPreferenceValue(preferences.diet)}` : null,
+    preferences.religiousPreference ? `Religious: ${formatPreferenceValue(preferences.religiousPreference)}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const preferenceValue = preferenceSummary || "Not set";
+  const allergiesText = allergiesList.length ? allergiesList.join(", ") : "None reported";
+  const caloriePlanText = preferences.caloriePlan ? `${preferences.caloriePlan} kcal/day` : "Not set";
 
-  if (loading) { /* ... (same as before) */ }
+  const handleEditProfile = () => {
+    router.push("/editProfile");
+  };
+
+  const handleReportIssue = () => {
+    router.push("/report");
+  };
+
+  const fetchUserData = async (uid: string) => {
+    /* ... (same as before) */
+    try {
+      const docRef = doc(db, "users", uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setUserData(docSnap.data());
+      } else {
+        setUserData(null);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      showToast("Failed to load profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    /* ... (same as before) */
+    try {
+      await signOut(auth);
+      router.replace("/login");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      showToast("Failed to log out. Please try again.");
+    }
+  };
+
+  if (loading) {
+    /* ... (same as before) */
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0ea5e9" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -184,6 +278,21 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Your Preferences</Text>
             <View style={styles.prefsGrid}>
               {/* PrefPill components here */}
+              <PrefPill
+                icon={<Heart color="#0ea5e9" size={20} />}
+                label="Preferences"
+                value={preferenceValue}
+              />
+              <PrefPill
+                icon={<WheatOff color="#0ea5e9" size={20} />}
+                label="Allergies"
+                value={allergiesText}
+              />
+              <PrefPill
+                icon={<Flame color="#fb923c" size={20} />}
+                label="Target Calories"
+                value={caloriePlanText}
+              />
             </View>
           </Animated.View>
 
@@ -191,6 +300,22 @@ export default function ProfileScreen() {
           <Animated.View style={styles.section} entering={FadeInUp.delay(500).duration(500)}>
             <View style={styles.menu}>
               {/* MenuItem components here */}
+              <MenuItem
+                icon={<Edit3 color="#0f172a" size={20} />}
+                text="Edit Profile"
+                onPress={handleEditProfile}
+              />
+              <MenuItem
+                icon={<AlertTriangle color="#f97316" size={20} />}
+                text="Report an Issue"
+                onPress={handleReportIssue}
+              />
+              <MenuItem
+                icon={<LogOut color="#ef4444" size={20} />}
+                text="Log Out"
+                onPress={handleLogout}
+                isDestructive
+              />
             </View>
           </Animated.View>
         </View>

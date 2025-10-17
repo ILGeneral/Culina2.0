@@ -95,6 +95,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
+  prefIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  prefLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+    textAlign: "center",
+  },
   prefText: {
     fontSize: 14,
     fontWeight: "500",

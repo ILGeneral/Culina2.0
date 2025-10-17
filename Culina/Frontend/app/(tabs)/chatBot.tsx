@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
+  Image,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -12,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import type { ImageSourcePropType } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Send, Volume2, VolumeX } from "lucide-react-native";
 import * as Speech from "expo-speech";
@@ -24,6 +26,12 @@ type ChatMessage = {
 
 const API_BASE = "https://culina-backend.vercel.app/api";
 
+const CULINA_POSES: ImageSourcePropType[] = [
+  require("@/assets/chatbotAssets/culinaModels/culinaPose1.png"),
+  require("@/assets/chatbotAssets/culinaModels/culinaPose2.png"),
+  require("@/assets/chatbotAssets/culinaModels/culinaPose3.png"),
+];
+
 const ChatBotScreen = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: "welcome",
@@ -34,6 +42,7 @@ const ChatBotScreen = () => {
   const [sending, setSending] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  const [currentPose, setCurrentPose] = useState<ImageSourcePropType>(CULINA_POSES[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   useEffect(() => {
@@ -59,6 +68,17 @@ const ChatBotScreen = () => {
       onError: () => setSpeaking(false),
     });
   }, [voiceEnabled]);
+
+  const switchPose = useCallback(() => {
+    setCurrentPose((prev) => {
+      const options = CULINA_POSES.filter((pose) => pose !== prev);
+      if (options.length === 0) {
+        return prev;
+      }
+      const randomIndex = Math.floor(Math.random() * options.length);
+      return options[randomIndex];
+    });
+  }, []);
 
   const toggleVoice = useCallback(() => {
     setVoiceEnabled((prev) => {
@@ -118,6 +138,7 @@ const ChatBotScreen = () => {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      switchPose();
       speak(replyText);
     } catch (error: any) {
       console.error("Chatbot request error:", error);
@@ -149,51 +170,58 @@ const ChatBotScreen = () => {
           style={styles.flex}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View style={styles.overlay}>
-            <View style={styles.header}>
-              <View style={styles.headerTitles}>
-                <Text style={styles.title}>Culina Chatbot</Text>
-                <Text style={styles.subtitle}>Cheerful kitchen guidance whenever you need it.</Text>
-              </View>
-              <TouchableOpacity
-                onPress={toggleVoice}
-                style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
-                activeOpacity={0.8}
-              >
-                {voiceEnabled ? <Volume2 size={20} color="#0f172a" /> : <VolumeX size={20} color="#0f172a" />}
-                <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              ref={listRef}
-              data={messages}
-              keyExtractor={(item) => item.id}
-              renderItem={renderMessage}
-              contentContainerStyle={styles.messages}
-              showsVerticalScrollIndicator={false}
+          <View style={styles.contentContainer}>
+            <Image
+              source={currentPose}
+              style={styles.culinaModel}
+              resizeMode="contain"
             />
+            <View style={styles.overlay}>
+              <View style={styles.header}>
+                <View style={styles.headerTitles}>
+                  <Text style={styles.title}>Culina</Text>
+                  <Text style={styles.subtitle}>Cheerful kitchen guidance whenever you need it.</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={toggleVoice}
+                  style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  {voiceEnabled ? <Volume2 size={20} color="#0f172a" /> : <VolumeX size={20} color="#0f172a" />}
+                  <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Share what you're cooking or ask a question..."
-                placeholderTextColor="#94a3b8"
-                value={input}
-                onChangeText={setInput}
-                multiline
+              <FlatList
+                ref={listRef}
+                data={messages}
+                keyExtractor={(item) => item.id}
+                renderItem={renderMessage}
+                contentContainerStyle={styles.messages}
+                showsVerticalScrollIndicator={false}
               />
-              <TouchableOpacity
-                style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]}
-                onPress={handleSend}
-                disabled={!input.trim() || sending}
-              >
-                {sending ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Send size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
+
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Share what you're cooking or ask a question..."
+                  placeholderTextColor="#94a3b8"
+                  value={input}
+                  onChangeText={setInput}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]}
+                  onPress={handleSend}
+                  disabled={!input.trim() || sending}
+                >
+                  {sending ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Send size={20} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -214,17 +242,29 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  contentContainer: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(255, 255, 255, 0.86)",
     marginHorizontal: 16,
-    marginBottom: 24,
+    marginTop: 80,
     borderRadius: 24,
     padding: 20,
     shadowColor: "#0f172a",
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 16,
+  },
+  culinaModel: {
+    position: "absolute",
+    top: -40,
+    alignSelf: "center",
+    width: 420,
+    height: 720,
+    opacity: 0.16,
   },
   header: {
     flexDirection: "row",
@@ -312,6 +352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 12,
+    marginBottom: 4,
   },
   input: {
     flex: 1,
