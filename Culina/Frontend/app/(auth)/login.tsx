@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 24,
     textAlign: "center",
-    color: "#16a34a",
+    color: "#128AFA",
   },
   input: {
     borderWidth: 1,
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 14,
     borderRadius: 8,
     marginTop: 8,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   linkHighlight: {
-    color: "#16a34a",
+    color: "#128AFA",
     fontWeight: "600",
   },
 });

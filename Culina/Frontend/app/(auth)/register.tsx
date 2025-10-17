@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 24,
-    color: "#16a34a",
+    color: "#128AFA",
   },
   section: {
     marginBottom: 24,
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 16,
     borderRadius: 8,
     marginTop: 8,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   linkHighlight: {
-    color: "#16a34a",
+    color: "#128AFA",
     fontWeight: "600",
   },
   pickerContainer: {
@@ -322,12 +322,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   allergyText: {
-    color: "#166534",
+    color: "#128AFA",
     fontWeight: "600",
     marginRight: 6,
   },
   allergyRemove: {
-    color: "#166534",
+    color: "#128AFA",
     fontWeight: "700",
     fontSize: 16,
   },
@@ -344,13 +344,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#16a34a",
+    borderColor: "#128AFA",
     marginRight: 10,
     justifyContent: "center",
     alignItems: "center",
   },
   checkboxBoxChecked: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
   },
   checkboxMark: {
     color: "#fff",
