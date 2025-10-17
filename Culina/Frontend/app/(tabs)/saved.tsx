@@ -59,6 +59,40 @@ type RecipeCardProps = {
   onDelete: (id: string) => void;
 };
 
+const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => {
+  if (typeof ingredient === 'string') {
+    return ingredient
+      .split(/\s+/)
+      .filter((token, idx, arr) => {
+        const lower = token.toLowerCase();
+        if (idx === 0 && /^[\d/.,-]+$/.test(lower)) return false;
+        if ([
+          'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
+          'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
+          'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
+          'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
+          'bunch', 'bunches', 'large', 'small', 'medium', 'of'
+        ].includes(lower)) {
+          return false;
+        }
+        if (idx === 1 && arr[0] && /^[\d/.,-]+$/.test(arr[0])) {
+          if ([
+            'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
+            'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
+            'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
+            'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
+            'bunch', 'bunches', 'large', 'small', 'medium'
+          ].includes(lower)) return false;
+        }
+        return true;
+      })
+      .join(' ')
+      .trim();
+  }
+
+  return ingredient.name || '';
+};
+
 const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
   const ingredientsPreview = Array.isArray(recipe.ingredients)
@@ -68,9 +102,7 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
 
   const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
-    if (typeof ingredient === 'string') return ingredient;
-    if (ingredient.qty) return `${ingredient.qty} ${ingredient.name}`;
-    return ingredient.name;
+    return formatNameOnly(ingredient);
   };
 
   return (

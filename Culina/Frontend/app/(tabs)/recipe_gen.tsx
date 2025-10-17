@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
 import Background from "@/components/Background";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
-import { Users, Flame } from "lucide-react-native";
+import { Users, Flame, RefreshCw } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -35,15 +35,74 @@ type GeneratedRecipeCardProps = {
   saving: boolean;
 };
 
+const MEASUREMENT_WORDS = new Set([
+  "cup",
+  "cups",
+  "tsp",
+  "teaspoon",
+  "teaspoons",
+  "tbsp",
+  "tablespoon",
+  "tablespoons",
+  "oz",
+  "ounce",
+  "ounces",
+  "g",
+  "gram",
+  "grams",
+  "kg",
+  "kilogram",
+  "kilograms",
+  "ml",
+  "milliliter",
+  "milliliters",
+  "l",
+  "liter",
+  "liters",
+  "lb",
+  "pound",
+  "pounds",
+  "pinch",
+  "dash",
+  "clove",
+  "cloves",
+  "slice",
+  "slices",
+  "piece",
+  "pieces",
+  "bunch",
+  "bunches",
+  "large",
+  "small",
+  "medium",
+]);
+
+const stripUnits = (text: string) => {
+  if (!text) return text;
+  const tokens = text.trim().split(/\s+/);
+  const remaining = [...tokens];
+
+  while (remaining.length) {
+    const token = remaining[0].toLowerCase();
+    if (/^[\d/.,-]+$/.test(token) || MEASUREMENT_WORDS.has(token) || token === "of") {
+      remaining.shift();
+      continue;
+    }
+    break;
+  }
+
+  return remaining.length ? remaining.join(" ") : text.trim();
+};
+
 const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: GeneratedRecipeCardProps) => {
   const ingredientsPreview = Array.isArray(recipe.ingredients)
     ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
     : [];
 
   const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
-    if (typeof ingredient === "string") return ingredient;
-    if (ingredient.qty) return `${ingredient.qty} ${ingredient.name}`;
-    return ingredient.name;
+    if (typeof ingredient === "string") return stripUnits(ingredient);
+    if (ingredient.name) return ingredient.name;
+    return stripUnits(String(ingredient));
   };
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
@@ -106,9 +165,12 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: Generat
               style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
               onPress={onSave}
               disabled={saving}
-              activeOpacity={0.85}
             >
-              <Text style={styles.primaryButtonText}>{saving ? "Saving..." : "Save Recipe"}</Text>
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Save Recipe</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -134,6 +196,25 @@ export default function RecipeGeneratorScreen() {
       console.warn("Failed to persist generated recipes:", err);
     }
   };
+
+  const generateNewRecipes = useCallback(async () => {
+    if (!ingredients.length) {
+      Alert.alert("Missing ingredients", "Add pantry items before generating recipes.");
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      const { recipes: generated } = await generateRecipe(ingredients, preferences);
+      setRecipes(generated);
+      await persistRecipes(generated);
+    } catch (err: any) {
+      console.error("Generate recipes failed:", err);
+      Alert.alert("Error", err?.message || "Could not generate recipes right now.");
+    } finally {
+      setGenerating(false);
+    }
+  }, [ingredients, preferences]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -234,6 +315,12 @@ export default function RecipeGeneratorScreen() {
     }
   };
 
+  useEffect(() => {
+    if (!loading && !recipes.length && ingredients.length && !generating) {
+      generateNewRecipes();
+    }
+  }, [loading, recipes.length, ingredients.length, generating, generateNewRecipes]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -248,7 +335,7 @@ export default function RecipeGeneratorScreen() {
       <SafeAreaView style={styles.container}>
         {!recipes.length ? (
           <View style={styles.center}>
-            <TouchableOpacity style={styles.button} onPress={handleGenerate} disabled={generating}>
+            <TouchableOpacity style={styles.button} onPress={generateNewRecipes} disabled={generating}>
               <Text style={styles.buttonText}>{generating ? "Generating..." : "Generate Recipes!"}</Text>
             </TouchableOpacity>
             {preferences.length > 0 && (
@@ -256,7 +343,24 @@ export default function RecipeGeneratorScreen() {
             )}
           </View>
         ) : (
-          <ScrollView
+          <>
+            <View style={styles.refreshRow}>
+              <Text style={styles.refreshHint}>Need a fresh batch?</Text>
+              <TouchableOpacity
+                style={[styles.secondaryButton, generating && styles.secondaryButtonDisabled]}
+                onPress={generateNewRecipes}
+                disabled={generating}
+                activeOpacity={0.85}
+              >
+                {generating ? (
+                  <ActivityIndicator color="#0f172a" size="small" />
+                ) : (
+                  <RefreshCw size={18} color="#0f172a" />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
@@ -271,7 +375,8 @@ export default function RecipeGeneratorScreen() {
                 saving={saving}
               />
             ))}
-          </ScrollView>
+            </ScrollView>
+          </>
         )}
       </SafeAreaView>
     </Background>
@@ -286,6 +391,19 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   scroll: { flex: 1 },
   list: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  refreshRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginTop: 12,
+    gap: 12,
+  },
+  refreshHint: {
+    fontSize: 14,
+    color: "#475569",
+    fontWeight: "500",
+  },
   recipeCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
@@ -339,4 +457,23 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#0f172a",
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
 });
