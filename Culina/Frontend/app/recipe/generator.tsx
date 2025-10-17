@@ -95,14 +95,14 @@ export default function RecipeGeneratorScreen() {
       }
 
       const batch = writeBatch(db);
-      const invRef = collection(db, "users", uid, "ingredients"); // Changed from "inventory"
+      const invRef = collection(db, "users", uid, "ingredients");
       const snapshot = await getDocs(invRef);
       const invData: InventoryItem[] = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as Omit<InventoryItem, "id">),
       }));
 
-      // ✅ Fixed: Handle both string[] and object[] types
+      // Handle both string[] and object[] types
       recipe.ingredients.forEach((ri) => {
         const ingredientName = typeof ri === 'string' ? ri : ri.name;
         
@@ -169,7 +169,6 @@ export default function RecipeGeneratorScreen() {
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Ingredients
           </Text>
-          {/* Fixed: Handle both string and object types */}
           {recipe.ingredients.map((ing, i) => (
             <Text key={i} className="text-gray-700">
               • {typeof ing === 'string' ? ing : `${ing.name}${ing.qty ? ` - ${ing.qty}` : ''}`}
@@ -179,7 +178,8 @@ export default function RecipeGeneratorScreen() {
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Instructions
           </Text>
-          {recipe.instructions.map((step, i) => (
+          {/* FIXED: Handle possibly undefined instructions */}
+          {(recipe.instructions || []).map((step, i) => (
             <Text key={i} className="text-gray-700">
               {i + 1}. {step}
             </Text>

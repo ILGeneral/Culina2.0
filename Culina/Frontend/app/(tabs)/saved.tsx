@@ -18,14 +18,17 @@ import {
   Users,
   Flame,
   Clock,
+  Share2,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import Background from '@/components/Background';
 import type { Recipe } from '@/types/recipe';
+import { shareRecipe, unshareRecipe, isRecipeShared } from '@/lib/utils/shareRecipe';
 
 type SavedRecipe = Recipe & {
   id: string;
   createdAt?: any;
+  isShared?: boolean;
 };
 
 const formatDate = (val: any): string | null => {
@@ -50,6 +53,7 @@ type RecipeCardProps = {
   index: number;
   onPress: () => void;
   onDelete: (id: string) => void;
+  onShare: (recipe: SavedRecipe) => void;
   inventoryCounts: Record<string, number>;
 };
 
@@ -87,7 +91,7 @@ const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => 
   return ingredient.name || '';
 };
 
-const RecipeCard = ({ recipe, index, onPress, onDelete, inventoryCounts }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, inventoryCounts }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
   const ingredientsPreview = Array.isArray(recipe.ingredients)
     ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
@@ -127,9 +131,23 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, inventoryCounts }: Recip
         activeOpacity={0.8}
       >
         <View style={styles.recipeContent}>
-          <Text style={styles.recipeTitle} numberOfLines={2}>
-            {recipe.title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.recipeTitle} numberOfLines={2}>
+              {recipe.title}
+            </Text>
+            <TouchableOpacity
+              onPress={() => onShare(recipe)}
+              style={[styles.shareButton, recipe.isShared && styles.shareButtonActive]}
+            >
+              <Share2 size={20} color={recipe.isShared ? "#0ea5e9" : "#64748b"} />
+            </TouchableOpacity>
+          </View>
+
+          {recipe.isShared && (
+            <View style={styles.sharedBadge}>
+              <Text style={styles.sharedBadgeText}>Shared with community</Text>
+            </View>
+          )}
 
           {!!recipe.description && (
             <Text style={styles.recipeDescription} numberOfLines={2}>
@@ -257,6 +275,74 @@ export default function SavedRecipesScreen() {
     };
   }, []);
 
+  const handleShare = async (recipe: SavedRecipe) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    try {
+      // Check if already shared
+      const isShared = await isRecipeShared(recipe.id, uid);
+      
+      if (isShared) {
+        // Option to unshare
+        Alert.alert(
+          'Unshare Recipe',
+          'This recipe is already shared. Would you like to unshare it?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Unshare',
+              style: 'destructive',
+              onPress: async () => {
+                const result = await unshareRecipe(recipe.id, uid);
+                if (result.success) {
+                  setRecipes((prev) =>
+                    prev.map((r) =>
+                      r.id === recipe.id ? { ...r, isShared: false } : r
+                    )
+                  );
+                  Alert.alert('Success', 'Recipe unshared from the community.');
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to unshare recipe.');
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Share the recipe
+      Alert.alert(
+        'Share Recipe',
+        'Share this recipe with the Culina community?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Share',
+            onPress: async () => {
+              const result = await shareRecipe(recipe, uid);
+              
+              if (result.success) {
+                setRecipes((prev) =>
+                  prev.map((r) =>
+                    r.id === recipe.id ? { ...r, isShared: true } : r
+                  )
+                );
+                Alert.alert('Success', 'Recipe shared with the community!');
+              } else {
+                Alert.alert('Error', result.error || 'Failed to share recipe.');
+              }
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
       { text: 'Cancel', style: 'cancel' },
@@ -313,6 +399,7 @@ export default function SavedRecipesScreen() {
                 index={index}
                 onPress={() => router.push(`/recipe/${recipe.id}`)}
                 onDelete={handleDelete}
+                onShare={handleShare}
                 inventoryCounts={inventoryCounts}
               />
             ))}
@@ -386,11 +473,39 @@ const styles = StyleSheet.create({
   recipeContent: {
     padding: 20,
   },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
   recipeTitle: {
+    flex: 1,
     fontSize: 22,
     fontWeight: 'bold',
     color: '#1e293b',
-    marginBottom: 8,
+    marginRight: 12,
+  },
+  shareButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  shareButtonActive: {
+    backgroundColor: '#e0f2fe',
+  },
+  sharedBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  sharedBadgeText: {
+    color: '#16a34a',
+    fontSize: 12,
+    fontWeight: '600',
   },
   recipeDescription: {
     color: '#475569',
