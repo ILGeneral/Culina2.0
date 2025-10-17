@@ -25,6 +25,7 @@ async function getUserContext(uid) {
     .doc(uid)
     .collection('ingredients')
     .get();
+
   const inventory = invSnap.docs.map((d) => ({
     id: d.id,
     ...d.data(),
@@ -48,7 +49,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Verify Firebase Auth token
+    // Verify Firebase auth token
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });
@@ -60,36 +61,50 @@ module.exports = async (req, res) => {
 
     console.log('User authenticated:', uid);
 
-    // Get user context
+    // Gather user data
     const { preferences, inventory } = await getUserContext(uid);
     const diet = preferences?.dietaryPreference || 'none';
     const religion = preferences?.religiousPreference || 'none';
     const caloriePlan = preferences?.caloriePlan || 'none';
-
-    console.log('📦 Inventory items:', inventory.length);
+    const allergies = preferences?.allergies || 'none';
 
     const model = req.body?.model || 'llama-3.1-8b-instant';
 
+    // Improved prompt with stricter formatting requirements
     const prompt = `
-You are a culinary assistant. Create ONE recipe that uses ONLY
-ingredients from the user's inventory.
-Honor dietary preference: ${diet}, religious preference: ${religion},
-calorie goal: ${caloriePlan}.
-Return strict JSON:
-{
-  "title": "string",
-  "description": "string",
-  "ingredients": ["string"],
-  "instructions": ["string"],
-  "servings": number,
-  "estimatedCalories": number
-}
-Inventory:
-${JSON.stringify(inventory, null, 2)}
-    `.trim();
+You are a culinary assistant. Create EXACTLY 5 different and varied recipes.
 
-    // Call Groq API
+STRICT REQUIREMENTS:
+- Use ONLY ingredients from the inventory provided below
+- Each recipe MUST be significantly different from the others
+- Follow dietary preference: ${diet}
+- Follow religious preference: ${religion}
+- Follow calorie goal: ${caloriePlan}
+- Avoid allergies: ${allergies}
+- Return EXACTLY 5 recipes, no more, no less
+
+Return ONLY valid JSON in this EXACT format (no additional text):
+{
+  "recipes": [
+    {
+      "title": "Recipe Name Here",
+      "description": "Brief description of the dish",
+      "ingredients": ["ingredient 1 with quantity", "ingredient 2 with quantity"],
+      "instructions": ["Step 1", "Step 2", "Step 3"],
+      "servings": 2,
+      "estimatedCalories": 450
+    }
+  ]
+}
+
+Available Inventory:
+${JSON.stringify(inventory, null, 2)}
+
+Remember: Return EXACTLY 5 different recipes in the JSON format above.
+`.trim();
+
     const fetch = (await import('node-fetch')).default;
+
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -99,7 +114,8 @@ ${JSON.stringify(inventory, null, 2)}
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.4,
+        temperature: 0.7, // Increased for more variety
+        max_tokens: 4000, // Ensure enough tokens for 5 recipes
         response_format: { type: 'json_object' },
       }),
     });
@@ -113,21 +129,56 @@ ${JSON.stringify(inventory, null, 2)}
     const json = await groqResponse.json();
     const content = json?.choices?.[0]?.message?.content ?? '';
 
-    let recipe;
+    console.log('Raw Groq response:', content.substring(0, 500));
+
+    let parsedData;
     try {
-      recipe = JSON.parse(content);
+      parsedData = JSON.parse(content);
     } catch (e) {
       console.error('JSON parse error:', e);
-      throw new Error('Model did not return valid JSON');
+      console.error('Content that failed to parse:', content);
+      throw new Error('Invalid JSON response from AI model');
     }
 
-    console.log('✅ Recipe generated successfully');
+    // Validate the response structure
+    if (!parsedData.recipes || !Array.isArray(parsedData.recipes)) {
+      console.error('Invalid response structure:', parsedData);
+      throw new Error('AI model did not return recipes array');
+    }
 
-    return res.status(200).json({ recipe });
+    const recipes = parsedData.recipes;
+
+    // Log what we got
+    console.log(`AI returned ${recipes.length} recipes`);
+
+    // Validate each recipe has required fields
+    const validRecipes = recipes.filter(recipe => {
+      return recipe.title && 
+             recipe.description && 
+             Array.isArray(recipe.ingredients) && 
+             Array.isArray(recipe.instructions) &&
+             recipe.ingredients.length > 0 &&
+             recipe.instructions.length > 0;
+    });
+
+    console.log(`${validRecipes.length} valid recipes after filtering`);
+
+    // If we don't have at least 5 valid recipes, return an error
+    if (validRecipes.length < 5) {
+      console.error('Not enough valid recipes. Got:', validRecipes.length);
+      throw new Error(`AI model only generated ${validRecipes.length} valid recipes. Expected at least 5.`);
+    }
+
+    // Return exactly 5 recipes (in case AI returned more)
+    const finalRecipes = validRecipes.slice(0, 5);
+
+    console.log(`Successfully generated ${finalRecipes.length} recipes`);
+    return res.status(200).json({ recipes: finalRecipes });
+
   } catch (error) {
-    console.error('❌ Error:', error);
-    return res.status(500).json({ 
-      error: error.message || 'Failed to generate recipe' 
+    console.error('Error:', error);
+    return res.status(500).json({
+      error: error.message || 'Failed to generate recipes',
     });
   }
 };
