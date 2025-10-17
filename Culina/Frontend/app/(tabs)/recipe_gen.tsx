@@ -14,11 +14,107 @@ import { collection, getDocs, doc, getDoc, setDoc, serverTimestamp } from "fireb
 import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
 import Background from "@/components/Background";
+import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
+import { Users, Flame } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type UserPrefsDoc = {
   dietaryPreference?: string;
   religiousPreference?: string;
   caloriePlan?: string;
+};
+
+const STORAGE_KEY = "@culina/generated_recipes";
+
+type GeneratedRecipeCardProps = {
+  recipe: Recipe;
+  index: number;
+  onSave: () => void;
+  onPress: () => void;
+  saving: boolean;
+};
+
+const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving }: GeneratedRecipeCardProps) => {
+  const ingredientsPreview = Array.isArray(recipe.ingredients)
+    ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
+    : [];
+
+  const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
+    if (typeof ingredient === "string") return ingredient;
+    if (ingredient.qty) return `${ingredient.qty} ${ingredient.name}`;
+    return ingredient.name;
+  };
+
+  const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
+
+  return (
+    <Animated.View entering={FadeInUp.delay(index * 100).duration(400).springify()}>
+      <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
+        <View style={styles.recipeCard}>
+          <View style={styles.recipeContent}>
+            <Text style={styles.recipeTitle} numberOfLines={2}>
+              {recipe.title}
+            </Text>
+
+            {!!recipe.description && (
+              <Text style={styles.recipeDescription} numberOfLines={2}>
+                {recipe.description}
+              </Text>
+            )}
+
+            {ingredientsPreview.length > 0 && (
+              <View style={styles.previewSection}>
+                <Text style={styles.previewLabel}>Key ingredients</Text>
+                {ingredientsPreview.map((ingredient, idx) => (
+                  <Text key={idx} style={styles.previewItem}>
+                    • {formatIngredient(ingredient)}
+                  </Text>
+                ))}
+              </View>
+            )}
+
+            <Animated.View
+              style={styles.recipeMetaContainer}
+              entering={FadeIn.delay(index * 100 + 150).duration(400)}
+            >
+              {!!recipe.servings && (
+                <View style={[styles.metaPill, styles.servingsPill]}>
+                  <Users size={14} color="#0284c7" />
+                  <Text style={styles.metaText}>Serves {recipe.servings}</Text>
+                </View>
+              )}
+              {!!recipe.estimatedCalories && (
+                <View style={[styles.metaPill, styles.caloriesPill]}>
+                  <Flame size={14} color="#f97316" />
+                  <Text style={styles.metaText}>{recipe.estimatedCalories} kcal</Text>
+                </View>
+              )}
+              {ingredientCount && (
+                <View style={[styles.metaPill, styles.ingredientsPill]}>
+                  <Text style={styles.metaText}>
+                    🥕 {ingredientCount} ingredient{ingredientCount === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              )}
+              <View style={[styles.metaPill, styles.sourcePill]}>
+                <Text style={styles.metaText}>{recipe.source || "AI Generated"}</Text>
+              </View>
+            </Animated.View>
+
+            <TouchableOpacity
+              style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
+              onPress={onSave}
+              disabled={saving}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>{saving ? "Saving..." : "Save Recipe"}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 };
 
 export default function RecipeGeneratorScreen() {
@@ -29,6 +125,15 @@ export default function RecipeGeneratorScreen() {
   const [saving, setSaving] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const user = auth.currentUser;
+  const router = useRouter();
+
+  const persistRecipes = async (items: Recipe[]) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch (err) {
+      console.warn("Failed to persist generated recipes:", err);
+    }
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -61,6 +166,24 @@ export default function RecipeGeneratorScreen() {
     fetchUserData();
   }, [user]);
 
+  useEffect(() => {
+    const loadStoredRecipes = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const stored = JSON.parse(raw) as Recipe[];
+          if (Array.isArray(stored) && stored.length) {
+            setRecipes(stored);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load stored recipes:", err);
+      }
+    };
+
+    loadStoredRecipes();
+  }, []);
+
   const handleGenerate = async () => {
     if (ingredients.length === 0) {
       Alert.alert("No Ingredients", "Add items to your inventory first!");
@@ -73,6 +196,7 @@ export default function RecipeGeneratorScreen() {
         throw new Error("AI returned fewer than five recipes");
       }
       setRecipes(data.recipes);
+      persistRecipes(data.recipes);
     } catch (error) {
       console.error("Generation failed:", error);
       Alert.alert("Error", "Could not generate recipes.");
@@ -100,6 +224,16 @@ export default function RecipeGeneratorScreen() {
     }
   };
 
+  const handleViewDetails = (recipe: Recipe) => {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(recipe));
+      router.push(`/recipe/generated?data=${encoded}`);
+    } catch (err) {
+      console.error("Navigation failed:", err);
+      Alert.alert("Error", "Could not open recipe details.");
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -122,28 +256,20 @@ export default function RecipeGeneratorScreen() {
             )}
           </View>
         ) : (
-          <ScrollView style={styles.scroll}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+          >
             {recipes.map((recipe, idx) => (
-              <View key={idx} style={{ marginBottom: 20 }}>
-                <Text style={styles.title}>{recipe.title}</Text>
-                <Text style={styles.desc}>{recipe.description}</Text>
-
-                <Text style={styles.section}>Ingredients</Text>
-                {recipe.ingredients.map((ingredient, j) => (
-                  <Text key={j} style={styles.item}>
-                    • {typeof ingredient === "string" ? ingredient : ingredient.name}
-                  </Text>
-                ))}
-
-                <Text style={styles.section}>Instructions</Text>
-                {recipe.instructions.map((s: string, j: number) => (
-                  <Text key={j} style={styles.item}>{j + 1}. {s}</Text>
-                ))}
-
-                <TouchableOpacity style={styles.saveButton} onPress={() => handleSave(recipe)} disabled={saving}>
-                  <Text style={styles.saveText}>{saving ? "Saving..." : "Save Recipe"}</Text>
-                </TouchableOpacity>
-              </View>
+              <GeneratedRecipeCard
+                key={`${recipe.title}-${idx}`}
+                recipe={recipe}
+                index={idx}
+                onSave={() => handleSave(recipe)}
+                onPress={() => handleViewDetails(recipe)}
+                saving={saving}
+              />
             ))}
           </ScrollView>
         )}
@@ -153,16 +279,64 @@ export default function RecipeGeneratorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   gray: { color: "#6b7280", marginTop: 10, textAlign: "center" },
   button: { backgroundColor: "#128AFA", paddingVertical: 14, paddingHorizontal: 30, borderRadius: 14 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   scroll: { flex: 1 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#128AFA" },
-  desc: { marginVertical: 8, color: "#6b7280", fontStyle: "italic" },
-  section: { fontSize: 18, fontWeight: "bold", marginTop: 16, color: "#111827" },
-  item: { color: "#374151", marginVertical: 2 },
-  saveButton: { backgroundColor: "#128AFA", paddingVertical: 12, borderRadius: 12, marginTop: 18 },
-  saveText: { color: "#fff", fontWeight: "bold", textAlign: "center" },
+  list: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  recipeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: "#94a3b8",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 15,
+    elevation: 5,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  recipeContent: { padding: 20 },
+  recipeTitle: { fontSize: 22, fontWeight: "bold", color: "#1e293b", marginBottom: 8 },
+  recipeDescription: { color: "#475569", fontSize: 15, lineHeight: 22, marginBottom: 16 },
+  previewSection: { marginBottom: 16 },
+  previewLabel: { fontSize: 14, fontWeight: "600", color: "#0f172a", marginBottom: 6 },
+  previewItem: { color: "#334155", marginBottom: 4, lineHeight: 20 },
+  recipeMetaContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    paddingTop: 16,
+    marginBottom: 16,
+  },
+  metaPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+  },
+  metaText: { fontSize: 14, fontWeight: "500", color: "#334155" },
+  servingsPill: { backgroundColor: "#e0f2fe" },
+  caloriesPill: { backgroundColor: "#fff7ed" },
+  ingredientsPill: { backgroundColor: "#E2F0E5FF" },
+  sourcePill: { backgroundColor: "#f1f5f9" },
+  sectionContainer: { marginTop: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#0f172a", marginBottom: 8 },
+  listItem: { color: "#334155", marginBottom: 6, lineHeight: 20 },
+  primaryButton: {
+    backgroundColor: "#128AFA",
+    paddingVertical: 14,
+    borderRadius: 999,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  primaryButtonDisabled: { opacity: 0.7 },
+  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

@@ -55,6 +55,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="recipe/[id]" />
+      <Stack.Screen name="recipe/generated" />
       <Stack.Screen name="editProfile" />
     </Stack>
   );

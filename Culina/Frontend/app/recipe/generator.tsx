@@ -75,7 +75,7 @@ export default function RecipeGeneratorScreen() {
         source: "AI (Cloud)",
       });
 
-      Alert.alert("✅ Saved!", "Recipe added to your collection.");
+      Alert.alert("Saved!", "Recipe added to your collection.");
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Could not save recipe.");
@@ -117,7 +117,7 @@ export default function RecipeGeneratorScreen() {
       });
 
       await batch.commit();
-      Alert.alert("✅ Success", "Ingredients deducted from inventory!");
+      Alert.alert("Success!", "Ingredients deducted from inventory!");
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Failed to update inventory.");
@@ -132,7 +132,7 @@ export default function RecipeGeneratorScreen() {
         <Text className="text-3xl font-bold text-green-700">
           AI Recipe Maker 🧑‍🍳
         </Text>
-        <ChefHat color="#16a34a" size={28} />
+        <ChefHat color="#1643A3FF" size={28} />
       </View>
 
       {invLoading ? (
@@ -169,7 +169,7 @@ export default function RecipeGeneratorScreen() {
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Ingredients
           </Text>
-          {/* ✅ Fixed: Handle both string and object types */}
+          {/* Fixed: Handle both string and object types */}
           {recipe.ingredients.map((ing, i) => (
             <Text key={i} className="text-gray-700">
               • {typeof ing === 'string' ? ing : `${ing.name}${ing.qty ? ` - ${ing.qty}` : ''}`}
@@ -196,7 +196,7 @@ export default function RecipeGeneratorScreen() {
             <TouchableOpacity
               onPress={handleSave}
               disabled={saving}
-              className="flex-1 bg-green-600 py-3 rounded-xl active:opacity-80"
+              className="flex-1 bg-blue-600 py-3 rounded-xl active:opacity-80"
             >
               <View className="flex-row justify-center items-center gap-2">
                 <Save color="#fff" size={20} />

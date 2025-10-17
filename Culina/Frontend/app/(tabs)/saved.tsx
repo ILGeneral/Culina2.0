@@ -28,13 +28,10 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import Background from '@/components/Background';
+import type { Recipe } from '@/types/recipe';
 
-type SavedRecipe = {
+type SavedRecipe = Recipe & {
   id: string;
-  title: string;
-  description?: string;
-  servings?: number;
-  estimatedCalories?: number;
   createdAt?: any;
 };
 
@@ -64,6 +61,17 @@ type RecipeCardProps = {
 
 const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
+  const ingredientsPreview = Array.isArray(recipe.ingredients)
+    ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
+    : [];
+
+  const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
+
+  const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
+    if (typeof ingredient === 'string') return ingredient;
+    if (ingredient.qty) return `${ingredient.qty} ${ingredient.name}`;
+    return ingredient.name;
+  };
 
   return (
     <Animated.View
@@ -87,6 +95,17 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
             </Text>
           )}
 
+          {ingredientsPreview.length > 0 && (
+            <View style={styles.previewSection}>
+              <Text style={styles.previewLabel}>Key ingredients</Text>
+              {ingredientsPreview.map((ingredient, idx) => (
+                <Text key={idx} style={styles.previewItem}>
+                  • {formatIngredient(ingredient)}
+                </Text>
+              ))}
+            </View>
+          )}
+
           <Animated.View
             style={styles.recipeMetaContainer}
             entering={FadeIn.delay(index * 100 + 200).duration(500)}
@@ -102,6 +121,13 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
                 <Flame size={14} color="#f97316" />
                 <Text style={styles.metaText}>
                   {recipe.estimatedCalories} kcal
+                </Text>
+              </View>
+            )}
+            {ingredientCount && (
+              <View style={[styles.metaPill, styles.ingredientsPill]}>
+                <Text style={styles.metaText}>
+                  🥕 {ingredientCount} ingredient{ingredientCount === 1 ? '' : 's'}
                 </Text>
               </View>
             )}
@@ -292,6 +318,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 16,
   },
+  previewSection: {
+    marginBottom: 16,
+  },
+  previewLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  previewItem: {
+    color: '#334155',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
   recipeMetaContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -318,6 +358,9 @@ const styles = StyleSheet.create({
   },
   caloriesPill: {
     backgroundColor: '#fff7ed',
+  },
+  ingredientsPill: {
+    backgroundColor: '#E2F0E7FF',
   },
   datePill: {
     backgroundColor: '#f1f5f9',
