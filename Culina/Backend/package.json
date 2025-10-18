@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "clarifai-nodejs": "^0.3.0",
     "firebase-admin": "^13.5.0",
     "node-fetch": "^2.7.0"
   }

@@ -4,6 +4,7 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Modal,
   Image,
   StyleSheet,
@@ -84,6 +85,9 @@ export default function InventoryScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const camRef = useRef<CameraView | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<{ uri: string; base64?: string } | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   // bottom sheet
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -129,6 +133,51 @@ export default function InventoryScreen() {
     }, 300);
   };
 
+  const handleCameraFocus = async (event: any) => {
+    if (!camRef.current) return;
+    const { locationX, locationY } = event.nativeEvent;
+    const xNormalized = Math.min(Math.max(locationX / SCREEN_WIDTH, 0), 1);
+    const yNormalized = Math.min(Math.max(locationY / SCREEN_HEIGHT, 0), 1);
+    try {
+      await (camRef.current as any)?.focus?.({ x: xNormalized, y: yNormalized });
+    } catch (err) {
+      console.warn("Camera focus failed", err);
+    }
+  };
+
+  const handleCapturePress = async () => {
+    if (capturing || uploading || previewVisible) return;
+    try {
+      setCapturing(true);
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const p = await camRef.current?.takePictureAsync({
+        base64: true,
+        quality: 0.95,
+        imageType: "jpg",
+        skipProcessing: true,
+      });
+      if (p?.uri) {
+        setCapturedPhoto(p as any);
+        setPreviewVisible(true);
+      }
+    } catch {
+      Alert.alert("Capture failed");
+    } finally {
+      setCapturing(false);
+    }
+  };
+
+  const retakePhoto = () => {
+    if (uploading) return;
+    setPreviewVisible(false);
+    setCapturedPhoto(null);
+  };
+
+  const confirmScan = async () => {
+    if (!capturedPhoto || uploading) return;
+    await handleCapture(capturedPhoto);
+  };
+
   // — Add sheet —
   const openSheet = () => sheetRef.current?.present();
   const closeSheet = () => sheetRef.current?.dismiss();
@@ -160,22 +209,30 @@ export default function InventoryScreen() {
     setUnitChip(null);
     setImg(null);
     setSuggest([]);
+    setCapturedPhoto(null);
+    setPreviewVisible(false);
     setCamOpen(true);
   };
 
   const handleCapture = async (photo: { uri: string; base64?: string }) => {
+    let success = false;
     try {
       if (!user) return;
       setUploading(true);
       const det = await detectFoodFromImage({ base64: photo.base64, url: photo.uri });
       const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
       if (topConcept) setName(capitalize(topConcept));
+      success = true;
       setCamOpen(false);
       setFormVisible(true);
     } catch {
       Alert.alert("Error", "Failed to process image.");
     } finally {
       setUploading(false);
+      if (success) {
+        setPreviewVisible(false);
+        setCapturedPhoto(null);
+      }
     }
   };
 
@@ -273,7 +330,7 @@ export default function InventoryScreen() {
           )}
         </View>
         <View style={s.filters}>
-          {(["All", "Low Stock", "Meat", "Vegetables", "Fruits"] as Filter[]).map((f) => (
+          {( ["All", "Low Stock", "Meat", "Vegetables", "Fruits"] as Filter[]).map((f) => (
             <TouchableOpacity
               key={f}
               style={[s.fChip, filter === f && s.fChipOn]}
@@ -425,7 +482,7 @@ export default function InventoryScreen() {
 
       {/* camera */}
       <Modal visible={camOpen} animationType="fade">
-        <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, backgroundColor: "black" }}>
+        <View style={{ flex: 1, backgroundColor: "black" }}>
           {!permission?.granted ? (
             <View style={[s.center, { flex: 1 }]}>
               <Text style={{ color: "#fff", marginBottom: 16 }}>Camera permission required</Text>
@@ -437,27 +494,72 @@ export default function InventoryScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <CameraView ref={camRef} style={{ flex: 1 }} facing="back">
-              <View style={s.camOverlay}>
-                <TouchableOpacity onPress={() => setCamOpen(false)} style={s.closeCam}>
-                  <Ionicons name="close" size={26} color="#fff" />
+            <View style={s.cameraContainer}>
+              <View style={s.previewWrapper}>
+                <CameraView ref={camRef} style={s.cameraPreview} facing="back">
+                  {/* Camera preview only */}
+                </CameraView>
+                {!previewVisible && (
+                  <TouchableWithoutFeedback onPress={handleCameraFocus}>
+                    <View style={s.focusLayer} />
+                  </TouchableWithoutFeedback>
+                )}
+                <TouchableOpacity onPress={() => setCamOpen(false)} style={s.topCloseButton}>
+                  <Ionicons name="arrow-back" size={26} color="#fff" />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  disabled={uploading}
-                  onPress={async () => {
-                    try {
-                      const p = await camRef.current?.takePictureAsync({ base64: true, quality: 0.7 });
-                      if (p?.uri) await handleCapture(p as any);
-                    } catch {
-                      Alert.alert("Capture failed");
-                    }
-                  }}
-                  style={s.shutter}
-                >
-                  {uploading ? <ActivityIndicator color="#fff" /> : <View style={s.shutterInner} />}
-                </TouchableOpacity>
+                {!previewVisible && (
+                  <>
+                    <View pointerEvents="none" style={s.frameCorners}>
+                      <View style={[s.frameCorner, s.frameCorner_tl]} />
+                      <View style={[s.frameCorner, s.frameCorner_tr]} />
+                      <View style={[s.frameCorner, s.frameCorner_bl]} />
+                      <View style={[s.frameCorner, s.frameCorner_br]} />
+                    </View>
+                    <View pointerEvents="none" style={s.reticleOverlay}>
+                      <View style={s.reticleCircle} />
+                      <View style={s.reticleLineHorizontal} />
+                      <View style={s.reticleLineVertical} />
+                      <Text style={s.reticlePlus}>+</Text>
+                    </View>
+                  </>
+                )}
+                {previewVisible && capturedPhoto && (
+                  <View style={s.previewOverlay}>
+                    <Image source={{ uri: capturedPhoto.uri }} style={s.previewImage} resizeMode="cover" />
+                  </View>
+                )}
               </View>
-            </CameraView>
+              <View style={s.camOverlayPanel}>
+                {previewVisible && capturedPhoto ? (
+                  <View style={s.previewActions}>
+                    <TouchableOpacity style={[s.previewBtn, s.previewSecondary]} onPress={retakePhoto} disabled={uploading}>
+                      <Text style={[s.previewBtnText, s.previewSecondaryText]}>Retake</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.previewBtn, s.previewPrimary]} onPress={confirmScan} disabled={uploading}>
+                      {uploading ? <ActivityIndicator color="#111827" /> : <Text style={[s.previewBtnText, s.previewPrimaryText]}>Scan</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    disabled={capturing || uploading}
+                    onPress={handleCapturePress}
+                    style={s.captureButton}
+                    accessibilityLabel="Capture and scan ingredient"
+                  >
+                    {capturing || uploading ? <ActivityIndicator color="#fff" /> : <View style={s.captureInner} />}
+                  </TouchableOpacity>
+                )}
+                <Text style={s.scanPrompt}>
+                  {uploading
+                    ? "Scanning ingredient..."
+                    : previewVisible
+                    ? "Confirm the photo before scanning"
+                    : capturing
+                    ? "Capturing..."
+                    : "Tap the red button to capture"}
+                </Text>
+              </View>
+            </View>
           )}
         </View>
       </Modal>
@@ -487,6 +589,21 @@ const s = StyleSheet.create({
   },
   searchInput: { flex: 1 },
   filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  scanButton: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#128AFA",
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  scanButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   fChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -618,6 +735,221 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   shutterInner: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff" },
+  focusLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  topCloseButton: {
+    position: "absolute",
+    top: 40,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 3,
+  },
+  frameCorners: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  frameCorner: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    borderColor: "rgba(255,255,255,0.8)",
+    borderWidth: 3,
+  },
+  frameCorner_tl: { top: 30, left: 30, borderRightWidth: 0, borderBottomWidth: 0 },
+  frameCorner_tr: { top: 30, right: 30, borderLeftWidth: 0, borderBottomWidth: 0 },
+  frameCorner_bl: { bottom: 150, left: 30, borderRightWidth: 0, borderTopWidth: 0 },
+  frameCorner_br: { bottom: 150, right: 30, borderLeftWidth: 0, borderTopWidth: 0 },
+  reticleOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 0,
+  },
+  reticleCircle: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
+  },
+  reticleLineHorizontal: {
+    position: "absolute",
+    width: 200,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
+  reticleLineVertical: {
+    position: "absolute",
+    height: 200,
+    width: 1,
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
+  reticlePlus: {
+    position: "absolute",
+    fontSize: 32,
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "600",
+  },
+  bottomControls: {
+    position: "absolute",
+    bottom: 40,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  sideButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  captureButton: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#4a4a4a",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  captureInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#ef4444",
+  },
+  scanIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  modeLabelRow: {
+    position: "absolute",
+    bottom: 16,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 24,
+  },
+  modeLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
+  modeActive: {
+    color: "#fff",
+  },
+  modeInactive: {
+    color: "rgba(255,255,255,0.4)",
+  },
+  scanActionButton: {
+    marginTop: 12,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+  },
+  scanActionText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  scanPrompt: {
+    marginTop: 12,
+    color: "rgba(255,255,255,0.75)",
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "500",
+    letterSpacing: 0.4,
+  },
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: "black",
+    justifyContent: "space-between",
+  },
+  previewWrapper: {
+    flex: 1,
+    width: "100%",
+  },
+  cameraPreview: {
+    flex: 1,
+    width: "100%",
+  },
+  previewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+  },
+  camOverlayPanel: {
+    width: "100%",
+    paddingHorizontal: 32,
+    paddingTop: 18,
+    paddingBottom: 32,
+    backgroundColor: "rgba(0,0,0,0.82)",
+    alignItems: "center",
+    gap: 16,
+  },
+  previewActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: 16,
+  },
+  previewBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewSecondary: {
+    backgroundColor: "transparent",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.6)",
+  },
+  previewPrimary: {
+    backgroundColor: "#f97316",
+  },
+  previewBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  previewSecondaryText: {
+    color: "#ffffff",
+  },
+  previewPrimaryText: {
+    color: "#111827",
+  },
   btn: {
     paddingHorizontal: 16,
     paddingVertical: 11,

@@ -1,4 +1,4 @@
-const fetch = require("node-fetch");
+const { Model } = require("clarifai-nodejs");
 
 const {
   CLARIFAI_USER_ID,
@@ -12,50 +12,52 @@ if (!CLARIFAI_USER_ID || !CLARIFAI_APP_ID || !CLARIFAI_MODEL_ID || !CLARIFAI_MOD
   console.warn("Clarifai credentials are not fully configured. Please set CLARIFAI_USER_ID, CLARIFAI_APP_ID, CLARIFAI_MODEL_ID, CLARIFAI_MODEL_VERSION_ID, and CLARIFAI_PAT.");
 }
 
-async function callClarifai(imageUrl) {
-  if (!imageUrl || typeof imageUrl !== "string") {
-    throw new Error("A valid imageUrl string is required");
+let clarifaiModel = null;
+
+function getClarifaiModel() {
+  if (!clarifaiModel) {
+    const baseUrl = `https://clarifai.com/${CLARIFAI_USER_ID}/${CLARIFAI_APP_ID}/models/${CLARIFAI_MODEL_ID}`;
+    const url = CLARIFAI_MODEL_VERSION_ID ? `${baseUrl}/versions/${CLARIFAI_MODEL_VERSION_ID}` : baseUrl;
+
+    clarifaiModel = new Model({
+      url,
+      authConfig: {
+        pat: CLARIFAI_PAT,
+      },
+    });
+  }
+  return clarifaiModel;
+}
+
+async function callClarifai({ url, base64 }) {
+  if (!url && !base64) {
+    throw new Error("A valid image url or base64 string is required");
   }
 
-  const body = {
-    user_app_id: {
-      user_id: CLARIFAI_USER_ID,
-      app_id: CLARIFAI_APP_ID,
-    },
+  const imagePayload = base64 ? { base64 } : { url };
+
+  const model = getClarifaiModel();
+
+  const response = await model.predict({
+    methodName: "predict",
     inputs: [
       {
         data: {
           image: {
-            url: imageUrl,
+            ...imagePayload,
           },
         },
       },
     ],
-  };
+  });
 
-  const response = await fetch(
-    `https://api.clarifai.com/v2/models/${CLARIFAI_MODEL_ID}/versions/${CLARIFAI_MODEL_VERSION_ID}/outputs`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Authorization: `Key ${CLARIFAI_PAT}`,
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const outputData = Model.getOutputDataFromModelResponse(response) || [];
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Clarifai request failed: ${response.status} ${text}`);
-  }
-
-  const json = await response.json();
-  const concepts = json.outputs?.[0]?.data?.concepts || [];
+  const concepts = outputData.flatMap((item) => item?.concepts || []);
 
   return concepts.map((concept) => ({
     name: concept.name,
-    confidence: concept.value,
+    confidence: concept.value ?? concept.confidence,
   }));
 }
 
@@ -65,15 +67,15 @@ async function handler(req, res) {
     return;
   }
 
-  const { imageUrl } = req.body || {};
+  const { imageUrl, imageBase64 } = req.body || {};
 
-  if (!imageUrl || typeof imageUrl !== "string") {
-    res.status(400).json({ error: "imageUrl is required" });
+  if (!imageUrl && !imageBase64) {
+    res.status(400).json({ error: "imageUrl or imageBase64 is required" });
     return;
   }
 
   try {
-    const concepts = await callClarifai(imageUrl);
+    const concepts = await callClarifai({ url: imageUrl, base64: imageBase64 });
     res.status(200).json({ concepts });
   } catch (error) {
     console.error("Clarifai handler error:", error);
