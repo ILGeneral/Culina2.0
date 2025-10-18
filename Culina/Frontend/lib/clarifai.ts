@@ -6,13 +6,24 @@ import {
   CLARIFAI_USER_ID,
 } from "@/lib/secrets";
 
-export async function detectFoodFromImage(imageUrl: string) {
+type ClarifaiImageSource = {
+  url?: string;
+  base64?: string;
+};
+
+export async function detectFoodFromImage(source: ClarifaiImageSource) {
+  if (!source?.url && !source?.base64) {
+    throw new Error("Clarifai detection requires a url or base64 image source");
+  }
+
+  const imagePayload = source.base64 ? { base64: source.base64 } : { url: source.url };
+
   const raw = JSON.stringify({
     user_app_id: {
       user_id: CLARIFAI_USER_ID,
       app_id: CLARIFAI_APP_ID,
     },
-    inputs: [{ data: { image: { url: imageUrl } } }],
+    inputs: [{ data: { image: imagePayload } }],
   });
 
   const res = await fetch(

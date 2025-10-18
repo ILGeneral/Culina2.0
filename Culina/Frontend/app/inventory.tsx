@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from "@gorhom/bottom-sheet";
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView, BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import {
   collection,
   query,
@@ -31,9 +31,9 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebaseConfig";
-import { uploadImageAsync } from "@/lib/uploadImage";
 import { detectFoodFromImage } from "@/lib/clarifai";
 import Background from "@/components/Background";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // —— helpers ——
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -163,14 +163,13 @@ export default function InventoryScreen() {
     setCamOpen(true);
   };
 
-  const handleCapture = async (photo: { uri: string }) => {
+  const handleCapture = async (photo: { uri: string; base64?: string }) => {
     try {
       if (!user) return;
       setUploading(true);
-      const url = await uploadImageAsync(photo.uri, user.uid);
-      setImg(url);
-      const det = await detectFoodFromImage(url);
-      if (det && typeof det === "string") setName(capitalize(det));
+      const det = await detectFoodFromImage({ base64: photo.base64, url: photo.uri });
+      const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
+      if (topConcept) setName(capitalize(topConcept));
       setCamOpen(false);
       setFormVisible(true);
     } catch {
@@ -252,8 +251,10 @@ export default function InventoryScreen() {
   );
 
   return (
-    <Background>
-      <SafeAreaView style={s.container}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <Background>
+          <SafeAreaView style={s.container}>
       {/* header */}
       <View style={s.head}>
         <Text style={s.title}>My Pantry</Text>
@@ -445,8 +446,8 @@ export default function InventoryScreen() {
                   disabled={uploading}
                   onPress={async () => {
                     try {
-                      const p = await camRef.current?.takePictureAsync();
-                      if (p?.uri) await handleCapture(p);
+                      const p = await camRef.current?.takePictureAsync({ base64: true, quality: 0.7 });
+                      if (p?.uri) await handleCapture(p as any);
                     } catch {
                       Alert.alert("Capture failed");
                     }
@@ -460,8 +461,10 @@ export default function InventoryScreen() {
           )}
         </View>
       </Modal>
-      </SafeAreaView>
-    </Background>
+          </SafeAreaView>
+        </Background>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }
 
