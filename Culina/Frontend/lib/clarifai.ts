@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import {
   CLARIFAI_APP_ID,
   CLARIFAI_MODEL_ID,
@@ -37,3 +38,56 @@ export async function detectFoodFromImage(imageUrl: string) {
     confidence: c.value,
   }));
 }
+=======
+type ClarifaiImageSource = {
+  url?: string;
+  base64?: string;
+};
+
+const API_BASE = "https://culina-backend.vercel.app/api";
+
+export async function detectFoodFromImage(source: ClarifaiImageSource) {
+  if (!source?.url && !source?.base64) {
+    throw new Error("Clarifai detection requires a url or base64 image source");
+  }
+
+  try {
+    // Only send base64 if available, otherwise send URL
+    const payload = source.base64
+      ? { imageBase64: source.base64 }
+      : { imageUrl: source.url };
+
+    console.log("Sending to Clarifai backend:", { 
+      hasBase64: !!source.base64, 
+      hasUrl: !!source.url 
+    });
+
+    const res = await fetch(`${API_BASE}/clarifai-ingredient-detection`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Clarifai backend request failed (${res.status}): ${text}`);
+    }
+
+    const json = await res.json();
+    const concepts = json?.concepts ?? [];
+    
+    console.log("Detection successful:", concepts);
+    
+    return concepts.map((c: any) => ({
+      name: c.name,
+      confidence: c.confidence,
+    }));
+  } catch (err) {
+    console.error("Clarifai detection error:", err);
+    throw err;
+  }
+}
+>>>>>>> Stashed changes
