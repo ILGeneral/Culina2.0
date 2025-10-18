@@ -1,3 +1,5 @@
+import { put } from "@vercel/blob";
+import * as FileSystem from "expo-file-system/legacy";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -20,7 +22,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView, BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetModal,
+  BottomSheetBackdrop,
+  BottomSheetView,
+  BottomSheetModalProvider,
+} from "@gorhom/bottom-sheet";
 import {
   collection,
   query,
@@ -32,9 +39,10 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebaseConfig";
-import { detectFoodFromImage } from "@/lib/clarifai";
+import { detectFoodFromImage, API_BASE } from "@/lib/clarifai";
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+
 
 // —— helpers ——
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -58,8 +66,24 @@ type Unit = (typeof UNITS)[number];
 type Filter = "All" | "Low Stock" | "Meat" | "Vegetables" | "Fruits";
 const CAT: Record<Exclude<Filter, "All" | "Low Stock">, string[]> = {
   Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham"],
-  Vegetables: ["tomato", "onion", "garlic", "carrot", "potato", "broccoli", "spinach"],
-  Fruits: ["apple", "banana", "mango", "orange", "grape", "pineapple", "strawberry"],
+  Vegetables: [
+    "tomato",
+    "onion",
+    "garlic",
+    "carrot",
+    "potato",
+    "broccoli",
+    "spinach",
+  ],
+  Fruits: [
+    "apple",
+    "banana",
+    "mango",
+    "orange",
+    "grape",
+    "pineapple",
+    "strawberry",
+  ],
 };
 
 // —— main ——
@@ -86,7 +110,10 @@ export default function InventoryScreen() {
   const camRef = useRef<CameraView | null>(null);
   const [uploading, setUploading] = useState(false);
   const [capturing, setCapturing] = useState(false);
-  const [capturedPhoto, setCapturedPhoto] = useState<{ uri: string; base64?: string } | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<{
+    uri: string;
+    base64?: string;
+  } | null>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
 
   // bottom sheet
@@ -116,14 +143,18 @@ export default function InventoryScreen() {
     timer.current = setTimeout(async () => {
       try {
         const r = await fetch(
-          `https://www.themealdb.com/api/json/v1/1/search.php?i=${encodeURIComponent(t)}`
+          `https://www.themealdb.com/api/json/v1/1/search.php?i=${encodeURIComponent(
+            t
+          )}`
         );
         const d = await r.json();
         if (d?.ingredients)
           setSuggest(
             Array.from(
               new Set(
-                d.ingredients.map((i: any) => capitalize(String(i.strIngredient)))
+                d.ingredients.map((i: any) =>
+                  capitalize(String(i.strIngredient))
+                )
               )
             ).slice(0, 8) as string[]
           );
@@ -139,33 +170,38 @@ export default function InventoryScreen() {
     const xNormalized = Math.min(Math.max(locationX / SCREEN_WIDTH, 0), 1);
     const yNormalized = Math.min(Math.max(locationY / SCREEN_HEIGHT, 0), 1);
     try {
-      await (camRef.current as any)?.focus?.({ x: xNormalized, y: yNormalized });
+      await (camRef.current as any)?.focus?.({
+        x: xNormalized,
+        y: yNormalized,
+      });
     } catch (err) {
       console.warn("Camera focus failed", err);
     }
   };
 
   const handleCapturePress = async () => {
-    if (capturing || uploading || previewVisible) return;
-    try {
-      setCapturing(true);
-      await new Promise((resolve) => setTimeout(resolve, 250));
-      const p = await camRef.current?.takePictureAsync({
-        base64: true,
-        quality: 0.95,
-        imageType: "jpg",
-        skipProcessing: true,
-      });
-      if (p?.uri) {
-        setCapturedPhoto(p as any);
-        setPreviewVisible(true);
-      }
-    } catch {
-      Alert.alert("Capture failed");
-    } finally {
-      setCapturing(false);
+  if (capturing || uploading || previewVisible) return;
+  try {
+    setCapturing(true);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    const p = await camRef.current?.takePictureAsync({
+      base64: false,
+      quality: 0.3,  // Reduced from 0.5 to keep file size small
+      imageType: "jpg",
+      skipProcessing: true,
+    });
+
+    if (p?.uri) {
+      setCapturedPhoto(p);
+      setPreviewVisible(true);
     }
-  };
+  } catch {
+    Alert.alert("Capture failed");
+  } finally {
+    setCapturing(false);
+  }
+};
 
   const retakePhoto = () => {
     if (uploading) return;
@@ -214,27 +250,74 @@ export default function InventoryScreen() {
     setCamOpen(true);
   };
 
-  const handleCapture = async (photo: { uri: string; base64?: string }) => {
-    let success = false;
+const handleCapture = async (photo: { uri: string }) => {
+  let success = false;
+
+  try {
+    if (!user) return;
+    setUploading(true);
+
+    // Step 1: Read local image as binary
+    const fileData = await FileSystem.readAsStringAsync(photo.uri, {
+      encoding: "base64",
+    });
+    
+    if (!fileData) {
+      throw new Error("Failed to read image file");
+    }
+    
+    console.log(`📸 Image read successfully, converting to binary...`);
+    
+    const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
+
+    // Step 3: Upload to Vercel Blob via backend
+    const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/jpeg",
+      },
+      body: binary,
+    });
+
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
+    }
+
+    const uploadResult = await uploadRes.json();
+    const blobUrl = uploadResult.url;
+    console.log("✅ Uploaded to Vercel Blob:", blobUrl);
+
+    // Step 4: Send blob URL to Clarifai
     try {
-      if (!user) return;
-      setUploading(true);
-      const det = await detectFoodFromImage({ base64: photo.base64, url: photo.uri });
+      const det = await detectFoodFromImage({ url: blobUrl });
       const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
-      if (topConcept) setName(capitalize(topConcept));
+
+      if (topConcept) {
+        setName(capitalize(topConcept));
+      } else {
+        Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
+      }
+
       success = true;
       setCamOpen(false);
       setFormVisible(true);
-    } catch {
-      Alert.alert("Error", "Failed to process image.");
-    } finally {
-      setUploading(false);
-      if (success) {
-        setPreviewVisible(false);
-        setCapturedPhoto(null);
-      }
+    } catch (clarifaiError) {
+      console.error("Clarifai detection error:", clarifaiError);
+      Alert.alert("Error", "Failed to detect ingredient. Please try again.");
     }
-  };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("❌ Upload error:", errorMessage);
+    Alert.alert("Upload failed", errorMessage);
+  } finally {
+    setUploading(false);
+    if (success) {
+      setPreviewVisible(false);
+      setCapturedPhoto(null);
+    }
+  }
+};
 
   // — Save —
   const save = async () => {
@@ -252,7 +335,10 @@ export default function InventoryScreen() {
     };
     try {
       if (editing?.id)
-        await updateDoc(doc(db, "users", user.uid, "ingredients", editing.id), data);
+        await updateDoc(
+          doc(db, "users", user.uid, "ingredients", editing.id),
+          data
+        );
       else
         await addDoc(collection(db, "users", user.uid, "ingredients"), {
           ...data,
@@ -282,7 +368,8 @@ export default function InventoryScreen() {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => deleteDoc(doc(db, "users", user.uid, "ingredients", it.id)),
+        onPress: () =>
+          deleteDoc(doc(db, "users", user.uid, "ingredients", it.id)),
       },
     ]);
   };
@@ -298,8 +385,15 @@ export default function InventoryScreen() {
 
   // — render —
   const render = ({ item }: any) => (
-    <Pressable onPress={() => edit(item)} onLongPress={() => del(item)} style={s.tile}>
-      <Image source={{ uri: item.imageUrl ?? mealThumb(item.name) }} style={s.tileImg} />
+    <Pressable
+      onPress={() => edit(item)}
+      onLongPress={() => del(item)}
+      style={s.tile}
+    >
+      <Image
+        source={{ uri: item.imageUrl ?? mealThumb(item.name) }}
+        style={s.tileImg}
+      />
       <Text style={s.tileName}>{item.name}</Text>
       <Text style={s.tileQty}>
         {item.quantity} {item.unit}
@@ -312,257 +406,343 @@ export default function InventoryScreen() {
       <BottomSheetModalProvider>
         <Background>
           <SafeAreaView style={s.container}>
-      {/* header */}
-      <View style={s.head}>
-        <Text style={s.title}>My Pantry</Text>
-        <View style={s.search}>
-          <Ionicons name="search" size={18} color="#6b7280" />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search ingredients..."
-            style={s.searchInput}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={18} color="#9ca3af" />
-            </TouchableOpacity>
-          )}
-        </View>
-        <View style={s.filters}>
-          {( ["All", "Low Stock", "Meat", "Vegetables", "Fruits"] as Filter[]).map((f) => (
-            <TouchableOpacity
-              key={f}
-              style={[s.fChip, filter === f && s.fChipOn]}
-              onPress={() => setFilter(f)}
-            >
-              <Text style={[s.fTxt, filter === f && s.fTxtOn]}>{f}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {loading ? (
-        <View style={[s.center, { flex: 1 }]}>
-          <ActivityIndicator size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(i) => i.id}
-          numColumns={2}
-          columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 120, gap: 12 }}
-          renderItem={render}
-        />
-      )}
-
-      {/* FAB */}
-      <TouchableOpacity style={s.fab} onPress={openSheet}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
-
-      {/* bottom sheet */}
-      <BottomSheetModal
-        ref={sheetRef}
-        index={0}
-        snapPoints={snap}
-        backdropComponent={(p) => (
-          <BottomSheetBackdrop appearsOnIndex={0} disappearsOnIndex={-1} {...p} />
-        )}
-        enablePanDownToClose
-      >
-        <BottomSheetView style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-          <Text style={s.sheetTitle}>Add Ingredient</Text>
-          <TouchableOpacity style={s.sheetOpt} onPress={cameraAdd}>
-            <Ionicons name="camera-outline" size={22} style={{ marginRight: 12 }} />
-            <Text style={s.sheetTxt}>Use Camera</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.sheetOpt} onPress={manualAdd}>
-            <Ionicons name="pencil-outline" size={22} style={{ marginRight: 12 }} />
-            <Text style={s.sheetTxt}>Type Manually</Text>
-          </TouchableOpacity>
-        </BottomSheetView>
-      </BottomSheetModal>
-
-      <Modal visible={formVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
-          style={s.formWrap}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View style={s.formBackdrop}>
-            <Pressable style={{ flex: 1 }} onPress={() => setFormVisible(false)} />
-            <View style={s.formCard}>
-              <ScrollView
-                contentContainerStyle={s.formContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={s.formTitle}>
-                  {editing ? "Edit Ingredient" : "Add Ingredient"}
-                </Text>
-                {(img || name.trim()) && (
-                  <Image
-                    source={{ uri: img ?? mealThumb(name.trim()) }}
-                    style={s.formImg}
-                  />
-                )}
-                <Text style={s.label}>Name</Text>
+            {/* header */}
+            <View style={s.head}>
+              <Text style={s.title}>My Pantry</Text>
+              <View style={s.search}>
+                <Ionicons name="search" size={18} color="#6b7280" />
                 <TextInput
-                  value={name}
-                  onChangeText={onChangeName}
-                  placeholder="e.g. Tomato"
-                  style={s.input}
-                  autoCapitalize="words"
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search ingredients..."
+                  style={s.searchInput}
                 />
-                {suggest.length > 0 && (
-                  <View style={s.suggestWrap}>
-                    {suggest.map((sg) => (
-                      <TouchableOpacity
-                        key={sg}
-                        style={s.suggestChip}
-                        onPress={() => {
-                          setName(sg);
-                          setSuggest([]);
-                        }}
-                      >
-                        <Text style={s.suggestTxt}>{sg}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-                <Text style={s.label}>Quantity</Text>
-                <TextInput
-                  value={qty}
-                  onChangeText={(t) => setQty(sanitizeQuantity(t))}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  style={s.input}
-                />
-                <Text style={s.label}>Unit</Text>
-                <View style={s.unitWrap}>
-                  {UNITS.map((u) => (
-                    <TouchableOpacity
-                      key={u}
-                      style={[s.unitChip, unitChip === u && s.unitChipOn]}
-                      onPress={() => {
-                        setUnitChip(u);
-                        setUnit("");
-                      }}
-                    >
-                      <Text style={[s.unitChipTxt, unitChip === u && s.unitChipTxtOn]}>{u}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TextInput
-                  value={unit}
-                  onChangeText={(t) => {
-                    setUnit(t);
-                    setUnitChip(null);
-                  }}
-                  placeholder="Custom unit (optional)"
-                  style={s.input}
-                />
-                <View style={s.btnRow}>
-                  <TouchableOpacity
-                    style={[s.formBtn, s.cancelBtn]}
-                    onPress={() => setFormVisible(false)}
-                  >
-                    <Text style={[s.formBtnTxt, s.cancelBtnTxt]}>Cancel</Text>
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch("")}>
+                    <Ionicons name="close-circle" size={18} color="#9ca3af" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={[s.formBtn, s.saveBtn]} onPress={save}>
-                    <Text style={s.formBtnTxt}>{editing ? "Update" : "Save"}</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* camera */}
-      <Modal visible={camOpen} animationType="fade">
-        <View style={{ flex: 1, backgroundColor: "black" }}>
-          {!permission?.granted ? (
-            <View style={[s.center, { flex: 1 }]}>
-              <Text style={{ color: "#fff", marginBottom: 16 }}>Camera permission required</Text>
-              <TouchableOpacity onPress={requestPermission} style={[s.btn, { backgroundColor: "#128AFA" }]}>
-                <Text style={s.btnText}>Grant Permission</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setCamOpen(false)} style={[s.btn, { marginTop: 12 }]}>
-                <Text style={s.btnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={s.cameraContainer}>
-              <View style={s.previewWrapper}>
-                <CameraView ref={camRef} style={s.cameraPreview} facing="back">
-                  {/* Camera preview only */}
-                </CameraView>
-                {!previewVisible && (
-                  <TouchableWithoutFeedback onPress={handleCameraFocus}>
-                    <View style={s.focusLayer} />
-                  </TouchableWithoutFeedback>
-                )}
-                <TouchableOpacity onPress={() => setCamOpen(false)} style={s.topCloseButton}>
-                  <Ionicons name="arrow-back" size={26} color="#fff" />
-                </TouchableOpacity>
-                {!previewVisible && (
-                  <>
-                    <View pointerEvents="none" style={s.frameCorners}>
-                      <View style={[s.frameCorner, s.frameCorner_tl]} />
-                      <View style={[s.frameCorner, s.frameCorner_tr]} />
-                      <View style={[s.frameCorner, s.frameCorner_bl]} />
-                      <View style={[s.frameCorner, s.frameCorner_br]} />
-                    </View>
-                    <View pointerEvents="none" style={s.reticleOverlay}>
-                      <View style={s.reticleCircle} />
-                      <View style={s.reticleLineHorizontal} />
-                      <View style={s.reticleLineVertical} />
-                      <Text style={s.reticlePlus}>+</Text>
-                    </View>
-                  </>
-                )}
-                {previewVisible && capturedPhoto && (
-                  <View style={s.previewOverlay}>
-                    <Image source={{ uri: capturedPhoto.uri }} style={s.previewImage} resizeMode="cover" />
-                  </View>
                 )}
               </View>
-              <View style={s.camOverlayPanel}>
-                {previewVisible && capturedPhoto ? (
-                  <View style={s.previewActions}>
-                    <TouchableOpacity style={[s.previewBtn, s.previewSecondary]} onPress={retakePhoto} disabled={uploading}>
-                      <Text style={[s.previewBtnText, s.previewSecondaryText]}>Retake</Text>
+              <View style={s.filters}>
+                {(
+                  [
+                    "All",
+                    "Low Stock",
+                    "Meat",
+                    "Vegetables",
+                    "Fruits",
+                  ] as Filter[]
+                ).map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[s.fChip, filter === f && s.fChipOn]}
+                    onPress={() => setFilter(f)}
+                  >
+                    <Text style={[s.fTxt, filter === f && s.fTxtOn]}>{f}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {loading ? (
+              <View style={[s.center, { flex: 1 }]}>
+                <ActivityIndicator size="large" />
+              </View>
+            ) : (
+              <FlatList
+                data={filtered}
+                keyExtractor={(i) => i.id}
+                numColumns={2}
+                columnWrapperStyle={{ gap: 12 }}
+                contentContainerStyle={{
+                  paddingHorizontal: 16,
+                  paddingBottom: 120,
+                  gap: 12,
+                }}
+                renderItem={render}
+              />
+            )}
+
+            {/* FAB */}
+            <TouchableOpacity style={s.fab} onPress={openSheet}>
+              <Ionicons name="add" size={28} color="#fff" />
+            </TouchableOpacity>
+
+            {/* bottom sheet */}
+            <BottomSheetModal
+              ref={sheetRef}
+              index={0}
+              snapPoints={snap}
+              backdropComponent={(p) => (
+                <BottomSheetBackdrop
+                  appearsOnIndex={0}
+                  disappearsOnIndex={-1}
+                  {...p}
+                />
+              )}
+              enablePanDownToClose
+            >
+              <BottomSheetView
+                style={{ paddingHorizontal: 16, paddingBottom: 8 }}
+              >
+                <Text style={s.sheetTitle}>Add Ingredient</Text>
+                <TouchableOpacity style={s.sheetOpt} onPress={cameraAdd}>
+                  <Ionicons
+                    name="camera-outline"
+                    size={22}
+                    style={{ marginRight: 12 }}
+                  />
+                  <Text style={s.sheetTxt}>Use Camera</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.sheetOpt} onPress={manualAdd}>
+                  <Ionicons
+                    name="pencil-outline"
+                    size={22}
+                    style={{ marginRight: 12 }}
+                  />
+                  <Text style={s.sheetTxt}>Type Manually</Text>
+                </TouchableOpacity>
+              </BottomSheetView>
+            </BottomSheetModal>
+
+            <Modal visible={formVisible} animationType="slide" transparent>
+              <KeyboardAvoidingView
+                style={s.formWrap}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+              >
+                <View style={s.formBackdrop}>
+                  <Pressable
+                    style={{ flex: 1 }}
+                    onPress={() => setFormVisible(false)}
+                  />
+                  <View style={s.formCard}>
+                    <ScrollView
+                      contentContainerStyle={s.formContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <Text style={s.formTitle}>
+                        {editing ? "Edit Ingredient" : "Add Ingredient"}
+                      </Text>
+                      {(img || name.trim()) && (
+                        <Image
+                          source={{ uri: img ?? mealThumb(name.trim()) }}
+                          style={s.formImg}
+                        />
+                      )}
+                      <Text style={s.label}>Name</Text>
+                      <TextInput
+                        value={name}
+                        onChangeText={onChangeName}
+                        placeholder="e.g. Tomato"
+                        style={s.input}
+                        autoCapitalize="words"
+                      />
+                      {suggest.length > 0 && (
+                        <View style={s.suggestWrap}>
+                          {suggest.map((sg) => (
+                            <TouchableOpacity
+                              key={sg}
+                              style={s.suggestChip}
+                              onPress={() => {
+                                setName(sg);
+                                setSuggest([]);
+                              }}
+                            >
+                              <Text style={s.suggestTxt}>{sg}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                      <Text style={s.label}>Quantity</Text>
+                      <TextInput
+                        value={qty}
+                        onChangeText={(t) => setQty(sanitizeQuantity(t))}
+                        keyboardType="decimal-pad"
+                        placeholder="0"
+                        style={s.input}
+                      />
+                      <Text style={s.label}>Unit</Text>
+                      <View style={s.unitWrap}>
+                        {UNITS.map((u) => (
+                          <TouchableOpacity
+                            key={u}
+                            style={[s.unitChip, unitChip === u && s.unitChipOn]}
+                            onPress={() => {
+                              setUnitChip(u);
+                              setUnit("");
+                            }}
+                          >
+                            <Text
+                              style={[
+                                s.unitChipTxt,
+                                unitChip === u && s.unitChipTxtOn,
+                              ]}
+                            >
+                              {u}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TextInput
+                        value={unit}
+                        onChangeText={(t) => {
+                          setUnit(t);
+                          setUnitChip(null);
+                        }}
+                        placeholder="Custom unit (optional)"
+                        style={s.input}
+                      />
+                      <View style={s.btnRow}>
+                        <TouchableOpacity
+                          style={[s.formBtn, s.cancelBtn]}
+                          onPress={() => setFormVisible(false)}
+                        >
+                          <Text style={[s.formBtnTxt, s.cancelBtnTxt]}>
+                            Cancel
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[s.formBtn, s.saveBtn]}
+                          onPress={save}
+                        >
+                          <Text style={s.formBtnTxt}>
+                            {editing ? "Update" : "Save"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </ScrollView>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+
+            {/* camera */}
+            <Modal visible={camOpen} animationType="fade">
+              <View style={{ flex: 1, backgroundColor: "black" }}>
+                {!permission?.granted ? (
+                  <View style={[s.center, { flex: 1 }]}>
+                    <Text style={{ color: "#fff", marginBottom: 16 }}>
+                      Camera permission required
+                    </Text>
+                    <TouchableOpacity
+                      onPress={requestPermission}
+                      style={[s.btn, { backgroundColor: "#128AFA" }]}
+                    >
+                      <Text style={s.btnText}>Grant Permission</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[s.previewBtn, s.previewPrimary]} onPress={confirmScan} disabled={uploading}>
-                      {uploading ? <ActivityIndicator color="#111827" /> : <Text style={[s.previewBtnText, s.previewPrimaryText]}>Scan</Text>}
+                    <TouchableOpacity
+                      onPress={() => setCamOpen(false)}
+                      style={[s.btn, { marginTop: 12 }]}
+                    >
+                      <Text style={s.btnText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity
-                    disabled={capturing || uploading}
-                    onPress={handleCapturePress}
-                    style={s.captureButton}
-                    accessibilityLabel="Capture and scan ingredient"
-                  >
-                    {capturing || uploading ? <ActivityIndicator color="#fff" /> : <View style={s.captureInner} />}
-                  </TouchableOpacity>
+                  <View style={s.cameraContainer}>
+                    <View style={s.previewWrapper}>
+                      <CameraView
+                        ref={camRef}
+                        style={s.cameraPreview}
+                        facing="back"
+                      >
+                        {/* Camera preview only */}
+                      </CameraView>
+                      {!previewVisible && (
+                        <TouchableWithoutFeedback onPress={handleCameraFocus}>
+                          <View style={s.focusLayer} />
+                        </TouchableWithoutFeedback>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => setCamOpen(false)}
+                        style={s.topCloseButton}
+                      >
+                        <Ionicons name="arrow-back" size={26} color="#fff" />
+                      </TouchableOpacity>
+                      {!previewVisible && (
+                        <>
+                          <View pointerEvents="none" style={s.frameCorners}>
+                            <View style={[s.frameCorner, s.frameCorner_tl]} />
+                            <View style={[s.frameCorner, s.frameCorner_tr]} />
+                            <View style={[s.frameCorner, s.frameCorner_bl]} />
+                            <View style={[s.frameCorner, s.frameCorner_br]} />
+                          </View>
+                          <View pointerEvents="none" style={s.reticleOverlay}>
+                            <View style={s.reticleCircle} />
+                            <View style={s.reticleLineHorizontal} />
+                            <View style={s.reticleLineVertical} />
+                            <Text style={s.reticlePlus}>+</Text>
+                          </View>
+                        </>
+                      )}
+                      {previewVisible && capturedPhoto && (
+                        <View style={s.previewOverlay}>
+                          <Image
+                            source={{ uri: capturedPhoto.uri }}
+                            style={s.previewImage}
+                            resizeMode="cover"
+                          />
+                        </View>
+                      )}
+                    </View>
+                    <View style={s.camOverlayPanel}>
+                      {previewVisible && capturedPhoto ? (
+                        <View style={s.previewActions}>
+                          <TouchableOpacity
+                            style={[s.previewBtn, s.previewSecondary]}
+                            onPress={retakePhoto}
+                            disabled={uploading}
+                          >
+                            <Text
+                              style={[s.previewBtnText, s.previewSecondaryText]}
+                            >
+                              Retake
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[s.previewBtn, s.previewPrimary]}
+                            onPress={confirmScan}
+                            disabled={uploading}
+                          >
+                            {uploading ? (
+                              <ActivityIndicator color="#111827" />
+                            ) : (
+                              <Text
+                                style={[s.previewBtnText, s.previewPrimaryText]}
+                              >
+                                Scan
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          disabled={capturing || uploading}
+                          onPress={handleCapturePress}
+                          style={s.captureButton}
+                          accessibilityLabel="Capture and scan ingredient"
+                        >
+                          {capturing || uploading ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <View style={s.captureInner} />
+                          )}
+                        </TouchableOpacity>
+                      )}
+                      <Text style={s.scanPrompt}>
+                        {uploading
+                          ? "Scanning ingredient..."
+                          : previewVisible
+                          ? "Confirm the photo before scanning"
+                          : capturing
+                          ? "Capturing..."
+                          : "Tap the red button to capture"}
+                      </Text>
+                    </View>
+                  </View>
                 )}
-                <Text style={s.scanPrompt}>
-                  {uploading
-                    ? "Scanning ingredient..."
-                    : previewVisible
-                    ? "Confirm the photo before scanning"
-                    : capturing
-                    ? "Capturing..."
-                    : "Tap the red button to capture"}
-                </Text>
               </View>
-            </View>
-          )}
-        </View>
-      </Modal>
+            </Modal>
           </SafeAreaView>
         </Background>
       </BottomSheetModalProvider>
@@ -734,7 +914,12 @@ const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  shutterInner: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff" },
+  shutterInner: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#fff",
+  },
   focusLayer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
@@ -762,10 +947,30 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.8)",
     borderWidth: 3,
   },
-  frameCorner_tl: { top: 30, left: 30, borderRightWidth: 0, borderBottomWidth: 0 },
-  frameCorner_tr: { top: 30, right: 30, borderLeftWidth: 0, borderBottomWidth: 0 },
-  frameCorner_bl: { bottom: 150, left: 30, borderRightWidth: 0, borderTopWidth: 0 },
-  frameCorner_br: { bottom: 150, right: 30, borderLeftWidth: 0, borderTopWidth: 0 },
+  frameCorner_tl: {
+    top: 30,
+    left: 30,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+  },
+  frameCorner_tr: {
+    top: 30,
+    right: 30,
+    borderLeftWidth: 0,
+    borderBottomWidth: 0,
+  },
+  frameCorner_bl: {
+    bottom: 150,
+    left: 30,
+    borderRightWidth: 0,
+    borderTopWidth: 0,
+  },
+  frameCorner_br: {
+    bottom: 150,
+    right: 30,
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+  },
   reticleOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
