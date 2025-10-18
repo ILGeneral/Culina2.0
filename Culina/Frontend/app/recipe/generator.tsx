@@ -72,7 +72,7 @@ export default function RecipeGeneratorScreen() {
       await setDoc(newRecipeRef, {
         ...recipe,
         createdAt: serverTimestamp(),
-        source: "AI (Cloud)",
+        source: "AI Generated",
       });
 
       Alert.alert("Saved!", "Recipe added to your collection.");

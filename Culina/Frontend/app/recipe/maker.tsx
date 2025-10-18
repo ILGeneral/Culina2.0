@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
 import Background from "@/components/Background";
 import { auth, db } from "@/lib/firebaseConfig";
 import {
   collection,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   serverTimestamp,
@@ -29,6 +30,9 @@ type IngredientForm = {
 
 export default function RecipeMakerScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const recipeId = typeof params.recipeId === "string" ? params.recipeId : undefined;
+  const isEditing = !!recipeId;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<IngredientForm[]>([
@@ -37,6 +41,71 @@ export default function RecipeMakerScreen() {
   const [steps, setSteps] = useState<string[]>([""]);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [initializing, setInitializing] = useState(isEditing);
+  const [originalSource, setOriginalSource] = useState<string | undefined>();
+  const [currentRecipe, setCurrentRecipe] = useState<Record<string, any> | null>(null);
+
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const loadRecipe = async () => {
+      const uid = auth.currentUser?.uid;
+      if (!uid || !recipeId) {
+        setInitializing(false);
+        Alert.alert("Authentication Required", "You must be logged in to edit recipes.", [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]);
+        return;
+      }
+
+      try {
+        const recipeRef = doc(db, "users", uid, "recipes", recipeId);
+        const snapshot = await getDoc(recipeRef);
+        if (!snapshot.exists()) {
+          Alert.alert("Recipe Not Found", "Unable to load this recipe for editing.", [
+            {
+              text: "OK",
+              onPress: () => router.back(),
+            },
+          ]);
+          return;
+        }
+
+        const data = snapshot.data() as Record<string, any>;
+        setCurrentRecipe(data);
+        setOriginalSource(typeof data.source === "string" ? data.source : undefined);
+        setTitle(typeof data.title === "string" ? data.title : "");
+        setDescription(typeof data.description === "string" ? data.description : "");
+
+        const loadedIngredients = Array.isArray(data.ingredients)
+          ? data.ingredients.map((item: any) => {
+              if (typeof item === "string") {
+                return { name: item, qty: "" };
+              }
+              return {
+                name: typeof item?.name === "string" ? item.name : "",
+                qty: typeof item?.qty === "string" ? item.qty : "",
+              };
+            })
+          : [];
+        setIngredients(
+          loadedIngredients.length > 0 ? loadedIngredients : [{ name: "", qty: "" }]
+        );
+
+        const loadedSteps = Array.isArray(data.instructions)
+          ? data.instructions.filter((step: any) => typeof step === "string")
+          : [];
+        setSteps(loadedSteps.length > 0 ? loadedSteps : [""]);
+      } finally {
+        setInitializing(false);
+      }
+    };
+
+    loadRecipe();
+  }, [isEditing, recipeId, router]);
 
   const addIngredient = () => {
     setIngredients((prev) => [...prev, { name: "", qty: "" }]);
@@ -108,13 +177,26 @@ export default function RecipeMakerScreen() {
     }
 
     const trimmedDescription = description.trim();
+    const determineSource = () => {
+      if (!isEditing) {
+        return "Human" as const;
+      }
+      if (!originalSource) {
+        return "Human";
+      }
+      const normalized = originalSource.toLowerCase();
+      if (normalized.includes("ai") && normalized !== "ai - edited") {
+        return "AI - Edited";
+      }
+      return originalSource;
+    };
 
     return {
       title: trimmedTitle,
       description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
       ingredients: cleanedIngredients,
       instructions: cleanedSteps,
-      source: "Human" as const,
+      source: determineSource(),
     };
   };
 
@@ -126,7 +208,7 @@ export default function RecipeMakerScreen() {
   };
 
   const handleSave = async (shouldShare: boolean) => {
-    if (saving || sharing) return;
+    if (saving || sharing || initializing) return;
 
     const recipePayload = buildRecipePayload();
     if (!recipePayload) return;
@@ -144,17 +226,29 @@ export default function RecipeMakerScreen() {
         setSaving(true);
       }
 
-      const recipeRef = doc(collection(db, "users", uid, "recipes"));
-      await setDoc(recipeRef, {
-        ...recipePayload,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        isShared: false,
-      });
+      const recipeRef = isEditing
+        ? doc(db, "users", uid, "recipes", recipeId)
+        : doc(collection(db, "users", uid, "recipes"));
+
+      if (isEditing) {
+        await updateDoc(recipeRef, {
+          ...recipePayload,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await setDoc(recipeRef, {
+          ...recipePayload,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          isShared: false,
+        });
+      }
 
       if (shouldShare) {
+        const shareBase = isEditing && currentRecipe ? currentRecipe : {};
         const shareResult = await shareRecipe({
           id: recipeRef.id,
+          ...shareBase,
           ...recipePayload,
         }, uid);
 
@@ -172,19 +266,27 @@ export default function RecipeMakerScreen() {
           {
             text: "OK",
             onPress: () => router.back(),
-          },
+          }
         ]);
-        resetForm();
+        if (!isEditing) {
+          resetForm();
+        }
         return;
       }
 
-      Alert.alert("Saved", "Recipe saved to your collection.", [
-        {
-          text: "OK",
-          onPress: () => router.back(),
-        },
-      ]);
-      resetForm();
+      Alert.alert(
+        "Saved",
+        isEditing ? "Recipe updated." : "Recipe saved to your collection.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]
+      );
+      if (!isEditing) {
+        resetForm();
+      }
     } catch (error) {
       console.error("Failed to save recipe", error);
       Alert.alert("Error", "Something went wrong while saving your recipe.");
@@ -201,7 +303,7 @@ export default function RecipeMakerScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft color="#128AFAFF" size={26} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create a Recipe</Text>
+          <Text style={styles.headerTitle}>{isEditing ? "Edit Recipe" : "Create a Recipe"}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

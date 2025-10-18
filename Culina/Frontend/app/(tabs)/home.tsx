@@ -142,7 +142,7 @@ export default function HomeScreen() {
               {displayedRecipes.map((recipe: SharedRecipe, index: number) => (
                 <AnimatedRecipeCard 
                   key={recipe.id} 
-                  recipe={{ ...recipe, source: 'shared' } as any}
+                  recipe={{ ...recipe, isShared: true }}
                   index={index}
                 />
               ))}

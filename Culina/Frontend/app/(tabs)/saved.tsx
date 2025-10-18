@@ -19,11 +19,13 @@ import {
   Flame,
   Clock,
   Share2,
+  Pencil,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import Background from '@/components/Background';
 import type { Recipe } from '@/types/recipe';
 import { shareRecipe, unshareRecipe, isRecipeShared } from '@/lib/utils/shareRecipe';
+import { normalizeRecipeSource, isAISource } from '@/lib/utils/recipeSource';
 
 type SavedRecipe = Recipe & {
   id: string;
@@ -54,6 +56,7 @@ type RecipeCardProps = {
   onPress: () => void;
   onDelete: (id: string) => void;
   onShare: (recipe: SavedRecipe) => void;
+  onEdit?: () => void;
   inventoryCounts: Record<string, number>;
 };
 
@@ -91,13 +94,21 @@ const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => 
   return ingredient.name || '';
 };
 
-const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, inventoryCounts }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, inventoryCounts }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
   const ingredientsPreview = Array.isArray(recipe.ingredients)
     ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
     : [];
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
+  const sourceLabel = normalizeRecipeSource(recipe.source);
+  const canEdit = isAISource(recipe.source);
+
+  const handleEditPress = (event: any) => {
+    event?.stopPropagation?.();
+    if (!canEdit) return;
+    onEdit?.();
+  };
 
   const getInventoryKey = (ingredient: string | { name: string; qty?: string }) => {
     if (typeof ingredient === 'string') return formatNameOnly(ingredient).toLowerCase();
@@ -135,12 +146,22 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, inventoryCounts
             <Text style={styles.recipeTitle} numberOfLines={2}>
               {recipe.title}
             </Text>
-            <TouchableOpacity
-              onPress={() => onShare(recipe)}
-              style={[styles.shareButton, recipe.isShared && styles.shareButtonActive]}
-            >
-              <Share2 size={20} color={recipe.isShared ? "#0ea5e9" : "#64748b"} />
-            </TouchableOpacity>
+            <View style={styles.cardActions}>
+              {canEdit && (
+                <TouchableOpacity
+                  onPress={handleEditPress}
+                  style={styles.shareButton}
+                >
+                  <Pencil size={20} color="#0284c7" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => onShare(recipe)}
+                style={[styles.shareButton, recipe.isShared && styles.shareButtonActive]}
+              >
+                <Share2 size={20} color={recipe.isShared ? "#0ea5e9" : "#64748b"} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {recipe.isShared && (
@@ -179,6 +200,9 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, inventoryCounts
             style={styles.recipeMetaContainer}
             entering={FadeIn.delay(index * 100 + 200).duration(500)}
           >
+            <View style={[styles.metaPill, styles.sourcePill]}>
+              <Text style={styles.metaText}>{sourceLabel}</Text>
+            </View>
             {!!recipe.servings && (
               <View style={[styles.metaPill, styles.servingsPill]}>
                 <Users size={14} color="#0284c7" />
@@ -225,10 +249,15 @@ export default function SavedRecipesScreen() {
       const recipesRef = collection(db, 'users', uid, 'recipes');
       const q = query(recipesRef, orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
-      const fetched = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<SavedRecipe, 'id'>),
-      }));
+      const fetched = snapshot.docs.map((d) => {
+        const data = d.data() as Omit<SavedRecipe, 'id'>;
+        const source = normalizeRecipeSource(data?.source);
+        return {
+          id: d.id,
+          ...data,
+          source,
+        };
+      });
       setRecipes(fetched);
     } catch (err) {
       console.error(err);
@@ -400,6 +429,7 @@ export default function SavedRecipesScreen() {
                 onPress={() => router.push(`/recipe/${recipe.id}`)}
                 onDelete={handleDelete}
                 onShare={handleShare}
+                onEdit={() => router.push({ pathname: "/recipe/maker", params: { recipeId: recipe.id } })}
                 inventoryCounts={inventoryCounts}
               />
             ))}
@@ -491,7 +521,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f1f5f9',
   },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   shareButtonActive: {
+    backgroundColor: '#e0f2fe',
+  },
+  sourcePill: {
     backgroundColor: '#e0f2fe',
   },
   sharedBadge: {

@@ -1,6 +1,7 @@
 // lib/utils/shareRecipe.ts
 import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
+import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
 
 interface RecipeData {
   id: string;
@@ -57,9 +58,8 @@ export const shareRecipe = async (
       createdAt: recipe.createdAt || serverTimestamp(),
     };
 
-    if (recipe.source) {
-      sharedRecipeData.source = recipe.source;
-    }
+    const sourceLabel = normalizeRecipeSource(recipe.source);
+    sharedRecipeData.source = sourceLabel;
 
     // Only add optional fields if they are defined
     if (recipe.servings !== undefined) {
@@ -82,13 +82,13 @@ export const shareRecipe = async (
     }
     if (recipe.tags !== undefined) {
       const tags = Array.isArray(recipe.tags) ? [...recipe.tags] : [];
-      if (recipe.source === 'Human' && !tags.includes('Human')) {
+      if (sourceLabel === 'Human' && !tags.includes('Human')) {
         tags.push('Human');
       }
       if (tags.length > 0) {
         sharedRecipeData.tags = tags;
       }
-    } else if (recipe.source === 'Human') {
+    } else if (sourceLabel === 'Human') {
       sharedRecipeData.tags = ['Human'];
     }
 

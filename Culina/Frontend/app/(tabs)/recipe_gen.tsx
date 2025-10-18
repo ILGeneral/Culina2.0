@@ -15,7 +15,8 @@ import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
 import Background from "@/components/Background";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
-import { Users, Flame, RefreshCw } from "lucide-react-native";
+import { Users, Flame, BookmarkPlus } from "lucide-react-native";
+import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -123,12 +124,13 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
   };
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
+  const sourceLabel = normalizeRecipeSource(recipe.source);
 
   return (
     <Animated.View entering={FadeInUp.delay(index * 100).duration(400).springify()}>
       <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
-        <View style={styles.recipeCard}>
-          <View style={styles.recipeContent}>
+        <View style={styles.savedCard}>
+          <View style={styles.savedContent}>
             <Text style={styles.recipeTitle} numberOfLines={2}>
               {recipe.title}
             </Text>
@@ -148,7 +150,7 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
                   const countLabel =
                     count === null ? "Not in pantry" : count === 0 ? "Out of stock" : `${count} in pantry`;
                   return (
-                    <View key={idx} style={styles.previewItemRow}>
+                    <View key={idx} style={styles.previewRow}>
                       <Text style={styles.previewItem}>• {displayName}</Text>
                       <Text style={[styles.previewCount, (count === null || count === 0) && styles.previewCountLow]}>
                         {countLabel}
@@ -163,6 +165,9 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
               style={styles.recipeMetaContainer}
               entering={FadeIn.delay(index * 100 + 150).duration(400)}
             >
+              <View style={[styles.metaPill, styles.sourcePill]}>
+                <Text style={styles.metaText}>{sourceLabel}</Text>
+              </View>
               {!!recipe.servings && (
                 <View style={[styles.metaPill, styles.servingsPill]}>
                   <Users size={14} color="#0284c7" />
@@ -438,56 +443,227 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   gray: { color: "#6b7280", marginTop: 10, textAlign: "center" },
-  button: { backgroundColor: "#128AFA", paddingVertical: 14, paddingHorizontal: 30, borderRadius: 14 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  scroll: { flex: 1 },
-  list: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  button: {
+    backgroundColor: "#0284c7",
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  headerBtn: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  section: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#94a3b8",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 4,
+  },
+  inventoryList: {
+    gap: 10,
+  },
+  inventoryTag: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  inventoryTagText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  inventoryTagCount: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0284c7",
+  },
+  inventoryEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    gap: 8,
+  },
+  inventoryEmptyText: {
+    color: "#94a3b8",
+    fontSize: 14,
+  },
+  generateButton: {
+    marginTop: 16,
+    backgroundColor: "#0284c7",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  generateButtonDisabled: {
+    opacity: 0.6,
+  },
+  generateButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  generatedHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  generatedTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  generatedSub: {
+    color: "#64748b",
+    marginTop: 4,
+  },
+  recipeList: {
+    gap: 18,
+  },
   refreshRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginTop: 12,
-    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
   refreshHint: {
-    fontSize: 14,
     color: "#475569",
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  recipeCard: {
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#0f172a",
+    backgroundColor: "rgba(255,255,255,0.92)",
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  secondaryButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  scroll: {
+    paddingHorizontal: 20,
+  },
+  list: {
+    paddingBottom: 32,
+    gap: 20,
+  },
+  savedCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     shadowColor: "#94a3b8",
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
     shadowOffset: { width: 0, height: 5 },
     shadowRadius: 15,
     elevation: 5,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
+    marginBottom: 0,
   },
-  recipeContent: { padding: 20 },
-  recipeTitle: { fontSize: 22, fontWeight: "bold", color: "#1e293b", marginBottom: 8 },
-  recipeDescription: { color: "#475569", fontSize: 15, lineHeight: 22, marginBottom: 16 },
-  previewSection: { marginBottom: 16 },
-  previewLabel: { fontSize: 14, fontWeight: "600", color: "#0f172a", marginBottom: 6 },
-  previewItemRow: {
+  savedContent: {
+    padding: 20,
+  },
+  recipeTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#1e293b",
+    marginBottom: 8,
+  },
+  recipeDescription: {
+    color: "#475569",
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  previewSection: {
+    marginBottom: 16,
+    gap: 4,
+  },
+  previewLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  previewRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    marginBottom: 4,
   },
-  previewItem: { color: "#334155", lineHeight: 20, flex: 1 },
+  previewItem: {
+    color: "#334155",
+    fontSize: 14,
+  },
   previewCount: {
     fontSize: 13,
     fontWeight: "600",
     color: "#0f172a",
   },
   previewCountLow: {
-    color: "#b91c1c",
+    color: "#dc2626",
   },
   recipeMetaContainer: {
     flexDirection: "row",
@@ -495,8 +671,7 @@ const styles = StyleSheet.create({
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: "#f1f5f9",
-    paddingTop: 16,
-    marginBottom: 16,
+    paddingTop: 14,
   },
   metaPill: {
     flexDirection: "row",
@@ -506,23 +681,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
   },
-  metaText: { fontSize: 14, fontWeight: "500", color: "#334155" },
-  servingsPill: { backgroundColor: "#e0f2fe" },
-  caloriesPill: { backgroundColor: "#fff7ed" },
-  ingredientsPill: { backgroundColor: "#E2F0E5FF" },
-  sourcePill: { backgroundColor: "#f1f5f9" },
-  sectionContainer: { marginTop: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#0f172a", marginBottom: 8 },
-  listItem: { color: "#334155", marginBottom: 6, lineHeight: 20 },
-  primaryButton: {
-    backgroundColor: "#128AFA",
-    paddingVertical: 14,
-    borderRadius: 999,
-    marginTop: 20,
-    alignItems: "center",
+  sourcePill: {
+    backgroundColor: "#e0f2fe",
   },
-  primaryButtonDisabled: { opacity: 0.7 },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  servingsPill: {
+    backgroundColor: "#dbeafe",
+  },
+  caloriesPill: {
+    backgroundColor: "#fff7ed",
+  },
+  ingredientsPill: {
+    backgroundColor: "#f1f5f9",
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  primaryButton: {
+    marginTop: 16,
+    backgroundColor: "#0284c7",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",

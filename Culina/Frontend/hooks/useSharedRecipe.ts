@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebaseConfig';
+import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
 
 // Export the SharedRecipe interface
 export interface SharedRecipe {
@@ -22,6 +23,7 @@ export interface SharedRecipe {
   userRecipeId: string;
   sharedAt: any;
   createdAt?: any;
+  source?: string;
 }
 
 export const useSharedRecipes = () => {
@@ -51,10 +53,14 @@ export const useSharedRecipes = () => {
       const unsubscribeMy = onSnapshot(
         myRecipesQuery,
         (snapshot) => {
-          const recipes = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as SharedRecipe[];
+          const recipes = snapshot.docs.map((doc) => {
+            const data = doc.data() as SharedRecipe;
+            return {
+              ...data,
+              id: doc.id,
+              source: normalizeRecipeSource((data as any)?.source),
+            };
+          });
           setMySharedRecipes(recipes);
           setLoading(false);
         },
@@ -76,10 +82,14 @@ export const useSharedRecipes = () => {
         communityQuery,
         (snapshot) => {
           const recipes = snapshot.docs
-            .map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }))
+            .map((doc) => {
+              const data = doc.data() as SharedRecipe;
+              return {
+                ...data,
+                id: doc.id,
+                source: normalizeRecipeSource((data as any)?.source),
+              };
+            })
             .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
           setCommunityRecipes(recipes);
         },

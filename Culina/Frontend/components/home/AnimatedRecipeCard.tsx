@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { Users, Flame, UtensilsCrossed } from "lucide-react-native";
+import { Users, Flame, MessageCircle } from "lucide-react-native";
+import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
@@ -49,7 +50,8 @@ type AnimatedRecipeCardProps = {
     servings?: number;
     sharedAt?: any;
     ingredients?: (string | { name: string; qty?: string })[];
-    source?: "AI" | "Edited" | "Human" | "shared";
+    source?: string;
+    isShared?: boolean;
   };
   index: number;
 };
@@ -59,9 +61,9 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
 
   const previewIngredients = useMemo(() => toPreviewList(recipe.ingredients), [recipe.ingredients]);
   const sharedDate = useMemo(() => formatTimestamp(recipe.sharedAt) || formatTimestamp((recipe as any)?.createdAt), [recipe.sharedAt, (recipe as any)?.createdAt]);
+  const commentCount = useMemo(() => (recipe as any)?.commentCount ?? 0, [recipe]);
   const handlePress = () => {
-    // Check if this is a shared recipe
-    if (recipe.source === 'shared') {
+    if (recipe.isShared) {
       router.push({
         pathname: `/recipe/[id]` as any,
         params: { 
@@ -74,11 +76,21 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
     }
   };
 
+  const handleCommentPress = () => {
+    if (!recipe?.id) return;
+    router.push({
+      pathname: `/recipe/[id]/comments` as any,
+      params: {
+        id: recipe.id,
+        title: recipe.title,
+      },
+    });
+  };
+
   // Use estimatedCalories or estKcal
   const calories = recipe.estimatedCalories || recipe.estKcal;
 
-  // Determine display source
-  const displaySource = recipe.source === 'shared' ? undefined : recipe.source;
+  const displaySource = normalizeRecipeSource(recipe.source);
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : undefined;
 
   return (
@@ -114,11 +126,9 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
           )}
 
           <Animated.View entering={FadeIn.delay(index * 100 + 150).duration(400)} style={styles.metaRow}>
-            {!!displaySource && (
-              <View style={[styles.metaPill, styles.sourcePill]}>
-                <Text style={styles.metaText}>{displaySource}</Text>
-              </View>
-            )}
+            <View style={[styles.metaPill, styles.sourcePill]}>
+              <Text style={styles.metaText}>{displaySource}</Text>
+            </View>
             {!!recipe.servings && (
               <View style={[styles.metaPill, styles.servingsPill]}>
                 <Users size={14} color="#0284c7" />
@@ -142,6 +152,17 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
               </View>
             )}
           </Animated.View>
+
+          {recipe.isShared && (
+            <View style={styles.footerRow}>
+              <TouchableOpacity style={styles.commentButton} onPress={handleCommentPress} activeOpacity={0.8}>
+                <MessageCircle size={16} color="#0f172a" />
+                <Text style={styles.commentText}>
+                  {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? "" : "s"}` : "View Comments"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -226,8 +247,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f5f9",
   },
   metaText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 16,
+  },
+  commentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(18,138,250,0.12)",
+    borderRadius: 999,
+  },
+  commentText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#1f2937",
+    color: "#0f172a",
   },
 });
