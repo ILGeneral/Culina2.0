@@ -11,7 +11,7 @@ type ClarifaiImageSource = {
   base64?: string;
 };
 
-const API_BASE = "https://culina-backend.vercel.app/api";
+export const API_BASE = "https://culina-backend.vercel.app";
 
 const hasDirectClarifaiCredentials = Boolean(
   CLARIFAI_USER_ID &&
