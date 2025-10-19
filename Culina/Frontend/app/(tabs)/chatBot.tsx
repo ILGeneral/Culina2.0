@@ -199,37 +199,45 @@ const ChatBotScreen = () => {
               />
             </View>
             <View style={styles.overlay}>
-              <View style={[styles.chatPanel, expanded ? styles.chatPanelExpanded : styles.chatPanelCollapsed]}>
-                <View style={styles.topBar}>
-                  <View style={styles.topActions}>
-                    <TouchableOpacity
-                      onPress={toggleVoice}
-                      style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
-                      activeOpacity={0.8}
-                    >
-                      {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
-                      <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={toggleExpanded}
-                      style={styles.expandButton}
-                      activeOpacity={0.8}
-                    >
-                      {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
-                    </TouchableOpacity>
+              <View style={styles.controlsContainer}>
+                <TouchableOpacity
+                  onPress={toggleVoice}
+                  style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+                  activeOpacity={0.8}
+                >
+                  {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
+                  <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={toggleExpanded}
+                  style={styles.expandButton}
+                  activeOpacity={0.8}
+                >
+                  {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
+                </TouchableOpacity>
+              </View>
+
+              {!expanded && displayedMessages.length > 0 && (
+                <View style={styles.collapsedMessageContainer}>
+                  <View style={styles.collapsedBubble}>
+                    <Text style={styles.collapsedText}>{displayedMessages[0].content}</Text>
                   </View>
                 </View>
+              )}
 
-                <View style={[styles.messagesWrapper, !expanded && styles.messagesWrapperCollapsed]}>
-                  <FlatList
-                    ref={listRef}
-                    data={displayedMessages}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderMessage}
-                    contentContainerStyle={[styles.messages, !expanded && styles.messagesCollapsed]}
-                    style={styles.messageList}
-                    showsVerticalScrollIndicator={false}
-                  />
+              <View style={[styles.chatPanel, expanded ? styles.chatPanelExpanded : styles.chatPanelCollapsed]}>
+                <View style={expanded ? styles.messagesWrapper : styles.messagesPlaceholder}>
+                  {expanded && (
+                    <FlatList
+                      ref={listRef}
+                      data={displayedMessages}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderMessage}
+                      contentContainerStyle={styles.messages}
+                      style={styles.messageList}
+                      showsVerticalScrollIndicator={false}
+                    />
+                  )}
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -288,6 +296,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.2)",
     zIndex: 1,
   },
+  controlsContainer: {
+    position: "absolute",
+    top: 24,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    zIndex: 2,
+  },
   culinaWrapper: {
     position: "absolute",
     top: 0,
@@ -315,20 +332,10 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 65 }],
   },
   chatPanelCollapsed: {
-    height: 300,
+    height: 120,
   },
   chatPanelExpanded: {
     height: 460,
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  topActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
   },
   voiceButton: {
     flexDirection: "row",
@@ -362,9 +369,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 6,
   },
-  messagesWrapperCollapsed: {
-    paddingBottom: 24,
-  },
   messageList: {
     flexGrow: 0,
   },
@@ -373,8 +377,27 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 12,
   },
-  messagesCollapsed: {
-    paddingBottom: 72,
+  messagesPlaceholder: {
+    flex: 1,
+  },
+  collapsedMessageContainer: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  collapsedBubble: {
+    width: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+  },
+  collapsedText: {
+    fontSize: 18,
+    color: "#f8fafc",
+    textAlign: "center",
+    lineHeight: 26,
   },
   messageRow: {
     flexDirection: "row",
