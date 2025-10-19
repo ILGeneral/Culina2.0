@@ -15,7 +15,7 @@ import { generateRecipe } from "@/lib/generateRecipe";
 import type { Recipe } from "@/types/recipe";
 import Background from "@/components/Background";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
-import { Users, Flame, BookmarkPlus } from "lucide-react-native";
+import { Users, Flame, BookmarkPlus, RefreshCw } from "lucide-react-native";
 import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
