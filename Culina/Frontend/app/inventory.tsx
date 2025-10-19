@@ -186,8 +186,8 @@ export default function InventoryScreen() {
     await new Promise((resolve) => setTimeout(resolve, 250));
 
     const p = await camRef.current?.takePictureAsync({
-      base64: false, // ✅ no base64 needed
-      quality: 0.5,  // 0.3–0.6 is ideal balance
+      base64: false,
+      quality: 0.3,  // Reduced from 0.5 to keep file size small
       imageType: "jpg",
       skipProcessing: true,
     });
@@ -202,7 +202,6 @@ export default function InventoryScreen() {
     setCapturing(false);
   }
 };
-
 
   const retakePhoto = () => {
     if (uploading) return;
@@ -258,21 +257,7 @@ const handleCapture = async (photo: { uri: string }) => {
     if (!user) return;
     setUploading(true);
 
-    // Step 1: Get upload token from your backend
-    console.log(`🔗 Requesting upload token from: ${API_BASE}/api/upload-url`);
-    
-    const tokenRes = await fetch(`${API_BASE}/api/upload-url`);
-    
-    if (!tokenRes.ok) {
-      const errorBody = await tokenRes.text();
-      console.error(`❌ Failed to get token:`, errorBody);
-      throw new Error(`Failed to get upload token: ${tokenRes.status} - ${errorBody}`);
-    }
-    
-    const { token, uploadApiUrl } = await tokenRes.json();
-    console.log("📤 Upload token received");
-
-    // Step 2: Read local image as binary
+    // Step 1: Read local image as binary
     const fileData = await FileSystem.readAsStringAsync(photo.uri, {
       encoding: "base64",
     });
@@ -285,14 +270,11 @@ const handleCapture = async (photo: { uri: string }) => {
     
     const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
 
-    // Step 3: Upload to Vercel Blob using the token
-    const filename = `ingredient-${user.uid}-${Date.now()}.jpg`;
-    
-    const uploadRes = await fetch(`${uploadApiUrl}/upload`, {
+    // Step 3: Upload to Vercel Blob via backend
+    const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
       method: "POST",
       headers: {
         "Content-Type": "image/jpeg",
-        "Authorization": `Bearer ${token}`,
       },
       body: binary,
     });

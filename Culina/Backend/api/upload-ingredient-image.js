@@ -1,53 +1,57 @@
-import { put } from '@vercel/blob';
-import sharp from 'sharp';
+import { put } from "@vercel/blob";
+
+export const config = {
+  api: {
+    bodyParser: false, // Disable default body parser
+    sizeLimit: "5mb", // Limit payload to 5MB
+  },
+};
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  
+  if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { base64 } = req.body || {};
-
-  if (!base64) {
-    res.status(400).json({ error: 'base64 image data is required' });
-    return;
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    // Decode Base64 to Buffer
-    let buffer = Buffer.from(base64, 'base64');
-    const originalSizeMB = buffer.length / 1024 / 1024;
-
-    console.log(`🖼️ Original size: ${originalSizeMB.toFixed(2)}MB`);
-
-    // Optional: reject if larger than 10MB (Vercel body limit)
-    if (originalSizeMB > 9.5) {
-      return res.status(413).json({ error: 'Image too large (limit ~10MB)' });
+    // Read raw binary data from the request stream
+    const chunks = [];
+    
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    
+    const imageBuffer = Buffer.concat(chunks);
+    
+    if (!imageBuffer || imageBuffer.length === 0) {
+      return res.status(400).json({ error: "No image data provided" });
     }
 
-    // Compress with sharp
-    buffer = await sharp(buffer)
-      .resize(1024, 1024, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 60, progressive: true })
-      .toBuffer();
+    console.log(`📦 Received image buffer of ${imageBuffer.length} bytes`);
 
-    const compressedSizeMB = buffer.length / 1024 / 1024;
-    console.log(`🗜️ Compressed size: ${compressedSizeMB.toFixed(2)}MB`);
+    // Generate a unique filename
+    const filename = `ingredient-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
     // Upload to Vercel Blob
-    const fileName = `ingredients/${Date.now()}-${Math.random()
-      .toString(36)
-      .substr(2, 9)}.jpg`;
-
-    const blob = await put(fileName, buffer, {
-      access: 'public',
-      contentType: 'image/jpeg',
+    const blob = await put(filename, imageBuffer, {
+      access: "public",
+      contentType: "image/jpeg",
     });
 
-    res.status(200).json({ url: blob.url });
-  } catch (error) {
-    console.error('❌ Image compression or upload error:', error);
-    res.status(500).json({ error: 'Failed to process and upload image' });
+    console.log(`✅ Uploaded to Vercel Blob: ${blob.url}`);
+
+    return res.status(200).json({ 
+      url: blob.url,
+    });
+  } catch (err) {
+    console.error("❌ Failed to upload image:", err);
+    return res.status(500).json({
+      error: err.message || "Internal Server Error",
+    });
   }
 }
