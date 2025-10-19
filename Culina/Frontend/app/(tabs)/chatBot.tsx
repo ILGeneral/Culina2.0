@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -94,6 +94,21 @@ const ChatBotScreen = () => {
   const toggleExpanded = useCallback(() => {
     setExpanded((prev) => !prev);
   }, []);
+
+  const displayedMessages = useMemo(() => {
+    if (expanded) {
+      return messages;
+    }
+
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message.role === "assistant") {
+        return [message];
+      }
+    }
+
+    return messages.length > 0 ? [messages[messages.length - 1]] : [];
+  }, [expanded, messages]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || sending) {
@@ -205,13 +220,13 @@ const ChatBotScreen = () => {
                   </View>
                 </View>
 
-                <View style={styles.messagesWrapper}>
+                <View style={[styles.messagesWrapper, !expanded && styles.messagesWrapperCollapsed]}>
                   <FlatList
                     ref={listRef}
-                    data={messages}
+                    data={displayedMessages}
                     keyExtractor={(item) => item.id}
                     renderItem={renderMessage}
-                    contentContainerStyle={styles.messages}
+                    contentContainerStyle={[styles.messages, !expanded && styles.messagesCollapsed]}
                     style={styles.messageList}
                     showsVerticalScrollIndicator={false}
                   />
@@ -268,7 +283,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     paddingHorizontal: 0,
-    paddingBottom: 0,
+    paddingBottom: 16,
     paddingTop: 80,
     backgroundColor: "rgba(0, 0, 0, 0.2)",
     zIndex: 1,
@@ -284,8 +299,8 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   culinaModel: {
-    width: "115%",
-    height: "115%",
+    width: "120%",
+    height: "120%",
     opacity: 1,
     transform: [{ translateY: 100 }, { scale: 1.1 }],
   },
@@ -297,9 +312,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
     gap: 16,
+    transform: [{ translateY: 65 }],
   },
   chatPanelCollapsed: {
-    height: 240,
+    height: 300,
   },
   chatPanelExpanded: {
     height: 460,
@@ -346,6 +362,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 6,
   },
+  messagesWrapperCollapsed: {
+    paddingBottom: 24,
+  },
   messageList: {
     flexGrow: 0,
   },
@@ -353,6 +372,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingBottom: 12,
     gap: 12,
+  },
+  messagesCollapsed: {
+    paddingBottom: 72,
   },
   messageRow: {
     flexDirection: "row",
