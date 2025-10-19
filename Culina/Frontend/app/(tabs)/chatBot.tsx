@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import type { ImageSourcePropType } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Send, Volume2, VolumeX } from "lucide-react-native";
+import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
 import * as Speech from "expo-speech";
 
 type ChatMessage = {
@@ -42,6 +42,7 @@ const ChatBotScreen = () => {
   const [sending, setSending] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [currentPose, setCurrentPose] = useState<ImageSourcePropType>(CULINA_POSES[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -88,6 +89,10 @@ const ChatBotScreen = () => {
       }
       return !prev;
     });
+  }, []);
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => !prev);
   }, []);
 
   const handleSend = useCallback(async () => {
@@ -179,35 +184,43 @@ const ChatBotScreen = () => {
               />
             </View>
             <View style={styles.overlay}>
-              <View style={styles.chatPanel}>
-                <View style={styles.header}>
-                  <View style={styles.headerTitles}>
-                    <Text style={styles.title}>Culina</Text>
-                    <Text style={styles.subtitle}>Cheerful kitchen guidance whenever you need it.</Text>
+              <View style={[styles.chatPanel, expanded ? styles.chatPanelExpanded : styles.chatPanelCollapsed]}>
+                <View style={styles.topBar}>
+                  <View style={styles.topActions}>
+                    <TouchableOpacity
+                      onPress={toggleVoice}
+                      style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+                      activeOpacity={0.8}
+                    >
+                      {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
+                      <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={toggleExpanded}
+                      style={styles.expandButton}
+                      activeOpacity={0.8}
+                    >
+                      {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    onPress={toggleVoice}
-                    style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
-                    activeOpacity={0.8}
-                  >
-                    {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
-                    <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
-                  </TouchableOpacity>
                 </View>
 
-                <FlatList
-                  ref={listRef}
-                  data={messages}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderMessage}
-                  contentContainerStyle={styles.messages}
-                  showsVerticalScrollIndicator={false}
-                />
+                <View style={styles.messagesWrapper}>
+                  <FlatList
+                    ref={listRef}
+                    data={messages}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderMessage}
+                    contentContainerStyle={styles.messages}
+                    style={styles.messageList}
+                    showsVerticalScrollIndicator={false}
+                  />
+                </View>
 
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Share what you're cooking or ask a question..."
+                    placeholder="Share what you're cooking or ask me question! I am here for you!"
                     placeholderTextColor="#94a3b8"
                     value={input}
                     onChangeText={setInput}
@@ -254,8 +267,8 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    paddingHorizontal: 20,
-    paddingBottom: 28,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
     paddingTop: 80,
     backgroundColor: "rgba(0, 0, 0, 0.2)",
     zIndex: 1,
@@ -278,40 +291,35 @@ const styles = StyleSheet.create({
   },
   chatPanel: {
     width: "100%",
+    alignSelf: "stretch",
     borderRadius: 28,
-    paddingVertical: 24,
-    paddingHorizontal: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
-    gap: 20,
+    gap: 16,
   },
-  header: {
+  chatPanelCollapsed: {
+    height: 240,
+  },
+  chatPanelExpanded: {
+    height: 460,
+  },
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    justifyContent: "flex-end",
   },
-  headerTitles: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#f8fafc",
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "rgba(248, 250, 252, 0.75)",
+  topActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   voiceButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     backgroundColor: "rgba(15, 23, 42, 0.45)",
     borderRadius: 999,
   },
@@ -323,8 +331,27 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#f8fafc",
   },
+  expandButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messagesWrapper: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: "rgba(15, 23, 42, 0.25)",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  messageList: {
+    flexGrow: 0,
+  },
   messages: {
-    paddingVertical: 16,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
     gap: 12,
   },
   messageRow: {
@@ -370,7 +397,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 12,
-    marginBottom: 4,
+    marginBottom:10,
     backgroundColor: "rgba(15, 23, 42, 0.65)",
   },
   input: {
