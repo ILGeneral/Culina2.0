@@ -8,13 +8,12 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
-  Alert,
-  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
+import { SPOONACULAR_API_KEY } from "@/lib/secrets";
 import {
   ArrowLeft,
   RefreshCw,
@@ -23,19 +22,21 @@ import {
   MapPin,
 } from "lucide-react-native";
 
-const THEMEALDB_SEARCH_ENDPOINT = "https://www.themealdb.com/api/json/v1/1/search.php?s=";
+const SPOONACULAR_RANDOM_ENDPOINT = "https://api.spoonacular.com/recipes/random";
 
-type RawMeal = {
-  idMeal: string;
-  strMeal: string;
-  strInstructions?: string | null;
-  strMealThumb?: string | null;
-  strCategory?: string | null;
-  strArea?: string | null;
-  strTags?: string | null;
-  strSource?: string | null;
-  strYoutube?: string | null;
-  [key: string]: any;
+type RawSpoonacularRecipe = {
+  id: number;
+  title: string;
+  summary?: string | null;
+  image?: string | null;
+  readyInMinutes?: number | null;
+  servings?: number | null;
+  dishTypes?: string[] | null;
+  cuisines?: string[] | null;
+  sourceUrl?: string | null;
+  spoonacularSourceUrl?: string | null;
+  aggregateLikes?: number | null;
+  extendedIngredients?: { original?: string | null }[] | null;
 };
 
 type DatabaseRecipe = {
@@ -48,77 +49,61 @@ type DatabaseRecipe = {
   area?: string;
   tags?: string[];
   sourceUrl?: string | null;
-  youtubeUrl?: string | null;
+  readyInMinutes?: number | null;
+  servings?: number | null;
+  likes?: number | null;
 };
 
 const normalizeDescription = (text?: string | null) => {
   if (!text) return undefined;
-  const cleaned = text.replace(/\s+/g, " ").trim();
+  const withoutHtml = text.replace(/<[^>]+>/g, " ");
+  const cleaned = withoutHtml.replace(/\s+/g, " ").trim();
   if (cleaned.length <= 200) {
     return cleaned;
   }
   return `${cleaned.slice(0, 200).trim()}…`;
 };
 
-const extractIngredients = (meal: RawMeal) => {
-  const items: string[] = [];
-  for (let idx = 1; idx <= 20; idx += 1) {
-    const ingredient = meal[`strIngredient${idx}`];
-    const measure = meal[`strMeasure${idx}`];
-    if (ingredient && typeof ingredient === "string" && ingredient.trim()) {
-      const ingredientLabel = ingredient.trim();
-      const measureLabel = typeof measure === "string" && measure.trim() ? measure.trim() : null;
-      items.push(measureLabel ? `${ingredientLabel} — ${measureLabel}` : ingredientLabel);
-    }
-  }
-  return items;
+const extractIngredients = (recipe: RawSpoonacularRecipe) => {
+  if (!Array.isArray(recipe.extendedIngredients)) return [];
+  return recipe.extendedIngredients
+    .map((item) => (typeof item?.original === "string" ? item.original.trim() : ""))
+    .filter((item) => !!item);
 };
 
-const mapMealToRecipe = (meal: RawMeal): DatabaseRecipe => ({
-  id: meal.idMeal,
-  title: meal.strMeal,
-  description: normalizeDescription(meal.strInstructions),
-  imageUrl: meal.strMealThumb ?? undefined,
-  ingredients: extractIngredients(meal),
-  category: meal.strCategory ?? undefined,
-  area: meal.strArea ?? undefined,
-  tags: meal.strTags ? meal.strTags.split(",").map((tag: string) => tag.trim()).filter(Boolean) : undefined,
-  sourceUrl: meal.strSource ?? null,
-  youtubeUrl: meal.strYoutube ?? null,
-});
+const mapRecipe = (recipe: RawSpoonacularRecipe): DatabaseRecipe => {
+  const dishTypes = Array.isArray(recipe.dishTypes) ? recipe.dishTypes.filter(Boolean) : [];
+  const cuisines = Array.isArray(recipe.cuisines) ? recipe.cuisines.filter(Boolean) : [];
+  return {
+    id: String(recipe.id),
+    title: recipe.title,
+    description: normalizeDescription(recipe.summary),
+    imageUrl: recipe.image ?? undefined,
+    ingredients: extractIngredients(recipe),
+    category: dishTypes.length ? dishTypes[0] : undefined,
+    area: cuisines.length ? cuisines[0] : undefined,
+    tags: [...dishTypes.slice(1), ...cuisines.slice(1)].map((tag) => tag.replace(/\s+/g, " ")), 
+    sourceUrl: recipe.sourceUrl || recipe.spoonacularSourceUrl || null,
+    readyInMinutes: recipe.readyInMinutes ?? null,
+    servings: recipe.servings ?? null,
+    likes: recipe.aggregateLikes ?? null,
+  };
+};
 
 type RecipeDatabaseCardProps = {
   recipe: DatabaseRecipe;
   index: number;
+  onPress: () => void;
 };
 
-const RecipeDatabaseCard = ({ recipe, index }: RecipeDatabaseCardProps) => {
+const RecipeDatabaseCard = ({ recipe, index, onPress }: RecipeDatabaseCardProps) => {
   const tagList = useMemo(() => recipe.tags?.slice(0, 2) ?? [], [recipe.tags]);
-
-  const handleOpenSource = useCallback(async () => {
-    const candidateUrl = recipe.sourceUrl || recipe.youtubeUrl;
-    if (!candidateUrl) return;
-
-    try {
-      const supported = await Linking.canOpenURL(candidateUrl);
-      if (supported) {
-        await Linking.openURL(candidateUrl);
-      } else {
-        throw new Error("Unsupported URL");
-      }
-    } catch (err) {
-      console.warn("Failed to open recipe link", err);
-      Alert.alert("Unable to open link", "Please try again later.");
-    }
-  }, [recipe.sourceUrl, recipe.youtubeUrl]);
 
   const ingredientsPreview = useMemo(() => recipe.ingredients.slice(0, 3), [recipe.ingredients]);
 
   return (
-    <Animated.View
-      entering={FadeInUp.delay(index * 80).duration(400).springify()}
-      style={styles.card}
-    >
+    <Animated.View entering={FadeInUp.delay(index * 80).duration(400).springify()} style={styles.card}>
+      <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
       {recipe.imageUrl && (
         <Image source={{ uri: recipe.imageUrl }} style={styles.cardImage} resizeMode="cover" />
       )}
@@ -147,8 +132,23 @@ const RecipeDatabaseCard = ({ recipe, index }: RecipeDatabaseCardProps) => {
 
         <Animated.View entering={FadeIn.delay(index * 80 + 120).duration(400)} style={styles.metaRow}>
           <View style={[styles.metaPill, styles.sourcePill]}>
-            <Text style={styles.metaText}>TheMealDB</Text>
+            <Text style={styles.metaText}>Spoonacular</Text>
           </View>
+          {!!recipe.readyInMinutes && (
+            <View style={[styles.metaPill, styles.categoryPill]}>
+              <Text style={styles.metaText}>{recipe.readyInMinutes} min</Text>
+            </View>
+          )}
+          {!!recipe.servings && (
+            <View style={[styles.metaPill, styles.categoryPill]}>
+              <Text style={styles.metaText}>Serves {recipe.servings}</Text>
+            </View>
+          )}
+          {!!recipe.likes && (
+            <View style={[styles.metaPill, styles.categoryPill]}>
+              <Text style={styles.metaText}>{recipe.likes} likes</Text>
+            </View>
+          )}
           {!!recipe.category && (
             <View style={[styles.metaPill, styles.categoryPill]}>
               <Tag size={14} color="#0f172a" />
@@ -168,17 +168,12 @@ const RecipeDatabaseCard = ({ recipe, index }: RecipeDatabaseCardProps) => {
           ))}
         </Animated.View>
 
-        {(recipe.sourceUrl || recipe.youtubeUrl) && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            activeOpacity={0.85}
-            onPress={handleOpenSource}
-          >
-            <ExternalLink size={16} color="#0f172a" />
-            <Text style={styles.actionButtonText}>View Full Recipe</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.actionButton} activeOpacity={0.85} onPress={onPress}>
+          <ExternalLink size={16} color="#0f172a" />
+          <Text style={styles.actionButtonText}>View Details</Text>
+        </TouchableOpacity>
       </View>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -199,25 +194,34 @@ export default function RecipeDatabaseScreen() {
 
     try {
       setError(null);
-      const response = await fetch(THEMEALDB_SEARCH_ENDPOINT);
+      if (!SPOONACULAR_API_KEY) {
+        throw new Error("Missing Spoonacular API key");
+      }
+
+      const params = new URLSearchParams({
+        number: "12",
+        apiKey: SPOONACULAR_API_KEY,
+      });
+
+      const response = await fetch(`${SPOONACULAR_RANDOM_ENDPOINT}?${params.toString()}`);
       if (!response.ok) {
-        throw new Error(`TheMealDB request failed with status ${response.status}`);
+        throw new Error(`Spoonacular request failed with status ${response.status}`);
       }
 
       const payload = await response.json();
-      const meals: RawMeal[] = Array.isArray(payload?.meals) ? payload.meals : [];
+      const recipesList: RawSpoonacularRecipe[] = Array.isArray(payload?.recipes) ? payload.recipes : [];
 
-      if (!meals.length) {
+      if (!recipesList.length) {
         setRecipes([]);
         setError("No recipes available right now. Please try again later.");
         return;
       }
 
-      const normalized = meals.map(mapMealToRecipe);
+      const normalized = recipesList.map(mapRecipe);
       setRecipes(normalized);
     } catch (err) {
-      console.error("Failed to load recipes from TheMealDB", err);
-      setError("Failed to load recipes. Please try again.");
+      console.error("Failed to load recipes from Spoonacular", err);
+      setError(err instanceof Error ? err.message : "Failed to load recipes. Please try again.");
     } finally {
       if (mode === "initial") {
         setLoading(false);
@@ -259,7 +263,7 @@ export default function RecipeDatabaseScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.subtitle}>Browse curated meals sourced from TheMealDB.</Text>
+        <Text style={styles.subtitle}>Browse curated meals sourced from Spoonacular.</Text>
 
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
@@ -294,7 +298,18 @@ export default function RecipeDatabaseScreen() {
             ) : (
               <View style={styles.cardList}>
                 {recipes.map((recipe, index) => (
-                  <RecipeDatabaseCard key={recipe.id} recipe={recipe} index={index} />
+                  <RecipeDatabaseCard
+                    key={recipe.id}
+                    recipe={recipe}
+                    index={index}
+                    onPress={() => {
+                      const initial = encodeURIComponent(JSON.stringify(recipe));
+                      router.push({
+                        pathname: "/recipe-database/[id]" as const,
+                        params: { id: recipe.id, initial },
+                      });
+                    }}
+                  />
                 ))}
               </View>
             )}
