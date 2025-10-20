@@ -19,13 +19,18 @@ import {
   ArrowLeft,
   Clock,
   Users,
-  Flame,
   Heart,
   ChefHat,
+  MapPin,
+  Tag,
 } from "lucide-react-native";
 
-const DETAILS_ENDPOINT = (id: string) =>
+type RecipeProvider = "spoonacular" | "mealdb";
+
+const SPOONACULAR_DETAILS_ENDPOINT = (id: string) =>
   `https://api.spoonacular.com/recipes/${id}/information?includeNutrition=false&apiKey=${SPOONACULAR_API_KEY}`;
+const MEALDB_LOOKUP_ENDPOINT = (id: string) =>
+  `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${id}`;
 
 type Step = {
   number: number;
@@ -43,9 +48,13 @@ type DetailedRecipe = {
   servings?: number | null;
   likes?: number | null;
   sourceUrl?: string | null;
+  category?: string;
+  area?: string;
+  tags?: string[];
+  provider: RecipeProvider;
 };
 
-const parseInstructions = (data: any): Step[] => {
+const parseSpoonacularInstructions = (data: any): Step[] => {
   const analyzed = Array.isArray(data?.analyzedInstructions) ? data.analyzedInstructions : [];
   if (analyzed.length > 0 && Array.isArray(analyzed[0]?.steps)) {
     return analyzed[0].steps
@@ -71,6 +80,47 @@ const parseIngredients = (data: any): string[] => {
     .filter(Boolean);
 };
 
+const parseMealIngredients = (meal: any): string[] => {
+  const ingredients: string[] = [];
+  for (let idx = 1; idx <= 20; idx += 1) {
+    const ingredient = meal?.[`strIngredient${idx}`];
+    const measure = meal?.[`strMeasure${idx}`];
+    if (typeof ingredient === "string" && ingredient.trim()) {
+      const name = ingredient.trim();
+      const qty = typeof measure === "string" && measure.trim() ? measure.trim() : "";
+      ingredients.push(qty ? `${name} — ${qty}` : name);
+    }
+  }
+  return ingredients;
+};
+
+const parseMealInstructions = (instructions?: string | null): Step[] => {
+  if (!instructions) return [];
+  const normalized = instructions.replace(/\r\n?/g, "\n");
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const steps = lines.length
+    ? lines
+    : instructions
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter(Boolean);
+
+  return steps.map((text, idx) => ({ number: idx + 1, step: text }));
+};
+
+const parseMealTags = (tags?: string | null): string[] | undefined => {
+  if (!tags) return undefined;
+  const items = tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  return items.length ? items : undefined;
+};
+
 const sanitizeSummary = (html?: string | null): string | undefined => {
   if (!html) return undefined;
   const withoutHtml = html.replace(/<[^>]+>/g, " ");
@@ -91,12 +141,21 @@ const mergeInitialData = (initial: DetailedRecipe, fetched?: Partial<DetailedRec
     servings: fetched.servings ?? initial.servings,
     likes: fetched.likes ?? initial.likes,
     sourceUrl: fetched.sourceUrl ?? initial.sourceUrl,
+     category: fetched.category ?? initial.category,
+     area: fetched.area ?? initial.area,
+     tags: fetched.tags?.length ? fetched.tags : initial.tags,
+     provider: fetched.provider ?? initial.provider,
   };
 };
 
 export default function RecipeDatabaseDetailsScreen() {
   const router = useRouter();
-  const { id, initial } = useLocalSearchParams<{ id?: string; initial?: string }>();
+  const { id, initial, provider: providerParam } = useLocalSearchParams<{
+    id?: string;
+    initial?: string;
+    provider?: RecipeProvider;
+  }>();
+  const provider: RecipeProvider = providerParam === "mealdb" ? "mealdb" : "spoonacular";
   const [recipe, setRecipe] = useState<DetailedRecipe | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -121,6 +180,10 @@ export default function RecipeDatabaseDetailsScreen() {
           servings: parsed.servings,
           likes: parsed.likes,
           sourceUrl: parsed.sourceUrl,
+          category: parsed.category,
+          area: parsed.area,
+          tags: parsed.tags,
+          provider,
         };
         setRecipe(initialData);
       } catch (err) {
@@ -129,31 +192,72 @@ export default function RecipeDatabaseDetailsScreen() {
     }
 
     const fetchDetails = async () => {
-      if (!SPOONACULAR_API_KEY) {
-        return;
-      }
       setLoading(true);
       try {
-        const response = await fetch(DETAILS_ENDPOINT(String(id)));
-        if (!response.ok) {
-          throw new Error(`Spoonacular info request failed (${response.status})`);
+        if (provider === "spoonacular") {
+          if (!SPOONACULAR_API_KEY) {
+            throw new Error("Missing Spoonacular API key");
+          }
+
+          const response = await fetch(SPOONACULAR_DETAILS_ENDPOINT(String(id)));
+          if (!response.ok) {
+            throw new Error(`Spoonacular info request failed (${response.status})`);
+          }
+          const payload = await response.json();
+          const dishTypes = Array.isArray(payload?.dishTypes) ? payload.dishTypes.filter(Boolean) : [];
+          const cuisines = Array.isArray(payload?.cuisines) ? payload.cuisines.filter(Boolean) : [];
+          const tags = [...dishTypes.slice(1), ...cuisines.slice(1)].map((tag: string) =>
+            tag.replace(/\s+/g, " ")
+          );
+
+          const detailed: DetailedRecipe = {
+            id: String(payload?.id ?? id),
+            title: payload?.title ?? initialData?.title ?? "Recipe",
+            description: sanitizeSummary(payload?.summary) ?? initialData?.description,
+            imageUrl: payload?.image ?? initialData?.imageUrl,
+            ingredients: parseIngredients(payload),
+            instructions: parseSpoonacularInstructions(payload),
+            readyInMinutes: payload?.readyInMinutes ?? initialData?.readyInMinutes ?? null,
+            servings: payload?.servings ?? initialData?.servings ?? null,
+            likes: payload?.aggregateLikes ?? initialData?.likes ?? null,
+            sourceUrl: payload?.sourceUrl ?? initialData?.sourceUrl ?? null,
+            category: dishTypes.length ? dishTypes[0] : initialData?.category,
+            area: cuisines.length ? cuisines[0] : initialData?.area,
+            tags: tags.length ? tags : initialData?.tags,
+            provider: "spoonacular",
+          };
+          setRecipe((prev) => mergeInitialData(prev ?? initialData ?? detailed, detailed));
+        } else {
+          const response = await fetch(MEALDB_LOOKUP_ENDPOINT(String(id)));
+          if (!response.ok) {
+            throw new Error(`TheMealDB info request failed (${response.status})`);
+          }
+          const payload = await response.json();
+          const meal = Array.isArray(payload?.meals) ? payload.meals?.[0] : null;
+          if (!meal) {
+            throw new Error("Meal not found");
+          }
+
+          const detailed: DetailedRecipe = {
+            id: meal.idMeal ?? String(id),
+            title: meal.strMeal ?? initialData?.title ?? "Recipe",
+            description: sanitizeSummary(meal.strInstructions) ?? initialData?.description,
+            imageUrl: meal.strMealThumb ?? initialData?.imageUrl,
+            ingredients: parseMealIngredients(meal),
+            instructions: parseMealInstructions(meal.strInstructions),
+            readyInMinutes: initialData?.readyInMinutes ?? null,
+            servings: initialData?.servings ?? null,
+            likes: initialData?.likes ?? null,
+            sourceUrl: meal.strSource || meal.strYoutube || initialData?.sourceUrl || null,
+            category: meal.strCategory ?? initialData?.category,
+            area: meal.strArea ?? initialData?.area,
+            tags: parseMealTags(meal.strTags) ?? initialData?.tags,
+            provider: "mealdb",
+          };
+          setRecipe((prev) => mergeInitialData(prev ?? initialData ?? detailed, detailed));
         }
-        const payload = await response.json();
-        const detailed: DetailedRecipe = {
-          id: String(payload?.id ?? id),
-          title: payload?.title ?? initialData?.title ?? "Recipe",
-          description: sanitizeSummary(payload?.summary) ?? initialData?.description,
-          imageUrl: payload?.image ?? initialData?.imageUrl,
-          ingredients: parseIngredients(payload),
-          instructions: parseInstructions(payload),
-          readyInMinutes: payload?.readyInMinutes ?? initialData?.readyInMinutes ?? null,
-          servings: payload?.servings ?? initialData?.servings ?? null,
-          likes: payload?.aggregateLikes ?? initialData?.likes ?? null,
-          sourceUrl: payload?.sourceUrl ?? initialData?.sourceUrl ?? null,
-        };
-        setRecipe((prev) => mergeInitialData(prev ?? initialData ?? detailed, detailed));
       } catch (err) {
-        console.error("Failed to fetch Spoonacular detail", err);
+        console.error("Failed to fetch recipe detail", err);
         if (!initialData) {
           Alert.alert("Error", "Unable to load this recipe right now.");
         }
@@ -163,7 +267,7 @@ export default function RecipeDatabaseDetailsScreen() {
     };
 
     fetchDetails();
-  }, [id, initial]);
+  }, [id, initial, provider]);
 
   const headerStats = useMemo(() => {
     if (!recipe) return [] as { icon: React.ReactNode; label: string }[];
@@ -171,8 +275,12 @@ export default function RecipeDatabaseDetailsScreen() {
       recipe.readyInMinutes ? { icon: <Clock size={16} color="#0f172a" />, label: `${recipe.readyInMinutes} min` } : null,
       recipe.servings ? { icon: <Users size={16} color="#0f172a" />, label: `Serves ${recipe.servings}` } : null,
       recipe.likes ? { icon: <Heart size={16} color="#ef4444" />, label: `${recipe.likes} likes` } : null,
+      recipe.category ? { icon: <Tag size={16} color="#0f172a" />, label: recipe.category } : null,
+      recipe.area ? { icon: <MapPin size={16} color="#0f172a" />, label: recipe.area } : null,
     ].filter(Boolean) as { icon: React.ReactNode; label: string }[];
   }, [recipe]);
+
+  const tagList = useMemo(() => recipe?.tags ?? [], [recipe?.tags]);
 
   if (!recipe) {
     return (
@@ -240,6 +348,19 @@ export default function RecipeDatabaseDetailsScreen() {
                   <Text key={index} style={styles.listItem}>
                     • {ingredient}
                   </Text>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {tagList.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Tags</Text>
+              <View style={styles.tagRow}>
+                {tagList.map((tag) => (
+                  <View key={tag} style={styles.tagPill}>
+                    <Text style={styles.tagText}>#{tag}</Text>
+                  </View>
                 ))}
               </View>
             </View>
@@ -441,6 +562,22 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: "#1f2937",
+  },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  tagPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#e0f2fe",
+  },
+  tagText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0f172a",
   },
   loaderRow: {
     flexDirection: "row",
