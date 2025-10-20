@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
+import { useInventory } from "@/hooks/useInventory";
 import {
   ArrowLeft,
   RefreshCw,
@@ -69,6 +70,133 @@ type DatabaseRecipe = {
   servings?: number | null;
   likes?: number | null;
   provider: RecipeProvider;
+  matchCount?: number;
+  totalIngredients?: number;
+  matchPercentage?: number;
+};
+
+const INGREDIENT_STOP_WORDS = [
+  "tsp",
+  "teaspoon",
+  "teaspoons",
+  "tbsp",
+  "tablespoon",
+  "tablespoons",
+  "cup",
+  "cups",
+  "ounce",
+  "ounces",
+  "oz",
+  "pound",
+  "pounds",
+  "lb",
+  "lbs",
+  "gram",
+  "grams",
+  "g",
+  "kg",
+  "milliliter",
+  "milliliters",
+  "ml",
+  "liter",
+  "liters",
+  "l",
+  "pinch",
+  "dash",
+  "clove",
+  "cloves",
+  "slice",
+  "slices",
+  "diced",
+  "minced",
+  "chopped",
+  "fresh",
+  "large",
+  "small",
+  "medium",
+  "extra",
+  "virgin",
+  "boneless",
+  "skinless",
+  "optional",
+  "taste",
+  "ground",
+  "crushed",
+  "peeled",
+  "ripe",
+  "finely",
+  "roughly",
+  "softened",
+  "room",
+  "temperature",
+  "cooked",
+  "uncooked",
+  "packaged",
+  "for",
+  "serving",
+  "and",
+  "or",
+  "with",
+  "of",
+  "to",
+  "the",
+];
+
+const normalizeIngredientLabel = (input?: string | null) => {
+  if (!input) return "";
+  let value = input.toString().toLowerCase();
+  value = value.replace(/\([^)]*\)/g, " ");
+  value = value.replace(/[\d+\/*.,%-]+/g, " ");
+  value = value.replace(/[-–—]/g, " ");
+  INGREDIENT_STOP_WORDS.forEach((word) => {
+    const pattern = new RegExp(`\\b${word}\\b`, "g");
+    value = value.replace(pattern, " ");
+  });
+  value = value.replace(/\s+/g, " ").trim();
+  return value;
+};
+
+const normalizeMealIngredient = (ingredient: string) => {
+  const [namePart] = ingredient.split("—");
+  return normalizeIngredientLabel(namePart || ingredient);
+};
+
+const attachMatchMetadata = (recipe: DatabaseRecipe, inventorySet: Set<string>) => {
+  const normalizedIngredients = recipe.ingredients
+    .map((ingredient) =>
+      recipe.provider === "mealdb" ? normalizeMealIngredient(ingredient) : normalizeIngredientLabel(ingredient)
+    )
+    .map((label) => label.trim())
+    .filter(Boolean);
+
+  const uniqueIngredients = Array.from(new Set(normalizedIngredients));
+  const matchCount = uniqueIngredients.filter((item) => inventorySet.has(item)).length;
+  const totalIngredients = uniqueIngredients.length;
+  const matchPercentage = totalIngredients > 0 ? Math.round((matchCount / totalIngredients) * 100) : undefined;
+
+  return {
+    ...recipe,
+    matchCount,
+    totalIngredients,
+    matchPercentage,
+  };
+};
+
+const rankRecipesByInventory = (list: DatabaseRecipe[], inventorySet: Set<string>) => {
+  return list
+    .map((recipe) => attachMatchMetadata(recipe, inventorySet))
+    .sort((a, b) => {
+      const matchDiff = (b.matchCount ?? 0) - (a.matchCount ?? 0);
+      if (matchDiff !== 0) return matchDiff;
+
+      const percentageDiff = (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0);
+      if (percentageDiff !== 0) return percentageDiff;
+
+      const likesDiff = (b.likes ?? 0) - (a.likes ?? 0);
+      if (likesDiff !== 0) return likesDiff;
+
+      return a.title.localeCompare(b.title);
+    });
 };
 
 const normalizeDescription = (text?: string | null) => {
@@ -235,14 +363,14 @@ const RecipeDatabaseCard = ({ recipe, index, onPress }: RecipeDatabaseCardProps)
 
 export default function RecipeDatabaseScreen() {
   const router = useRouter();
+  const { inventory, loading: inventoryLoading } = useInventory();
   const [recipes, setRecipes] = useState<DatabaseRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<RecipeProvider>("spoonacular");
 
   const loadRecipes = useCallback(
-    async (mode: "initial" | "refresh" = "initial", targetProvider: RecipeProvider = provider) => {
+    async (mode: "initial" | "refresh" = "initial") => {
       if (mode === "initial") {
         setLoading(true);
       } else {
@@ -251,52 +379,53 @@ export default function RecipeDatabaseScreen() {
 
       try {
         setError(null);
-        let normalized: DatabaseRecipe[] = [];
 
-        if (targetProvider === "spoonacular") {
-          if (!SPOONACULAR_API_KEY) {
-            throw new Error("Missing Spoonacular API key");
-          }
-
-          const params = new URLSearchParams({
-            number: "12",
-            apiKey: SPOONACULAR_API_KEY,
-          });
-
-          const response = await fetch(`${SPOONACULAR_RANDOM_ENDPOINT}?${params.toString()}`);
-          if (!response.ok) {
-            throw new Error(`Spoonacular request failed with status ${response.status}`);
-          }
-
-          const payload = await response.json();
-          const recipesList: RawSpoonacularRecipe[] = Array.isArray(payload?.recipes) ? payload.recipes : [];
-
-          if (!recipesList.length) {
-            setRecipes([]);
-            setError("No recipes available right now. Please try again later.");
-            return;
-          }
-
-          normalized = recipesList.map(mapRecipe);
-        } else {
-          const response = await fetch(THEMEALDB_SEARCH_ENDPOINT);
-          if (!response.ok) {
-            throw new Error(`TheMealDB request failed with status ${response.status}`);
-          }
-
-          const payload = await response.json();
-          const meals: RawMeal[] = Array.isArray(payload?.meals) ? payload.meals : [];
-
-          if (!meals.length) {
-            setRecipes([]);
-            setError("No recipes available right now. Please try again later.");
-            return;
-          }
-
-          normalized = meals.map(mapMeal);
+        if (!SPOONACULAR_API_KEY) {
+          throw new Error("Missing Spoonacular API key");
         }
 
-        setRecipes(normalized);
+        const params = new URLSearchParams({
+          number: "12",
+          apiKey: SPOONACULAR_API_KEY,
+        });
+
+        const [spoonacularResponse, mealDbResponse] = await Promise.all([
+          fetch(`${SPOONACULAR_RANDOM_ENDPOINT}?${params.toString()}`),
+          fetch(THEMEALDB_SEARCH_ENDPOINT),
+        ]);
+
+        if (!spoonacularResponse.ok) {
+          throw new Error(`Spoonacular request failed with status ${spoonacularResponse.status}`);
+        }
+
+        if (!mealDbResponse.ok) {
+          throw new Error(`TheMealDB request failed with status ${mealDbResponse.status}`);
+        }
+
+        const [spoonacularPayload, mealDbPayload] = await Promise.all([
+          spoonacularResponse.json(),
+          mealDbResponse.json(),
+        ]);
+
+        const spoonacularRecipes: RawSpoonacularRecipe[] = Array.isArray(spoonacularPayload?.recipes)
+          ? spoonacularPayload.recipes
+          : [];
+        const mealDbMeals: RawMeal[] = Array.isArray(mealDbPayload?.meals) ? mealDbPayload.meals : [];
+
+        const combined = [...spoonacularRecipes.map(mapRecipe), ...mealDbMeals.map(mapMeal)];
+
+        if (!combined.length) {
+          setRecipes([]);
+          setError("No recipes available right now. Please try again later.");
+          return;
+        }
+
+        const inventorySet = new Set(
+          inventory.map((item) => normalizeIngredientLabel(item.name)).filter((label) => !!label)
+        );
+
+        const ranked = inventorySet.size > 0 ? rankRecipesByInventory(combined, inventorySet) : combined;
+        setRecipes(ranked);
       } catch (err) {
         console.error("Failed to load recipes", err);
         setError(err instanceof Error ? err.message : "Failed to load recipes. Please try again.");
@@ -308,24 +437,16 @@ export default function RecipeDatabaseScreen() {
         }
       }
     },
-    [provider]
+    [inventory]
   );
 
   useEffect(() => {
-    loadRecipes("initial", provider);
-  }, [loadRecipes, provider]);
+    loadRecipes("initial");
+  }, [loadRecipes]);
 
   const handleRefresh = useCallback(() => {
     loadRecipes("refresh");
   }, [loadRecipes]);
-
-  const handleProviderChange = useCallback(
-    (next: RecipeProvider) => {
-      if (next === provider) return;
-      setProvider(next);
-    },
-    [provider]
-  );
 
   return (
     <Background>
@@ -348,39 +469,6 @@ export default function RecipeDatabaseScreen() {
             disabled={loading || refreshing}
           >
             <RefreshCw size={18} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.subtitle}>Browse curated meals sourced from Spoonacular and TheMealDB.</Text>
-
-        <View style={styles.providerToggle}>
-          <TouchableOpacity
-            style={[styles.providerButton, provider === "spoonacular" && styles.providerButtonActive]}
-            activeOpacity={0.85}
-            onPress={() => handleProviderChange("spoonacular")}
-          >
-            <Text
-              style={[
-                styles.providerButtonText,
-                provider === "spoonacular" && styles.providerButtonTextActive,
-              ]}
-            >
-              Spoonacular
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.providerButton, provider === "mealdb" && styles.providerButtonActive]}
-            activeOpacity={0.85}
-            onPress={() => handleProviderChange("mealdb")}
-          >
-            <Text
-              style={[
-                styles.providerButtonText,
-                provider === "mealdb" && styles.providerButtonTextActive,
-              ]}
-            >
-              TheMealDB
-            </Text>
           </TouchableOpacity>
         </View>
 
