@@ -714,23 +714,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  secondaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#0f172a",
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.5,
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
 });

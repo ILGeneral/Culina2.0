@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import type { ImageSourcePropType } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Send, Volume2, VolumeX } from "lucide-react-native";
+import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
 import * as Speech from "expo-speech";
 
 type ChatMessage = {
@@ -42,6 +42,7 @@ const ChatBotScreen = () => {
   const [sending, setSending] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [currentPose, setCurrentPose] = useState<ImageSourcePropType>(CULINA_POSES[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
@@ -89,6 +90,25 @@ const ChatBotScreen = () => {
       return !prev;
     });
   }, []);
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => !prev);
+  }, []);
+
+  const displayedMessages = useMemo(() => {
+    if (expanded) {
+      return messages;
+    }
+
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message.role === "assistant") {
+        return [message];
+      }
+    }
+
+    return messages.length > 0 ? [messages[messages.length - 1]] : [];
+  }, [expanded, messages]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || sending) {
@@ -171,56 +191,76 @@ const ChatBotScreen = () => {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View style={styles.contentContainer}>
-            <Image
-              source={currentPose}
-              style={styles.culinaModel}
-              resizeMode="contain"
-            />
+            <View style={styles.culinaWrapper} pointerEvents="none">
+              <Image
+                source={currentPose}
+                style={styles.culinaModel}
+                resizeMode="cover"
+              />
+            </View>
             <View style={styles.overlay}>
-              <View style={styles.header}>
-                <View style={styles.headerTitles}>
-                  <Text style={styles.title}>Culina</Text>
-                  <Text style={styles.subtitle}>Cheerful kitchen guidance whenever you need it.</Text>
-                </View>
+              <View style={styles.controlsContainer}>
                 <TouchableOpacity
                   onPress={toggleVoice}
                   style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
                   activeOpacity={0.8}
                 >
-                  {voiceEnabled ? <Volume2 size={20} color="#0f172a" /> : <VolumeX size={20} color="#0f172a" />}
+                  {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
                   <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={toggleExpanded}
+                  style={styles.expandButton}
+                  activeOpacity={0.8}
+                >
+                  {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
                 </TouchableOpacity>
               </View>
 
-              <FlatList
-                ref={listRef}
-                data={messages}
-                keyExtractor={(item) => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.messages}
-                showsVerticalScrollIndicator={false}
-              />
+              {!expanded && displayedMessages.length > 0 && (
+                <View style={styles.collapsedMessageContainer}>
+                  <View style={styles.collapsedBubble}>
+                    <Text style={styles.collapsedText}>{displayedMessages[0].content}</Text>
+                  </View>
+                </View>
+              )}
 
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Share what you're cooking or ask a question..."
-                  placeholderTextColor="#94a3b8"
-                  value={input}
-                  onChangeText={setInput}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]}
-                  onPress={handleSend}
-                  disabled={!input.trim() || sending}
-                >
-                  {sending ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Send size={20} color="#fff" />
+              <View style={[styles.chatPanel, expanded ? styles.chatPanelExpanded : styles.chatPanelCollapsed]}>
+                <View style={expanded ? styles.messagesWrapper : styles.messagesPlaceholder}>
+                  {expanded && (
+                    <FlatList
+                      ref={listRef}
+                      data={displayedMessages}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderMessage}
+                      contentContainerStyle={styles.messages}
+                      style={styles.messageList}
+                      showsVerticalScrollIndicator={false}
+                    />
                   )}
-                </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Share what you're cooking or ask me question! I am here for you!"
+                    placeholderTextColor="#94a3b8"
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]}
+                    onPress={handleSend}
+                    disabled={!input.trim() || sending}
+                  >
+                    {sending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Send size={20} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -245,69 +285,119 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     justifyContent: "flex-end",
+    position: "relative",
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.86)",
-    marginHorizontal: 16,
-    marginTop: 80,
-    borderRadius: 24,
-    padding: 20,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 16,
+    justifyContent: "flex-end",
+    paddingHorizontal: 0,
+    paddingBottom: 16,
+    paddingTop: 80,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    zIndex: 1,
   },
-  culinaModel: {
+  controlsContainer: {
     position: "absolute",
-    top: -40,
-    alignSelf: "center",
-    width: 420,
-    height: 720,
-    opacity: 0.16,
-  },
-  header: {
+    top: 24,
+    right: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    gap: 12,
+    zIndex: 2,
   },
-  headerTitles: {
-    flex: 1,
-    paddingRight: 16,
+  culinaWrapper: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 0,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: 6,
+  culinaModel: {
+    width: "120%",
+    height: "120%",
+    opacity: 1,
+    transform: [{ translateY: 100 }, { scale: 1.1 }],
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#475569",
+  chatPanel: {
+    width: "100%",
+    alignSelf: "stretch",
+    borderRadius: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    gap: 16,
+    transform: [{ translateY: 65 }],
+  },
+  chatPanelCollapsed: {
+    height: 120,
+  },
+  chatPanelExpanded: {
+    height: 460,
   },
   voiceButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#e2f0e7",
+    paddingHorizontal: 14,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     borderRadius: 999,
   },
   voiceButtonDisabled: {
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "rgba(15, 23, 42, 0.25)",
   },
   voiceLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#0f172a",
+    color: "#f8fafc",
+  },
+  expandButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messagesWrapper: {
+    flex: 1,
+    borderRadius: 18,
+    backgroundColor: "rgba(15, 23, 42, 0.25)",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+  },
+  messageList: {
+    flexGrow: 0,
   },
   messages: {
-    paddingVertical: 16,
+    paddingHorizontal: 10,
+    paddingBottom: 12,
     gap: 12,
+  },
+  messagesPlaceholder: {
+    flex: 1,
+  },
+  collapsedMessageContainer: {
+    width: "100%",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    marginBottom: 12,
+  },
+  collapsedBubble: {
+    width: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+  },
+  collapsedText: {
+    fontSize: 18,
+    color: "#f8fafc",
+    textAlign: "center",
+    lineHeight: 26,
   },
   messageRow: {
     flexDirection: "row",
@@ -347,16 +437,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     borderWidth: 1,
-    borderColor: "#cbd5f5",
+    borderColor: "rgba(148, 163, 184, 0.35)",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 12,
-    marginBottom: 4,
+    marginBottom:10,
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
   },
   input: {
     flex: 1,
-    color: "#0f172a",
+    color: "#f8fafc",
     maxHeight: 120,
   },
   sendButton: {
