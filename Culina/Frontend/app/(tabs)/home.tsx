@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AnimatedRecipeCard from "@/components/home/AnimatedRecipeCard";
-import { Package, User, Globe, BookMarked } from "lucide-react-native";
+import { Package, User, Globe, BookMarked, BookOpen } from "lucide-react-native";
 import Background from "@/components/Background";
 import { useSharedRecipes, SharedRecipe } from "@/hooks/useSharedRecipe";
 
@@ -69,6 +69,15 @@ export default function HomeScreen() {
           onPress={() => router.push('/recipe/maker' as any)}
         >
           <Text style={styles.createButtonText}>Create Your Recipe</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.databaseButton}
+          activeOpacity={0.85}
+          onPress={() => router.push('/recipe-database' as any)}
+        >
+          <BookOpen color="#128AFAFF" size={22} />
+          <Text style={styles.databaseButtonText}>Explore Recipe Database</Text>
         </TouchableOpacity>
 
         {/* Tab Selector */}
@@ -228,6 +237,25 @@ const styles = StyleSheet.create({
   },
   createButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  databaseButton: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: '#e0f2fe',
+    borderWidth: 2,
+    borderColor: '#bae6fd',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  databaseButtonText: {
+    color: '#0f172a',
     fontSize: 16,
     fontWeight: '700',
   },
