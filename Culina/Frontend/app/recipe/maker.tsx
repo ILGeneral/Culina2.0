@@ -26,6 +26,62 @@ import { shareRecipe } from "@/lib/utils/shareRecipe";
 type IngredientForm = {
   name: string;
   qty: string;
+  unit: string;
+};
+
+// Helper function to parse ingredient strings
+const parseIngredientString = (ingredientStr: string): IngredientForm => {
+  // Trim the input
+  const trimmed = ingredientStr.trim();
+  
+  // Check if there's a comma - format: "Broccoli, 1 kg" or "Lemon, 2 pcs"
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',').map(p => p.trim());
+    if (parts.length >= 2) {
+      const name = parts[0];
+      const qtyUnit = parts[1];
+      
+      // Parse the quantity and unit from "1 kg" or "2 pcs"
+      const qtyUnitMatch = qtyUnit.match(/^([\d\/\.\s]+)\s*(.*)$/);
+      if (qtyUnitMatch) {
+        const qty = qtyUnitMatch[1].trim();
+        const unit = qtyUnitMatch[2].trim();
+        return { name, qty, unit };
+      }
+      
+      // If no quantity found, treat the whole second part as quantity
+      return { name, qty: qtyUnit, unit: "" };
+    }
+  }
+  
+  // Try standard format: "2 cups flour" or "1/2 tsp salt"
+  const standardPattern = /^([\d\/\.\s]+)\s+([a-zA-Z]+)\s+(.+)$/;
+  const standardMatch = trimmed.match(standardPattern);
+  
+  if (standardMatch) {
+    const [, qty, unit, name] = standardMatch;
+    return {
+      name: name.trim(),
+      qty: qty.trim(),
+      unit: unit.trim()
+    };
+  }
+  
+  // Try format with just quantity and name: "3 eggs"
+  const simplePattern = /^([\d\/\.\s]+)\s+(.+)$/;
+  const simpleMatch = trimmed.match(simplePattern);
+  
+  if (simpleMatch) {
+    const [, qty, name] = simpleMatch;
+    return {
+      name: name.trim(),
+      qty: qty.trim(),
+      unit: ""
+    };
+  }
+  
+  // No pattern matched, return as just a name
+  return { name: trimmed, qty: "", unit: "" };
 };
 
 export default function RecipeMakerScreen() {
@@ -36,7 +92,7 @@ export default function RecipeMakerScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<IngredientForm[]>([
-    { name: "", qty: "" },
+    { name: "", qty: "", unit: "" },
   ]);
   const [steps, setSteps] = useState<string[]>([""]);
   const [saving, setSaving] = useState(false);
@@ -75,6 +131,10 @@ export default function RecipeMakerScreen() {
         }
 
         const data = snapshot.data() as Record<string, any>;
+        
+        // Debug: Log the raw ingredients data
+        console.log("Raw ingredients data:", JSON.stringify(data.ingredients, null, 2));
+        
         setCurrentRecipe(data);
         setOriginalSource(typeof data.source === "string" ? data.source : undefined);
         setTitle(typeof data.title === "string" ? data.title : "");
@@ -82,17 +142,41 @@ export default function RecipeMakerScreen() {
 
         const loadedIngredients = Array.isArray(data.ingredients)
           ? data.ingredients.map((item: any) => {
+              // Case 1: Item is a plain string
               if (typeof item === "string") {
-                return { name: item, qty: "" };
+                console.log("Parsing string ingredient:", item);
+                const parsed = parseIngredientString(item);
+                console.log("Parsed result:", parsed);
+                return parsed;
               }
+              
+              // Case 2: Item is an object
+              const itemQty = typeof item?.qty === "string" ? item.qty.trim() : "";
+              const itemUnit = typeof item?.unit === "string" ? item.unit.trim() : "";
+              const itemName = typeof item?.name === "string" ? item.name.trim() : "";
+              
+              console.log("Object ingredient:", { name: itemName, qty: itemQty, unit: itemUnit });
+              
+              // If qty and unit are empty but name has content, parse the name
+              if ((!itemQty && !itemUnit) && itemName) {
+                console.log("Parsing name field:", itemName);
+                const parsed = parseIngredientString(itemName);
+                console.log("Parsed from name:", parsed);
+                return parsed;
+              }
+              
+              // Otherwise return as-is
               return {
-                name: typeof item?.name === "string" ? item.name : "",
-                qty: typeof item?.qty === "string" ? item.qty : "",
+                name: itemName,
+                qty: itemQty,
+                unit: itemUnit,
               };
             })
           : [];
+        
+        console.log("Final loaded ingredients:", JSON.stringify(loadedIngredients, null, 2));
         setIngredients(
-          loadedIngredients.length > 0 ? loadedIngredients : [{ name: "", qty: "" }]
+          loadedIngredients.length > 0 ? loadedIngredients : [{ name: "", qty: "", unit: "" }]
         );
 
         const loadedSteps = Array.isArray(data.instructions)
@@ -108,7 +192,7 @@ export default function RecipeMakerScreen() {
   }, [isEditing, recipeId, router]);
 
   const addIngredient = () => {
-    setIngredients((prev) => [...prev, { name: "", qty: "" }]);
+    setIngredients((prev) => [...prev, { name: "", qty: "", unit: "" }]);
   };
 
   const removeIngredient = (index: number) => {
@@ -152,11 +236,16 @@ export default function RecipeMakerScreen() {
       .map((item) => ({
         name: item.name.trim(),
         qty: item.qty.trim(),
+        unit: item.unit.trim(),
       }))
       .filter((item) => item.name.length > 0)
       .map((item) =>
-        item.qty.length > 0
-          ? { name: item.name, qty: item.qty }
+        item.qty.length > 0 || item.unit.length > 0
+          ? {
+              name: item.name,
+              ...(item.qty.length > 0 ? { qty: item.qty } : {}),
+              ...(item.unit.length > 0 ? { unit: item.unit } : {}),
+            }
           : { name: item.name }
       );
     const cleanedSteps = steps.map((step) => step.trim()).filter((step) => step.length > 0);
@@ -203,7 +292,7 @@ export default function RecipeMakerScreen() {
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setIngredients([{ name: "", qty: "" }]);
+    setIngredients([{ name: "", qty: "", unit: "" }]);
     setSteps([""]);
   };
 
@@ -352,10 +441,17 @@ export default function RecipeMakerScreen() {
                 />
                 <TextInput
                   style={[styles.input, styles.ingredientQty]}
-                  placeholder="Quantity"
+                  placeholder="Qty"
                   placeholderTextColor="#94a3b8"
                   value={item.qty}
                   onChangeText={(text) => updateIngredient(index, "qty", text)}
+                />
+                <TextInput
+                  style={[styles.input, styles.ingredientUnit]}
+                  placeholder="Unit"
+                  placeholderTextColor="#94a3b8"
+                  value={item.unit}
+                  onChangeText={(text) => updateIngredient(index, "unit", text)}
                 />
                 {ingredients.length > 1 && (
                   <TouchableOpacity
@@ -513,10 +609,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   ingredientName: {
-    flex: 1,
+    flex: 2,
   },
   ingredientQty: {
-    width: 110,
+    width: 70,
+  },
+  ingredientUnit: {
+    width: 80,
   },
   removeButton: {
     padding: 8,

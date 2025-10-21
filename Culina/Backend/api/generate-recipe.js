@@ -83,13 +83,21 @@ STRICT REQUIREMENTS:
 - Avoid allergies: ${allergies}
 - Return EXACTLY 5 recipes, no more, no less
 
-Return ONLY valid JSON in this EXACT format (no additional text):
+Return ONLY valid JSON in this EXACT format (no additional text). 
+Every ingredient must be an object with separate fields: name as a string, quantity as a number, 
+and unit as a string or null if not applicable:
 {
   "recipes": [
     {
       "title": "Recipe Name Here",
       "description": "Brief description of the dish",
-      "ingredients": ["ingredient 1 with quantity", "ingredient 2 with quantity"],
+      "ingredients": [
+        {
+          "name": "Ingredient name",
+          "quantity": 1.5,
+          "unit": "cups"
+        }
+      ],
       "instructions": ["Step 1", "Step 2", "Step 3"],
       "servings": 2,
       "estimatedCalories": 450
@@ -100,7 +108,9 @@ Return ONLY valid JSON in this EXACT format (no additional text):
 Available Inventory:
 ${JSON.stringify(inventory, null, 2)}
 
-Remember: Return EXACTLY 5 different recipes in the JSON format above.
+Remember: Return EXACTLY 5 different recipes in the JSON format above. 
+Ensure ingredient quantities are numeric values 
+and units are separate strings (use null if no unit applies).
 `.trim();
 
     const fetch = (await import('node-fetch')).default;
@@ -150,6 +160,7 @@ Remember: Return EXACTLY 5 different recipes in the JSON format above.
 
     // Log what we got
     console.log(`AI returned ${recipes.length} recipes`);
+    
 
     // Validate each recipe has required fields
     const validRecipes = recipes.filter(recipe => {

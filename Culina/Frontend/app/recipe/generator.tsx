@@ -169,11 +169,30 @@ export default function RecipeGeneratorScreen() {
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Ingredients
           </Text>
-          {recipe.ingredients.map((ing, i) => (
-            <Text key={i} className="text-gray-700">
-              • {typeof ing === 'string' ? ing : `${ing.name}${ing.qty ? ` - ${ing.qty}` : ''}`}
-            </Text>
-          ))}
+          {recipe.ingredients.map((ing, i) => {
+            if (typeof ing === "string") {
+              return (
+                <Text key={i} className="text-gray-700">
+                  • {ing}
+                </Text>
+              );
+            }
+
+            const parts = [ing.name];
+            if (ing.qty && ing.unit) {
+              parts.push(`${ing.qty} ${ing.unit}`);
+            } else if ( ing.qty) {
+              parts.push(ing.qty);
+            } else if (ing.unit) {
+              parts.push(ing.unit);
+            }
+
+            return (
+              <Text key={i} className="text-gray-700">
+                • {parts.filter(Boolean).join(" – ")}
+              </Text>
+            );
+          })}
 
           <Text className="text-lg font-semibold mt-4 text-green-700">
             Instructions

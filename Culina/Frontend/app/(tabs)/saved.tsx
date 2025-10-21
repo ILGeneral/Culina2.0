@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, getDocs, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
   ArrowLeft,
   ChefHat,
@@ -62,27 +62,36 @@ type RecipeCardProps = {
 
 const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => {
   if (typeof ingredient === 'string') {
+    // Handle comma-separated format: "Broccoli, 1 kg" -> "Broccoli"
+    if (ingredient.includes(',')) {
+      return ingredient.split(',')[0].trim();
+    }
+    
+    // Handle standard format: "2 cups flour" -> "flour"
     return ingredient
       .split(/\s+/)
       .filter((token, idx, arr) => {
         const lower = token.toLowerCase();
+        // Remove leading numbers
         if (idx === 0 && /^[\d/.,-]+$/.test(lower)) return false;
+        // Remove common units
         if ([
           'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
           'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
           'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
           'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
-          'bunch', 'bunches', 'large', 'small', 'medium', 'of'
+          'bunch', 'bunches', 'large', 'small', 'medium', 'of', 'pc', 'pcs'
         ].includes(lower)) {
           return false;
         }
+        // Remove units that come after numbers
         if (idx === 1 && arr[0] && /^[\d/.,-]+$/.test(arr[0])) {
           if ([
             'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
             'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
             'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
             'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
-            'bunch', 'bunches', 'large', 'small', 'medium'
+            'bunch', 'bunches', 'large', 'small', 'medium', 'pc', 'pcs'
           ].includes(lower)) return false;
         }
         return true;
@@ -243,32 +252,9 @@ export default function SavedRecipesScreen() {
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
   const router = useRouter();
 
-  const fetchRecipes = async (uid: string) => {
-    try {
-      setLoading(true);
-      const recipesRef = collection(db, 'users', uid, 'recipes');
-      const q = query(recipesRef, orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      const fetched = snapshot.docs.map((d) => {
-        const data = d.data() as Omit<SavedRecipe, 'id'>;
-        const source = normalizeRecipeSource(data?.source);
-        return {
-          id: d.id,
-          ...data,
-          source,
-        };
-      });
-      setRecipes(fetched);
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Failed to fetch recipes.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     let unsubscribeInventory: (() => void) | undefined;
+    let unsubscribeRecipes: (() => void) | undefined;
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
@@ -276,7 +262,31 @@ export default function SavedRecipesScreen() {
       return;
     }
 
-    fetchRecipes(uid);
+    setLoading(true);
+
+    const recipesRef = collection(db, 'users', uid, 'recipes');
+    const recipesQuery = query(recipesRef, orderBy('createdAt', 'desc'));
+    unsubscribeRecipes = onSnapshot(
+      recipesQuery,
+      (snapshot) => {
+        const fetched = snapshot.docs.map((d) => {
+          const data = d.data() as Omit<SavedRecipe, 'id'>;
+          const source = normalizeRecipeSource(data?.source);
+          return {
+            id: d.id,
+            ...data,
+            source,
+          };
+        });
+        setRecipes(fetched);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Saved recipes snapshot error:', error);
+        Alert.alert('Error', 'Failed to fetch recipes.');
+        setLoading(false);
+      }
+    );
 
     const invRef = collection(db, 'users', uid, 'ingredients');
     unsubscribeInventory = onSnapshot(invRef, (snapshot) => {
@@ -301,6 +311,7 @@ export default function SavedRecipesScreen() {
 
     return () => {
       unsubscribeInventory?.();
+      unsubscribeRecipes?.();
     };
   }, []);
 

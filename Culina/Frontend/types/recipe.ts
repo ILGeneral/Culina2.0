@@ -1,7 +1,7 @@
 export interface Recipe {
   title: string;
   description?: string;
-  ingredients: (string | { name: string; qty?: string })[];
+  ingredients: (string | { name: string; qty?: string; unit?: string })[];
   instructions?: string[];
   servings?: number;
   estimatedCalories?: number;
