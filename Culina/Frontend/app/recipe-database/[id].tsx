@@ -15,15 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
-import {
-  ArrowLeft,
-  Clock,
-  Users,
-  Heart,
-  ChefHat,
-  MapPin,
-  Tag,
-} from "lucide-react-native";
+import { ArrowLeft, Clock, Users, ChefHat, MapPin, Tag } from "lucide-react-native";
 
 type RecipeProvider = "spoonacular" | "mealdb";
 
@@ -46,7 +38,6 @@ type DetailedRecipe = {
   instructions: Step[];
   readyInMinutes?: number | null;
   servings?: number | null;
-  likes?: number | null;
   sourceUrl?: string | null;
   category?: string;
   area?: string;
@@ -139,7 +130,6 @@ const mergeInitialData = (initial: DetailedRecipe, fetched?: Partial<DetailedRec
     imageUrl: fetched.imageUrl ?? initial.imageUrl,
     readyInMinutes: fetched.readyInMinutes ?? initial.readyInMinutes,
     servings: fetched.servings ?? initial.servings,
-    likes: fetched.likes ?? initial.likes,
     sourceUrl: fetched.sourceUrl ?? initial.sourceUrl,
      category: fetched.category ?? initial.category,
      area: fetched.area ?? initial.area,
@@ -178,7 +168,6 @@ export default function RecipeDatabaseDetailsScreen() {
           instructions: [],
           readyInMinutes: parsed.readyInMinutes,
           servings: parsed.servings,
-          likes: parsed.likes,
           sourceUrl: parsed.sourceUrl,
           category: parsed.category,
           area: parsed.area,
@@ -219,7 +208,6 @@ export default function RecipeDatabaseDetailsScreen() {
             instructions: parseSpoonacularInstructions(payload),
             readyInMinutes: payload?.readyInMinutes ?? initialData?.readyInMinutes ?? null,
             servings: payload?.servings ?? initialData?.servings ?? null,
-            likes: payload?.aggregateLikes ?? initialData?.likes ?? null,
             sourceUrl: payload?.sourceUrl ?? initialData?.sourceUrl ?? null,
             category: dishTypes.length ? dishTypes[0] : initialData?.category,
             area: cuisines.length ? cuisines[0] : initialData?.area,
@@ -246,8 +234,6 @@ export default function RecipeDatabaseDetailsScreen() {
             ingredients: parseMealIngredients(meal),
             instructions: parseMealInstructions(meal.strInstructions),
             readyInMinutes: initialData?.readyInMinutes ?? null,
-            servings: initialData?.servings ?? null,
-            likes: initialData?.likes ?? null,
             sourceUrl: meal.strSource || meal.strYoutube || initialData?.sourceUrl || null,
             category: meal.strCategory ?? initialData?.category,
             area: meal.strArea ?? initialData?.area,
@@ -274,7 +260,6 @@ export default function RecipeDatabaseDetailsScreen() {
     return [
       recipe.readyInMinutes ? { icon: <Clock size={16} color="#0f172a" />, label: `${recipe.readyInMinutes} min` } : null,
       recipe.servings ? { icon: <Users size={16} color="#0f172a" />, label: `Serves ${recipe.servings}` } : null,
-      recipe.likes ? { icon: <Heart size={16} color="#ef4444" />, label: `${recipe.likes} likes` } : null,
       recipe.category ? { icon: <Tag size={16} color="#0f172a" />, label: recipe.category } : null,
       recipe.area ? { icon: <MapPin size={16} color="#0f172a" />, label: recipe.area } : null,
     ].filter(Boolean) as { icon: React.ReactNode; label: string }[];

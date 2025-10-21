@@ -15,6 +15,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
 import { useInventory } from "@/hooks/useInventory";
+import { suggestAlternatives, type AlternativeRecipe } from "@/lib/suggestAlternatives";
 import {
   ArrowLeft,
   RefreshCw,
@@ -68,7 +69,6 @@ type DatabaseRecipe = {
   sourceUrl?: string | null;
   readyInMinutes?: number | null;
   servings?: number | null;
-  likes?: number | null;
   provider: RecipeProvider;
   matchCount?: number;
   totalIngredients?: number;
@@ -192,9 +192,6 @@ const rankRecipesByInventory = (list: DatabaseRecipe[], inventorySet: Set<string
       const percentageDiff = (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0);
       if (percentageDiff !== 0) return percentageDiff;
 
-      const likesDiff = (b.likes ?? 0) - (a.likes ?? 0);
-      if (likesDiff !== 0) return likesDiff;
-
       return a.title.localeCompare(b.title);
     });
 };
@@ -231,7 +228,6 @@ const mapRecipe = (recipe: RawSpoonacularRecipe): DatabaseRecipe => {
     sourceUrl: recipe.sourceUrl || recipe.spoonacularSourceUrl || null,
     readyInMinutes: recipe.readyInMinutes ?? null,
     servings: recipe.servings ?? null,
-    likes: recipe.aggregateLikes ?? null,
     provider: "spoonacular",
   };
 };
@@ -267,17 +263,34 @@ const mapMeal = (meal: RawMeal): DatabaseRecipe => ({
   sourceUrl: meal.strSource || meal.strYoutube || null,
   readyInMinutes: null,
   servings: null,
-  likes: null,
   provider: "mealdb",
 });
+
+type SuggestionState = {
+  status: "idle" | "loading" | "ready" | "error";
+  data?: AlternativeRecipe[];
+  error?: string;
+};
 
 type RecipeDatabaseCardProps = {
   recipe: DatabaseRecipe;
   index: number;
   onPress: () => void;
+  missingIngredients: string[];
+  canSuggest: boolean;
+  onSuggest: () => void;
+  suggestionState: SuggestionState;
 };
 
-const RecipeDatabaseCard = ({ recipe, index, onPress }: RecipeDatabaseCardProps) => {
+const RecipeDatabaseCard = ({
+  recipe,
+  index,
+  onPress,
+  missingIngredients,
+  canSuggest,
+  onSuggest,
+  suggestionState,
+}: RecipeDatabaseCardProps) => {
   const tagList = useMemo(() => recipe.tags?.slice(0, 2) ?? [], [recipe.tags]);
 
   const ingredientsPreview = useMemo(() => recipe.ingredients.slice(0, 3), [recipe.ingredients]);
@@ -327,11 +340,6 @@ const RecipeDatabaseCard = ({ recipe, index, onPress }: RecipeDatabaseCardProps)
                 <Text style={styles.metaText}>Serves {recipe.servings}</Text>
               </View>
             )}
-            {!!recipe.likes && (
-              <View style={[styles.metaPill, styles.categoryPill]}>
-                <Text style={styles.metaText}>{recipe.likes} likes</Text>
-              </View>
-            )}
             {!!recipe.category && (
               <View style={[styles.metaPill, styles.categoryPill]}>
                 <Tag size={14} color="#0f172a" />
@@ -351,6 +359,54 @@ const RecipeDatabaseCard = ({ recipe, index, onPress }: RecipeDatabaseCardProps)
             ))}
           </Animated.View>
 
+          {missingIngredients.length > 0 && (
+            <View style={styles.missingSection}>
+              <Text style={styles.sectionLabel}>Missing ingredients</Text>
+              {missingIngredients.slice(0, 3).map((item, idx) => (
+                <Text key={`${recipe.id}-missing-${idx}`} style={styles.missingItem} numberOfLines={1}>
+                  • {item}
+                </Text>
+              ))}
+              {missingIngredients.length > 3 && (
+                <Text style={styles.moreMissing} numberOfLines={1}>
+                  +{missingIngredients.length - 3} more
+                </Text>
+              )}
+
+              {canSuggest && (
+                <TouchableOpacity
+                  style={[styles.suggestButton, suggestionState.status === "loading" && styles.suggestButtonDisabled]}
+                  activeOpacity={0.85}
+                  onPress={onSuggest}
+                  disabled={suggestionState.status === "loading"}
+                >
+                  <Text style={styles.suggestButtonText}>
+                    {suggestionState.status === "loading" ? "Fetching alternatives…" : "Suggest alternatives"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {suggestionState.status === "error" && suggestionState.error && (
+                <Text style={styles.suggestionError}>{suggestionState.error}</Text>
+              )}
+
+              {suggestionState.status === "ready" && suggestionState.data?.length && (
+                <View style={styles.alternativeList}>
+                  {suggestionState.data.slice(0, 2).map((alt, idx) => (
+                    <View key={`${recipe.id}-alt-${idx}`} style={styles.alternativeCard}>
+                      <Text style={styles.alternativeTitle}>{alt.title}</Text>
+                      {!!alt.description && (
+                        <Text style={styles.alternativeDescription} numberOfLines={2}>
+                          {alt.description}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
           <TouchableOpacity style={styles.actionButton} activeOpacity={0.85} onPress={onPress}>
             <ExternalLink size={16} color="#0f172a" />
             <Text style={styles.actionButtonText}>View Details</Text>
@@ -368,6 +424,56 @@ export default function RecipeDatabaseScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>({});
+
+  const inventorySet = useMemo(() => {
+    const labels = inventory.map((item) => normalizeIngredientLabel(item.name)).filter((label) => !!label);
+    return new Set(labels);
+  }, [inventory]);
+
+  const preparedRecipes = useMemo(() => {
+    return recipes.map((recipe) => ({
+      recipe,
+      missingIngredients: getMissingIngredients(recipe, inventorySet),
+    }));
+  }, [recipes, inventorySet]);
+
+  const handleSuggest = useCallback(
+    async (recipe: DatabaseRecipe, missingIngredients: string[]) => {
+      if (!missingIngredients.length || missingIngredients.length > 2) {
+        return;
+      }
+
+      setSuggestions((prev) => ({
+        ...prev,
+        [recipe.id]: { status: "loading" },
+      }));
+
+      try {
+        const response = await suggestAlternatives({
+          recipeTitle: recipe.title,
+          recipeDescription: recipe.description,
+          recipeIngredients: recipe.ingredients,
+          missingIngredients,
+          inventory,
+        });
+
+        setSuggestions((prev) => ({
+          ...prev,
+          [recipe.id]: { status: "ready", data: response.alternatives },
+        }));
+      } catch (err) {
+        setSuggestions((prev) => ({
+          ...prev,
+          [recipe.id]: {
+            status: "error",
+            error: err instanceof Error ? err.message : "Failed to fetch alternatives",
+          },
+        }));
+      }
+    },
+    [inventory]
+  );
 
   const loadRecipes = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -504,20 +610,33 @@ export default function RecipeDatabaseScreen() {
               </View>
             ) : (
               <View style={styles.cardList}>
-                {recipes.map((recipe, index) => (
-                  <RecipeDatabaseCard
-                    key={recipe.id}
-                    recipe={recipe}
-                    index={index}
-                    onPress={() => {
-                      const initial = encodeURIComponent(JSON.stringify(recipe));
-                      router.push({
-                        pathname: "/recipe-database/[id]" as const,
-                        params: { id: recipe.id, initial, provider: recipe.provider },
-                      });
-                    }}
-                  />
-                ))}
+                {preparedRecipes.map(({ recipe, missingIngredients }, index) => {
+                  const suggestionState = suggestions[recipe.id] ?? { status: "idle" };
+                  const canSuggest =
+                    missingIngredients.length > 0 &&
+                    missingIngredients.length <= 2 &&
+                    inventorySet.size > 0 &&
+                    !inventoryLoading;
+
+                  return (
+                    <RecipeDatabaseCard
+                      key={recipe.id}
+                      recipe={recipe}
+                      index={index}
+                      missingIngredients={missingIngredients}
+                      canSuggest={canSuggest}
+                      suggestionState={suggestionState}
+                      onSuggest={() => handleSuggest(recipe, missingIngredients)}
+                      onPress={() => {
+                        const initial = encodeURIComponent(JSON.stringify(recipe));
+                        router.push({
+                          pathname: "/recipe-database/[id]" as const,
+                          params: { id: recipe.id, initial, provider: recipe.provider },
+                        });
+                      }}
+                    />
+                  );
+                })}
               </View>
             )}
           </ScrollView>
@@ -526,6 +645,30 @@ export default function RecipeDatabaseScreen() {
     </Background>
   );
 }
+
+const getMissingIngredients = (recipe: DatabaseRecipe, inventorySet: Set<string>) => {
+  const normalizedIngredients = recipe.ingredients
+    .map((ingredient) =>
+      recipe.provider === "mealdb" ? normalizeMealIngredient(ingredient) : normalizeIngredientLabel(ingredient)
+    )
+    .map((label, index) => ({ label: label.trim(), original: recipe.ingredients[index] }))
+    .filter(({ label }) => !!label);
+
+  const seen = new Set<string>();
+  const missing: string[] = [];
+
+  normalizedIngredients.forEach(({ label, original }) => {
+    if (seen.has(label)) {
+      return;
+    }
+    seen.add(label);
+    if (!inventorySet.has(label)) {
+      missing.push(original);
+    }
+  });
+
+  return missing;
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -752,8 +895,67 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(18,138,250,0.12)",
   },
   actionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  missingSection: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 6,
+  },
+  missingItem: {
+    fontSize: 13,
+    color: "#1e293b",
+  },
+  moreMissing: {
+    fontSize: 13,
+    color: "#475569",
+  },
+  suggestButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: "#128AFA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  suggestButtonDisabled: {
+    opacity: 0.6,
+  },
+  suggestButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  suggestionError: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#dc2626",
+  },
+  alternativeList: {
+    marginTop: 10,
+    gap: 10,
+  },
+  alternativeCard: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 6,
+  },
+  alternativeTitle: {
     fontSize: 15,
     fontWeight: "600",
     color: "#0f172a",
+  },
+  alternativeDescription: {
+    fontSize: 13,
+    color: "#475569",
   },
 });
