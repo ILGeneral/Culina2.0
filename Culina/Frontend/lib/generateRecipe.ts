@@ -71,10 +71,18 @@ const isFractionToken = (token: string) => /^\d+\/\d+$/.test(token);
 
 const normalizeIngredientEntry = (entry: unknown): { name: string; qty?: string; unit?: string } => {
   if (entry && typeof entry === "object" && "name" in entry) {
-    const item = entry as { name?: string; qty?: string; unit?: string };
+    const item = entry as {
+      name?: string;
+      qty?: string | number | null;
+      quantity?: string | number | null;
+      unit?: string | null;
+      unitType?: string | null;
+    };
     const name = (item.name ?? "").trim();
-    const qty = item.qty?.trim();
-    const unit = item.unit?.trim();
+    const rawQty = item.qty ?? item.quantity;
+    const qty = rawQty === null || rawQty === undefined ? undefined : String(rawQty).trim();
+    const rawUnit = item.unit ?? item.unitType;
+    const unit = rawUnit === null || rawUnit === undefined ? undefined : String(rawUnit).trim();
     return {
       name,
       ...(qty ? { qty } : {}),
@@ -89,42 +97,51 @@ const normalizeIngredientEntry = (entry: unknown): { name: string; qty?: string;
   const raw = entry.replace(/\s+/g, " ").trim();
   if (!raw) return { name: "" };
 
-  const tokens = raw.split(/\s+/);
-  const mutableTokens = [...tokens];
-  const qtyTokens: string[] = [];
+  const tokens = raw.split(/[–—-]/);
+  if (tokens.length > 1) {
+    const before = tokens[0]?.trim();
+    const after = tokens.slice(1).join("-").trim();
+    if (before && after) {
+      const afterTokens = after.split(/\s+/);
+      const qtyTokens: string[] = [];
+      const mutable = [...afterTokens];
 
-  if (mutableTokens.length && (isNumericToken(mutableTokens[0]) || isFractionToken(mutableTokens[0]))) {
-    qtyTokens.push(mutableTokens.shift()!);
-    if (
-      mutableTokens.length &&
-      isFractionToken(mutableTokens[0]) &&
-      qtyTokens.length === 1 &&
-      isNumericToken(qtyTokens[0])
-    ) {
-      qtyTokens.push(mutableTokens.shift()!);
-    }
-  }
-
-  let unitToken: string | undefined;
-  if (mutableTokens.length) {
-    const candidate = normalizeToken(mutableTokens[0]);
-    if (KNOWN_UNITS.includes(candidate)) {
-      unitToken = mutableTokens.shift();
-    } else if (mutableTokens.length > 1) {
-      const combined = `${candidate} ${normalizeToken(mutableTokens[1])}`;
-      if (KNOWN_UNITS.includes(combined)) {
-        unitToken = `${mutableTokens.shift()} ${mutableTokens.shift()}`;
+      if (mutable.length && (isNumericToken(mutable[0]) || isFractionToken(mutable[0]))) {
+        qtyTokens.push(mutable.shift()!);
+        if (
+          mutable.length &&
+          isFractionToken(mutable[0]) &&
+          qtyTokens.length === 1 &&
+          isNumericToken(qtyTokens[0])
+        ) {
+          qtyTokens.push(mutable.shift()!);
+        }
       }
+
+      let unitToken: string | undefined;
+      if (mutable.length) {
+        const candidate = normalizeToken(mutable[0]);
+        if (KNOWN_UNITS.includes(candidate)) {
+          unitToken = mutable.shift();
+        } else if (mutable.length > 1) {
+          const combined = `${candidate} ${normalizeToken(mutable[1])}`;
+          if (KNOWN_UNITS.includes(combined)) {
+            unitToken = `${mutable.shift()} ${mutable.shift()}`;
+          }
+        }
+      }
+
+      const name = before;
+
+      return {
+        name,
+        ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
+        ...(unitToken ? { unit: unitToken } : {}),
+      };
     }
   }
 
-  const name = mutableTokens.join(" ").trim() || raw;
-
-  return {
-    name,
-    ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
-    ...(unitToken ? { unit: unitToken } : {}),
-  };
+  return { name: raw };
 };
 
 const normalizeRecipeData = (recipe: Recipe): Recipe => {

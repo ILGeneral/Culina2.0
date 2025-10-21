@@ -40,6 +40,12 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebaseConfig";
 import { detectFoodFromImage, API_BASE } from "@/lib/clarifai";
+import {
+  searchMealDbIngredients,
+  type MealDbIngredient,
+  prefetchMealDbIngredients,
+  hasMealDbIngredientsLoaded,
+} from "@/lib/mealdb";
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -101,8 +107,17 @@ export default function InventoryScreen() {
   const [unit, setUnit] = useState("");
   const [unitChip, setUnitChip] = useState<Unit | null>(null);
   const [img, setImg] = useState<string | null>(null);
-  const [suggest, setSuggest] = useState<string[]>([]);
+  const [suggest, setSuggest] = useState<MealDbIngredient[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applySuggestion = (ingredient: MealDbIngredient) => {
+    setName(capitalize(ingredient.name));
+    setSuggest([]);
+    setSuggestLoading(false);
+    setHighlightIndex(null);
+  };
 
   // camera
   const [camOpen, setCamOpen] = useState(false);
@@ -135,33 +150,52 @@ export default function InventoryScreen() {
     return unsub;
   }, [user]);
 
+  useEffect(() => {
+    ensurePrefetch();
+  }, []);
+
   // — Suggestions —
   const onChangeName = (t: string) => {
     setName(t);
+    setHighlightIndex(null);
     if (timer.current) clearTimeout(timer.current);
-    if (t.trim().length < 2) return setSuggest([]);
+    if (t.trim().length < 2) {
+      setSuggest([]);
+      setSuggestLoading(false);
+      return;
+    }
     timer.current = setTimeout(async () => {
-      try {
-        const r = await fetch(
-          `https://www.themealdb.com/api/json/v1/1/search.php?i=${encodeURIComponent(
-            t
-          )}`
-        );
-        const d = await r.json();
-        if (d?.ingredients)
-          setSuggest(
-            Array.from(
-              new Set(
-                d.ingredients.map((i: any) =>
-                  capitalize(String(i.strIngredient))
-                )
-              )
-            ).slice(0, 8) as string[]
-          );
-      } catch {
-        setSuggest([]);
+      if (!hasMealDbIngredientsLoaded()) {
+        await prefetchMealDbIngredients();
       }
+      setSuggestLoading(true);
+      const results = await searchMealDbIngredients(t, 8);
+      setSuggest(results);
+      setSuggestLoading(false);
     }, 300);
+  };
+
+  const handleKeyDown = (event: any) => {
+    if (!suggest.length) return;
+    const key = event.nativeEvent?.key || event.nativeEvent?.code;
+    if (key === "ArrowDown") {
+      event.preventDefault?.();
+      setHighlightIndex((prev) => {
+        const next = prev === null ? 0 : Math.min(prev + 1, suggest.length - 1);
+        return next;
+      });
+    } else if (key === "ArrowUp") {
+      event.preventDefault?.();
+      setHighlightIndex((prev) => {
+        if (prev === null) return suggest.length - 1;
+        return Math.max(prev - 1, 0);
+      });
+    } else if (key === "Enter") {
+      if (highlightIndex !== null) {
+        event.preventDefault?.();
+        applySuggestion(suggest[highlightIndex]);
+      }
+    }
   };
 
   const handleCameraFocus = async (event: any) => {
@@ -219,6 +253,12 @@ export default function InventoryScreen() {
   const closeSheet = () => sheetRef.current?.dismiss();
 
   // — Manual add —
+  const ensurePrefetch = () => {
+    if (!hasMealDbIngredientsLoaded()) {
+      prefetchMealDbIngredients();
+    }
+  };
+
   const manualAdd = () => {
     closeSheet();
     setEditing(null);
@@ -228,7 +268,10 @@ export default function InventoryScreen() {
     setUnitChip(null);
     setImg(null);
     setSuggest([]);
+    setSuggestLoading(false);
+    setHighlightIndex(null);
     setFormVisible(true);
+    ensurePrefetch();
   };
 
   // — Camera add —
@@ -248,6 +291,7 @@ export default function InventoryScreen() {
     setCapturedPhoto(null);
     setPreviewVisible(false);
     setCamOpen(true);
+    ensurePrefetch();
   };
 
 const handleCapture = async (photo: { uri: string }) => {
@@ -377,6 +421,8 @@ const handleCapture = async (photo: { uri: string }) => {
     setUnitChip(UNITS.includes(it.unit) ? it.unit : null);
     setImg(it.imageUrl);
     setSuggest([]);
+    setSuggestLoading(false);
+    setHighlightIndex(null);
     setFormVisible(true);
   };
 
@@ -553,24 +599,38 @@ const handleCapture = async (photo: { uri: string }) => {
                       <TextInput
                         value={name}
                         onChangeText={onChangeName}
+                        onKeyPress={handleKeyDown}
                         placeholder="e.g. Tomato"
                         style={s.input}
                         autoCapitalize="words"
                       />
-                      {suggest.length > 0 && (
-                        <View style={s.suggestWrap}>
-                          {suggest.map((sg) => (
-                            <TouchableOpacity
-                              key={sg}
-                              style={s.suggestChip}
-                              onPress={() => {
-                                setName(sg);
-                                setSuggest([]);
-                              }}
-                            >
-                              <Text style={s.suggestTxt}>{sg}</Text>
-                            </TouchableOpacity>
-                          ))}
+                      {(suggestLoading || suggest.length > 0) && (
+                        <View style={s.suggestPanel}>
+                          {suggestLoading && (
+                            <View style={s.suggestLoadingRow}>
+                              <ActivityIndicator size="small" color="#0284c7" />
+                              <Text style={s.suggestLoadingText}>Searching TheMealDB…</Text>
+                            </View>
+                          )}
+                          {!suggestLoading &&
+                            suggest.map((sg, idx) => (
+                              <TouchableOpacity
+                                key={sg.name}
+                                style={[
+                                  s.suggestRow,
+                                  highlightIndex === idx && s.suggestRowHighlight,
+                                ]}
+                                onPress={() => applySuggestion(sg)}
+                              >
+                                <Text style={s.suggestName}>{capitalize(sg.name)}</Text>
+                                {sg.type ? (
+                                  <Text style={s.suggestMeta}>{sg.type}</Text>
+                                ) : null}
+                              </TouchableOpacity>
+                            ))}
+                          {!suggestLoading && suggest.length === 0 && (
+                            <Text style={s.suggestEmpty}>No matches found</Text>
+                          )}
                         </View>
                       )}
                       <Text style={s.label}>Quantity</Text>
@@ -615,7 +675,12 @@ const handleCapture = async (photo: { uri: string }) => {
                       <View style={s.btnRow}>
                         <TouchableOpacity
                           style={[s.formBtn, s.cancelBtn]}
-                          onPress={() => setFormVisible(false)}
+                          onPress={() => {
+                            setFormVisible(false);
+                            setSuggest([]);
+                            setSuggestLoading(false);
+                            setHighlightIndex(null);
+                          }}
                         >
                           <Text style={[s.formBtnTxt, s.cancelBtnTxt]}>
                             Cancel
@@ -876,19 +941,46 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
   },
-  suggestWrap: {
+  suggestPanel: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  suggestLoadingRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: -4,
+    alignItems: "center",
     gap: 8,
-  },
-  suggestChip: {
-    backgroundColor: "#eef2f7",
-    borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#f1f5f9",
   },
-  suggestTxt: { color: "#1f2937", fontWeight: "600" },
+  suggestLoadingText: { color: "#475569", fontSize: 14 },
+  suggestRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#f1f5f9",
+  },
+  suggestRowHighlight: {
+    backgroundColor: "#e0f2fe",
+  },
+  suggestName: { fontSize: 15, fontWeight: "600", color: "#0f172a" },
+  suggestMeta: { marginTop: 2, fontSize: 13, color: "#64748b" },
+  suggestEmpty: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    textAlign: "center",
+    color: "#64748b",
+  },
   unitWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   unitChip: {
     paddingHorizontal: 12,

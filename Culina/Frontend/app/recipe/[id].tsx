@@ -37,11 +37,13 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 
+type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
 type RecipeDoc = Recipe & {
   id: string;
   imageUrl?: string;
   description?: string;
-  ingredients?: (string | { name: string; qty?: string })[];
+  ingredients?: IngredientEntry[];
   instructions?: string[];
   estimatedCalories?: number;
   source?: "AI" | "Edited" | "Human";
@@ -51,6 +53,52 @@ type RecipeDoc = Recipe & {
 };
 
 const HERO_HEIGHT = 320;
+
+const isNumericToken = (token: string) => /^\d+(?:[\/.]\d+)?$/.test(token);
+
+const parseIngredientString = (entry: string): { name: string; qty?: string; unit?: string } => {
+  const raw = entry.replace(/\s+/g, " ").trim();
+  if (!raw) {
+    return { name: "" };
+  }
+
+  const hyphenParts = raw.split(/[–—-]/);
+  if (hyphenParts.length > 1) {
+    const name = hyphenParts[0].trim();
+    const trailing = hyphenParts.slice(1).join("-").trim();
+    const tokens = trailing.split(/\s+/);
+    const mutable = [...tokens];
+    const qtyTokens: string[] = [];
+
+    while (mutable.length && isNumericToken(mutable[0])) {
+      qtyTokens.push(mutable.shift()!);
+    }
+
+    const unit = mutable.join(" ").trim();
+
+    return {
+      name: name || raw,
+      ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
+      ...(unit ? { unit } : {}),
+    };
+  }
+
+  return { name: raw };
+};
+
+const normalizeIngredientEntry = (ingredient: IngredientEntry): { name: string; qty?: string; unit?: string } => {
+  if (typeof ingredient === "string") {
+    return parseIngredientString(ingredient);
+  }
+  const name = ingredient.name?.trim() ?? "";
+  const qty = ingredient.qty?.trim();
+  const unit = ingredient.unit?.trim();
+  return {
+    name,
+    ...(qty ? { qty } : {}),
+    ...(unit ? { unit } : {}),
+  };
+};
 
 export default function RecipeDetailsScreen() {
   const router = useRouter();
@@ -301,8 +349,11 @@ export default function RecipeDetailsScreen() {
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
                       const isChecked = checkedIngredients.includes(idx);
-                      const ingName = typeof ing === "string" ? ing : ing.name;
-                      const ingQty = typeof ing === "string" ? "" : ing.qty;
+                      const normalized = normalizeIngredientEntry(ing);
+                      const ingName = normalized.name;
+                      const qty = normalized.qty;
+                      const unit = normalized.unit;
+                      const suffix = [qty, unit].filter(Boolean).join(" ");
                       return (
                         <Pressable key={idx} style={styles.ingredientRow} onPress={() => toggleIngredient(idx)}>
                           <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
@@ -310,7 +361,7 @@ export default function RecipeDetailsScreen() {
                           </View>
                           <Text style={[styles.ingredientText, isChecked && styles.ingredientTextChecked]}>
                             {ingName}
-                            {ingQty ? <Text style={styles.ingredientQty}> — {ingQty}</Text> : null}
+                            {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
                           </Text>
                         </Pressable>
                       );

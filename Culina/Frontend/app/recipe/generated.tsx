@@ -89,11 +89,18 @@ const GeneratedRecipeDetailsScreen = () => {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Ingredients</Text>
-              {recipe.ingredients?.map((ingredient, idx) => (
-                <Text key={idx} style={styles.listItem}>
-                  • {typeof ingredient === "string" ? ingredient : ingredient.name}
-                </Text>
-              )) || (
+              {recipe.ingredients?.map((ingredient, idx) => {
+                const name = typeof ingredient === "string" ? ingredient : ingredient.name;
+                const qty = typeof ingredient === "string" ? undefined : ingredient.qty?.trim();
+                const unit = typeof ingredient === "string" ? undefined : ingredient.unit?.trim();
+                const suffix = [qty, unit].filter(Boolean).join(" ");
+                return (
+                  <Text key={idx} style={styles.listItem}>
+                    • {name}
+                    {suffix ? <Text style={styles.listItemQty}> — {suffix}</Text> : null}
+                  </Text>
+                );
+              }) || (
                 <Text style={styles.emptyText}>Ingredients were not provided.</Text>
               )}
             </View>
@@ -179,6 +186,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: "600", color: "#0f172a", marginBottom: 12 },
   listItem: { fontSize: 15, color: "#334155", lineHeight: 22, marginBottom: 8 },
+  listItemQty: { fontSize: 15, color: "#64748b" },
   emptyText: { fontSize: 15, color: "#6b7280" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 },
   errorTitle: { fontSize: 22, fontWeight: "700", color: "#0f172a", textAlign: "center" },

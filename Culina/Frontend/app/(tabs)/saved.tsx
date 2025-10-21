@@ -50,6 +50,8 @@ const formatDate = (val: any): string | null => {
   }
 };
 
+type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
 type RecipeCardProps = {
   recipe: SavedRecipe;
   index: number;
@@ -60,53 +62,73 @@ type RecipeCardProps = {
   inventoryCounts: Record<string, number>;
 };
 
-const formatNameOnly = (ingredient: string | { name: string; qty?: string }) => {
-  if (typeof ingredient === 'string') {
-    // Handle comma-separated format: "Broccoli, 1 kg" -> "Broccoli"
-    if (ingredient.includes(',')) {
-      return ingredient.split(',')[0].trim();
-    }
-    
-    // Handle standard format: "2 cups flour" -> "flour"
-    return ingredient
-      .split(/\s+/)
-      .filter((token, idx, arr) => {
-        const lower = token.toLowerCase();
-        // Remove leading numbers
-        if (idx === 0 && /^[\d/.,-]+$/.test(lower)) return false;
-        // Remove common units
-        if ([
-          'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
-          'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
-          'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
-          'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
-          'bunch', 'bunches', 'large', 'small', 'medium', 'of', 'pc', 'pcs'
-        ].includes(lower)) {
-          return false;
-        }
-        // Remove units that come after numbers
-        if (idx === 1 && arr[0] && /^[\d/.,-]+$/.test(arr[0])) {
-          if ([
-            'cup', 'cups', 'tsp', 'teaspoon', 'teaspoons', 'tbsp', 'tablespoon', 'tablespoons',
-            'oz', 'ounce', 'ounces', 'g', 'gram', 'grams', 'kg', 'kilogram', 'kilograms',
-            'ml', 'milliliter', 'milliliters', 'l', 'liter', 'liters', 'lb', 'pound', 'pounds',
-            'pinch', 'dash', 'clove', 'cloves', 'slice', 'slices', 'piece', 'pieces',
-            'bunch', 'bunches', 'large', 'small', 'medium', 'pc', 'pcs'
-          ].includes(lower)) return false;
-        }
-        return true;
-      })
-      .join(' ')
-      .trim();
+const isNumericToken = (token: string) => /^\d+(?:[\/.]\d+)?$/.test(token);
+
+const parseIngredientString = (entry: string): { name: string; qty?: string; unit?: string } => {
+  const raw = entry.replace(/\s+/g, ' ').trim();
+  if (!raw) {
+    return { name: '' };
   }
 
-  return ingredient.name || '';
+  const hyphenParts = raw.split(/[–—-]/);
+  if (hyphenParts.length > 1) {
+    const name = hyphenParts[0].trim();
+    const trailing = hyphenParts.slice(1).join('-').trim();
+    const tokens = trailing.split(/\s+/);
+    const mutable = [...tokens];
+    const qtyTokens: string[] = [];
+
+    while (mutable.length && isNumericToken(mutable[0])) {
+      qtyTokens.push(mutable.shift()!);
+    }
+
+    const unit = mutable.join(' ').trim();
+
+    return {
+      name: name || raw,
+      ...(qtyTokens.length ? { qty: qtyTokens.join(' ') } : {}),
+      ...(unit ? { unit } : {}),
+    };
+  }
+
+  return { name: raw };
+};
+
+const normalizeIngredientEntry = (ingredient: IngredientEntry): { name: string; qty?: string; unit?: string } => {
+  if (typeof ingredient === 'string') {
+    return parseIngredientString(ingredient);
+  }
+  const name = ingredient.name?.trim() ?? '';
+  const qty = ingredient.qty?.trim();
+  const unit = ingredient.unit?.trim();
+  return {
+    name,
+    ...(qty ? { qty } : {}),
+    ...(unit ? { unit } : {}),
+  };
+};
+
+const formatIngredientLabel = (ingredient: IngredientEntry) => {
+  const normalized = normalizeIngredientEntry(ingredient);
+  const parts = [normalized.name].filter(Boolean) as string[];
+  const amount = normalized.qty;
+  const unit = normalized.unit;
+  if (amount || unit) {
+    const qtyUnit = [amount, unit].filter(Boolean).join(' ');
+    parts.push(qtyUnit);
+  }
+  return parts.join(' — ');
+};
+
+const formatNameOnly = (ingredient: IngredientEntry) => {
+  const normalized = normalizeIngredientEntry(ingredient);
+  return normalized.name;
 };
 
 const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, inventoryCounts }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.createdAt);
   const ingredientsPreview = Array.isArray(recipe.ingredients)
-    ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
+    ? (recipe.ingredients as IngredientEntry[]).slice(0, 3)
     : [];
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
@@ -119,12 +141,14 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
     onEdit?.();
   };
 
-  const getInventoryKey = (ingredient: string | { name: string; qty?: string }) => {
-    if (typeof ingredient === 'string') return formatNameOnly(ingredient).toLowerCase();
-    return ingredient.name?.toLowerCase() ?? '';
+  const getInventoryKey = (ingredient: IngredientEntry) => {
+    const name = formatNameOnly(ingredient).toLowerCase();
+    if (name) return name;
+    if (typeof ingredient === 'string') return ingredient.toLowerCase();
+    return '';
   };
 
-  const getInventoryCount = (ingredient: string | { name: string; qty?: string }) => {
+  const getInventoryCount = (ingredient: IngredientEntry) => {
     const key = getInventoryKey(ingredient);
     if (!key) return null;
     if (inventoryCounts[key] !== undefined) return inventoryCounts[key];
@@ -133,10 +157,6 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
       if (inventoryCounts[singular] !== undefined) return inventoryCounts[singular];
     }
     return null;
-  };
-
-  const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
-    return formatNameOnly(ingredient);
   };
 
   return (
@@ -189,7 +209,7 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
             <View style={styles.previewSection}>
               <Text style={styles.previewLabel}>Key ingredients</Text>
               {ingredientsPreview.map((ingredient, idx) => {
-                const displayName = formatIngredient(ingredient);
+                const displayName = formatIngredientLabel(ingredient);
                 const count = getInventoryCount(ingredient);
                 const countLabel =
                   count === null ? 'Not in pantry' : count === 0 ? 'Out of stock' : `${count} in pantry`;

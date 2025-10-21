@@ -27,15 +27,71 @@ const formatTimestamp = (val: any): string | null => {
   return null;
 };
 
-const toPreviewList = (items: (string | { name: string; qty?: string })[] | undefined) => {
+type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
+const isNumericToken = (token: string) => /^\d+(?:[\/.]\d+)?$/.test(token);
+
+const parseIngredientString = (entry: string): { name: string; qty?: string; unit?: string } => {
+  const raw = entry.replace(/\s+/g, " ").trim();
+  if (!raw) {
+    return { name: "" };
+  }
+
+  const hyphenParts = raw.split(/[–—-]/);
+  if (hyphenParts.length > 1) {
+    const name = hyphenParts[0].trim();
+    const trailing = hyphenParts.slice(1).join("-").trim();
+    const tokens = trailing.split(/\s+/);
+    const mutable = [...tokens];
+    const qtyTokens: string[] = [];
+
+    while (mutable.length && isNumericToken(mutable[0])) {
+      qtyTokens.push(mutable.shift()!);
+    }
+
+    const unit = mutable.join(" ").trim();
+
+    return {
+      name: name || raw,
+      ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
+      ...(unit ? { unit } : {}),
+    };
+  }
+
+  return { name: raw };
+};
+
+const normalizeIngredientEntry = (ingredient: IngredientEntry): { name: string; qty?: string; unit?: string } => {
+  if (typeof ingredient === "string") {
+    return parseIngredientString(ingredient);
+  }
+  const name = ingredient.name?.trim() ?? "";
+  const qty = ingredient.qty?.trim();
+  const unit = ingredient.unit?.trim();
+  return {
+    name,
+    ...(qty ? { qty } : {}),
+    ...(unit ? { unit } : {}),
+  };
+};
+
+const formatIngredientLabel = (ingredient: IngredientEntry) => {
+  const normalized = normalizeIngredientEntry(ingredient);
+  const parts = [normalized.name].filter(Boolean) as string[];
+  const amount = normalized.qty;
+  const unit = normalized.unit;
+  if (amount || unit) {
+    const qtyUnit = [amount, unit].filter(Boolean).join(" ");
+    parts.push(qtyUnit);
+  }
+  return parts.join(" — ");
+};
+
+const toPreviewList = (items: IngredientEntry[] | undefined) => {
   if (!Array.isArray(items)) return [];
   return items
     .slice(0, 3)
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (item?.name) return item.qty ? `${item.name} — ${item.qty}` : item.name;
-      return String(item);
-    })
+    .map((item) => formatIngredientLabel(item))
     .filter(Boolean);
 };
 
@@ -49,7 +105,7 @@ type AnimatedRecipeCardProps = {
     estimatedCalories?: number;
     servings?: number;
     sharedAt?: any;
-    ingredients?: (string | { name: string; qty?: string })[];
+    ingredients?: IngredientEntry[];
     source?: string;
     isShared?: boolean;
   };

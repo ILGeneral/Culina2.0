@@ -28,6 +28,8 @@ type UserPrefsDoc = {
 
 const STORAGE_KEY = "@culina/generated_recipes";
 
+type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
 type GeneratedRecipeCardProps = {
   recipe: Recipe;
   index: number;
@@ -96,24 +98,75 @@ const stripUnits = (text: string) => {
   return remaining.length ? remaining.join(" ") : text.trim();
 };
 
+const isNumericToken = (token: string) => /^\d+(?:[\/.]\d+)?$/.test(token);
+
+const parseIngredientString = (entry: string): { name: string; qty?: string; unit?: string } => {
+  const raw = entry.replace(/\s+/g, " ").trim();
+  if (!raw) {
+    return { name: "" };
+  }
+
+  const hyphenParts = raw.split(/[–—-]/);
+  if (hyphenParts.length > 1) {
+    const name = hyphenParts[0].trim();
+    const trailing = hyphenParts.slice(1).join("-").trim();
+    const tokens = trailing.split(/\s+/);
+    const mutable = [...tokens];
+    const qtyTokens: string[] = [];
+
+    while (mutable.length && isNumericToken(mutable[0])) {
+      qtyTokens.push(mutable.shift()!);
+    }
+
+    const unit = mutable.join(" ").trim();
+
+    return {
+      name: name || raw,
+      ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
+      ...(unit ? { unit } : {}),
+    };
+  }
+
+  return { name: raw };
+};
+
+const normalizeIngredientEntryForDisplay = (ingredient: IngredientEntry): { name: string; qty?: string; unit?: string } => {
+  if (typeof ingredient === "string") {
+    return parseIngredientString(ingredient);
+  }
+  return ingredient;
+};
+
+const formatIngredientLabel = (ingredient: IngredientEntry) => {
+  const normalized = normalizeIngredientEntryForDisplay(ingredient);
+  const parts = [normalized.name?.trim()].filter(Boolean) as string[];
+  const amount = normalized.qty?.trim();
+  const unit = normalized.unit?.trim();
+  if (amount || unit) {
+    const qtyUnit = [amount, unit].filter(Boolean).join(" ");
+    parts.push(qtyUnit);
+  }
+  return parts.join(" — ");
+};
+
+const getIngredientNameKey = (ingredient: IngredientEntry) => {
+  const normalized = normalizeIngredientEntryForDisplay(ingredient);
+  if (normalized.name?.trim()) {
+    return normalized.name.trim().toLowerCase();
+  }
+  if (typeof ingredient === "string") {
+    return stripUnits(ingredient).toLowerCase();
+  }
+  return "";
+};
+
 const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventoryCounts }: GeneratedRecipeCardProps) => {
   const ingredientsPreview = Array.isArray(recipe.ingredients)
-    ? (recipe.ingredients as (string | { name: string; qty?: string })[]).slice(0, 3)
+    ? (recipe.ingredients as IngredientEntry[]).slice(0, 3)
     : [];
 
-  const formatIngredient = (ingredient: string | { name: string; qty?: string }) => {
-    if (typeof ingredient === "string") return stripUnits(ingredient);
-    if (ingredient.name) return ingredient.name;
-    return stripUnits(String(ingredient));
-  };
-
-  const getInventoryKey = (ingredient: string | { name: string; qty?: string }) => {
-    if (typeof ingredient === "string") return stripUnits(ingredient).toLowerCase();
-    return ingredient.name?.toLowerCase() ?? "";
-  };
-
-  const getInventoryCount = (ingredient: string | { name: string; qty?: string }) => {
-    const key = getInventoryKey(ingredient);
+  const getInventoryCount = (ingredient: IngredientEntry) => {
+    const key = getIngredientNameKey(ingredient);
     if (!key) return null;
     if (inventoryCounts[key] !== undefined) return inventoryCounts[key];
     if (key.endsWith("s")) {
@@ -145,7 +198,7 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
               <View style={styles.previewSection}>
                 <Text style={styles.previewLabel}>Key ingredients</Text>
                 {ingredientsPreview.map((ingredient, idx) => {
-                  const displayName = formatIngredient(ingredient);
+                  const displayName = formatIngredientLabel(ingredient);
                   const count = getInventoryCount(ingredient);
                   const countLabel =
                     count === null ? "Not in pantry" : count === 0 ? "Out of stock" : `${count} in pantry`;
