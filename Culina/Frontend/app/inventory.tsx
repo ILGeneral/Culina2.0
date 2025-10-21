@@ -1,6 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from 'expo-image-manipulator';
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import styles from "@/styles/inventoryStyle";
 import {
   View,
   Text,
@@ -9,7 +10,6 @@ import {
   TouchableWithoutFeedback,
   Modal,
   Image,
-  StyleSheet,
   TextInput,
   Alert,
   Dimensions,
@@ -453,14 +453,14 @@ const handleCapture = async (photo: { uri: string }) => {
     <Pressable
       onPress={() => edit(item)}
       onLongPress={() => del(item)}
-      style={s.tile}
+      style={styles.tile}
     >
       <Image
         source={{ uri: item.imageUrl ?? mealThumb(item.name) }}
-        style={s.tileImg}
+        style={styles.tileImg}
       />
-      <Text style={s.tileName}>{item.name}</Text>
-      <Text style={s.tileQty}>
+      <Text style={styles.tileName}>{item.name}</Text>
+      <Text style={styles.tileQty}>
         {item.quantity} {item.unit}
       </Text>
     </Pressable>
@@ -470,17 +470,17 @@ const handleCapture = async (photo: { uri: string }) => {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
         <Background>
-          <SafeAreaView style={s.container}>
+          <SafeAreaView style={styles.container}>
             {/* header */}
-            <View style={s.head}>
-              <Text style={s.title}>My Pantry</Text>
-              <View style={s.search}>
+            <View style={styles.head}>
+              <Text style={styles.title}>My Pantry</Text>
+              <View style={styles.search}>
                 <Ionicons name="search" size={18} color="#6b7280" />
                 <TextInput
                   value={search}
                   onChangeText={setSearch}
                   placeholder="Search ingredients..."
-                  style={s.searchInput}
+                  style={styles.searchInput}
                 />
                 {search.length > 0 && (
                   <TouchableOpacity onPress={() => setSearch("")}>
@@ -488,7 +488,7 @@ const handleCapture = async (photo: { uri: string }) => {
                   </TouchableOpacity>
                 )}
               </View>
-              <View style={s.filters}>
+              <View style={styles.filters}>
                 {(
                   [
                     "All",
@@ -500,17 +500,17 @@ const handleCapture = async (photo: { uri: string }) => {
                 ).map((f) => (
                   <TouchableOpacity
                     key={f}
-                    style={[s.fChip, filter === f && s.fChipOn]}
+                    style={[styles.fChip, filter === f && styles.fChipOn]}
                     onPress={() => setFilter(f)}
                   >
-                    <Text style={[s.fTxt, filter === f && s.fTxtOn]}>{f}</Text>
+                    <Text style={[styles.fTxt, filter === f && styles.fTxtOn]}>{f}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
             {loading ? (
-              <View style={[s.center, { flex: 1 }]}>
+              <View style={[styles.center, { flex: 1 }]}>
                 <ActivityIndicator size="large" />
               </View>
             ) : (
@@ -529,7 +529,7 @@ const handleCapture = async (photo: { uri: string }) => {
             )}
 
             {/* FAB */}
-            <TouchableOpacity style={s.fab} onPress={openSheet}>
+            <TouchableOpacity style={styles.fab} onPress={openSheet}>
               <Ionicons name="add" size={28} color="#fff" />
             </TouchableOpacity>
 
@@ -550,66 +550,66 @@ const handleCapture = async (photo: { uri: string }) => {
               <BottomSheetView
                 style={{ paddingHorizontal: 16, paddingBottom: 8 }}
               >
-                <Text style={s.sheetTitle}>Add Ingredient</Text>
-                <TouchableOpacity style={s.sheetOpt} onPress={cameraAdd}>
+                <Text style={styles.sheetTitle}>Add Ingredient</Text>
+                <TouchableOpacity style={styles.sheetOpt} onPress={cameraAdd}>
                   <Ionicons
                     name="camera-outline"
                     size={22}
                     style={{ marginRight: 12 }}
                   />
-                  <Text style={s.sheetTxt}>Use Camera</Text>
+                  <Text style={styles.sheetTxt}>Use Camera</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={s.sheetOpt} onPress={manualAdd}>
+                <TouchableOpacity style={styles.sheetOpt} onPress={manualAdd}>
                   <Ionicons
                     name="pencil-outline"
                     size={22}
                     style={{ marginRight: 12 }}
                   />
-                  <Text style={s.sheetTxt}>Type Manually</Text>
+                  <Text style={styles.sheetTxt}>Type Manually</Text>
                 </TouchableOpacity>
               </BottomSheetView>
             </BottomSheetModal>
 
             <Modal visible={formVisible} animationType="slide" transparent>
               <KeyboardAvoidingView
-                style={s.formWrap}
+                style={styles.formWrap}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
               >
-                <View style={s.formBackdrop}>
+                <View style={styles.formBackdrop}>
                   <Pressable
                     style={{ flex: 1 }}
                     onPress={() => setFormVisible(false)}
                   />
-                  <View style={s.formCard}>
+                  <View style={styles.formCard}>
                     <ScrollView
-                      contentContainerStyle={s.formContent}
+                      contentContainerStyle={styles.formContent}
                       keyboardShouldPersistTaps="handled"
                       showsVerticalScrollIndicator={false}
                     >
-                      <Text style={s.formTitle}>
+                      <Text style={styles.formTitle}>
                         {editing ? "Edit Ingredient" : "Add Ingredient"}
                       </Text>
                       {(img || name.trim()) && (
                         <Image
                           source={{ uri: img ?? mealThumb(name.trim()) }}
-                          style={s.formImg}
+                          style={styles.formImg}
                         />
                       )}
-                      <Text style={s.label}>Name</Text>
+                      <Text style={styles.label}>Name</Text>
                       <TextInput
                         value={name}
                         onChangeText={onChangeName}
                         onKeyPress={handleKeyDown}
                         placeholder="e.g. Tomato"
-                        style={s.input}
+                        style={styles.input}
                         autoCapitalize="words"
                       />
                       {(suggestLoading || suggest.length > 0) && (
-                        <View style={s.suggestPanel}>
+                        <View style={styles.suggestPanel}>
                           {suggestLoading && (
-                            <View style={s.suggestLoadingRow}>
+                            <View style={styles.suggestLoadingRow}>
                               <ActivityIndicator size="small" color="#0284c7" />
-                              <Text style={s.suggestLoadingText}>Searching TheMealDB…</Text>
+                              <Text style={styles.suggestLoadingText}>Searching TheMealDB…</Text>
                             </View>
                           )}
                           {!suggestLoading &&
@@ -617,36 +617,36 @@ const handleCapture = async (photo: { uri: string }) => {
                               <TouchableOpacity
                                 key={sg.name}
                                 style={[
-                                  s.suggestRow,
-                                  highlightIndex === idx && s.suggestRowHighlight,
+                                  styles.suggestRow,
+                                  highlightIndex === idx && styles.suggestRowHighlight,
                                 ]}
                                 onPress={() => applySuggestion(sg)}
                               >
-                                <Text style={s.suggestName}>{capitalize(sg.name)}</Text>
+                                <Text style={styles.suggestName}>{capitalize(sg.name)}</Text>
                                 {sg.type ? (
-                                  <Text style={s.suggestMeta}>{sg.type}</Text>
+                                  <Text style={styles.suggestMeta}>{sg.type}</Text>
                                 ) : null}
                               </TouchableOpacity>
                             ))}
                           {!suggestLoading && suggest.length === 0 && (
-                            <Text style={s.suggestEmpty}>No matches found</Text>
+                            <Text style={styles.suggestEmpty}>No matches found</Text>
                           )}
                         </View>
                       )}
-                      <Text style={s.label}>Quantity</Text>
+                      <Text style={styles.label}>Quantity</Text>
                       <TextInput
                         value={qty}
                         onChangeText={(t) => setQty(sanitizeQuantity(t))}
                         keyboardType="decimal-pad"
                         placeholder="0"
-                        style={s.input}
+                        style={styles.input}
                       />
-                      <Text style={s.label}>Unit</Text>
-                      <View style={s.unitWrap}>
+                      <Text style={styles.label}>Unit</Text>
+                      <View style={styles.unitWrap}>
                         {UNITS.map((u) => (
                           <TouchableOpacity
                             key={u}
-                            style={[s.unitChip, unitChip === u && s.unitChipOn]}
+                            style={[styles.unitChip, unitChip === u && styles.unitChipOn]}
                             onPress={() => {
                               setUnitChip(u);
                               setUnit("");
@@ -654,8 +654,8 @@ const handleCapture = async (photo: { uri: string }) => {
                           >
                             <Text
                               style={[
-                                s.unitChipTxt,
-                                unitChip === u && s.unitChipTxtOn,
+                                styles.unitChipTxt,
+                                unitChip === u && styles.unitChipTxtOn,
                               ]}
                             >
                               {u}
@@ -670,11 +670,11 @@ const handleCapture = async (photo: { uri: string }) => {
                           setUnitChip(null);
                         }}
                         placeholder="Custom unit (optional)"
-                        style={s.input}
+                        style={styles.input}
                       />
-                      <View style={s.btnRow}>
+                      <View style={styles.btnRow}>
                         <TouchableOpacity
-                          style={[s.formBtn, s.cancelBtn]}
+                          style={[styles.formBtn, styles.cancelBtn]}
                           onPress={() => {
                             setFormVisible(false);
                             setSuggest([]);
@@ -682,15 +682,15 @@ const handleCapture = async (photo: { uri: string }) => {
                             setHighlightIndex(null);
                           }}
                         >
-                          <Text style={[s.formBtnTxt, s.cancelBtnTxt]}>
+                          <Text style={[styles.formBtnTxt, styles.cancelBtnTxt]}>
                             Cancel
                           </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[s.formBtn, s.saveBtn]}
+                          style={[styles.formBtn, styles.saveBtn]}
                           onPress={save}
                         >
-                          <Text style={s.formBtnTxt}>
+                          <Text style={styles.formBtnTxt}>
                             {editing ? "Update" : "Save"}
                           </Text>
                         </TouchableOpacity>
@@ -703,99 +703,91 @@ const handleCapture = async (photo: { uri: string }) => {
 
             {/* camera */}
             <Modal visible={camOpen} animationType="fade">
-              <View style={{ flex: 1, backgroundColor: "black" }}>
+              <View style={styles.cameraContainer}>
                 {!permission?.granted ? (
-                  <View style={[s.center, { flex: 1 }]}>
-                    <Text style={{ color: "#fff", marginBottom: 16 }}>
+                  <View style={styles.center}>
+                    <Text style={styles.cameraPermissionText}>
                       Camera permission required
                     </Text>
                     <TouchableOpacity
                       onPress={requestPermission}
-                      style={[s.btn, { backgroundColor: "#128AFA" }]}
+                      style={styles.cameraPermissionBtn}
                     >
-                      <Text style={s.btnText}>Grant Permission</Text>
+                      <Text style={styles.cameraPermissionBtnText}>Grant Permission</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => setCamOpen(false)}
-                      style={[s.btn, { marginTop: 12 }]}
+                      style={styles.cameraCancelBtn}
                     >
-                      <Text style={s.btnText}>Cancel</Text>
+                      <Text style={styles.cameraCancelBtnText}>Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <View style={s.cameraContainer}>
-                    <View style={s.previewWrapper}>
+                  <View style={styles.cameraContainer}>
+                    <View style={styles.previewWrapper}>
                       <CameraView
                         ref={camRef}
-                        style={s.cameraPreview}
+                        style={styles.cameraPreview}
                         facing="back"
                       >
                         {/* Camera preview only */}
                       </CameraView>
                       {!previewVisible && (
                         <TouchableWithoutFeedback onPress={handleCameraFocus}>
-                          <View style={s.focusLayer} />
+                          <View style={styles.focusLayer} />
                         </TouchableWithoutFeedback>
                       )}
                       <TouchableOpacity
                         onPress={() => setCamOpen(false)}
-                        style={s.topCloseButton}
+                        style={styles.topCloseButton}
                       >
                         <Ionicons name="arrow-back" size={26} color="#fff" />
                       </TouchableOpacity>
                       {!previewVisible && (
                         <>
-                          <View pointerEvents="none" style={s.frameCorners}>
-                            <View style={[s.frameCorner, s.frameCorner_tl]} />
-                            <View style={[s.frameCorner, s.frameCorner_tr]} />
-                            <View style={[s.frameCorner, s.frameCorner_bl]} />
-                            <View style={[s.frameCorner, s.frameCorner_br]} />
+                          <View pointerEvents="none" style={styles.frameCorners}>
+                            <View style={[styles.frameCorner, styles.frameCorner_tl]} />
+                            <View style={[styles.frameCorner, styles.frameCorner_tr]} />
+                            <View style={[styles.frameCorner, styles.frameCorner_bl]} />
+                            <View style={[styles.frameCorner, styles.frameCorner_br]} />
                           </View>
-                          <View pointerEvents="none" style={s.reticleOverlay}>
-                            <View style={s.reticleCircle} />
-                            <View style={s.reticleLineHorizontal} />
-                            <View style={s.reticleLineVertical} />
-                            <Text style={s.reticlePlus}>+</Text>
+                          <View pointerEvents="none" style={styles.reticleOverlay}>
+                            <View style={styles.reticleCircle} />
+                            <View style={styles.reticleLineHorizontal} />
+                            <View style={styles.reticleLineVertical} />
+                            <Text style={styles.reticlePlus}>+</Text>
                           </View>
                         </>
                       )}
                       {previewVisible && capturedPhoto && (
-                        <View style={s.previewOverlay}>
+                        <View style={styles.previewOverlay}>
                           <Image
                             source={{ uri: capturedPhoto.uri }}
-                            style={s.previewImage}
+                            style={styles.previewImage}
                             resizeMode="cover"
                           />
                         </View>
                       )}
                     </View>
-                    <View style={s.camOverlayPanel}>
+                    <View style={styles.camOverlayPanel}>
                       {previewVisible && capturedPhoto ? (
-                        <View style={s.previewActions}>
+                        <View style={styles.previewActions}>
                           <TouchableOpacity
-                            style={[s.previewBtn, s.previewSecondary]}
+                            style={styles.previewSecondaryBtn}
                             onPress={retakePhoto}
                             disabled={uploading}
                           >
-                            <Text
-                              style={[s.previewBtnText, s.previewSecondaryText]}
-                            >
-                              Retake
-                            </Text>
+                            <Text style={styles.previewSecondaryBtnText}>Retake</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={[s.previewBtn, s.previewPrimary]}
+                            style={styles.previewPrimaryBtn}
                             onPress={confirmScan}
                             disabled={uploading}
                           >
                             {uploading ? (
                               <ActivityIndicator color="#111827" />
                             ) : (
-                              <Text
-                                style={[s.previewBtnText, s.previewPrimaryText]}
-                              >
-                                Scan
-                              </Text>
+                              <Text style={styles.previewPrimaryBtnText}>Scan</Text>
                             )}
                           </TouchableOpacity>
                         </View>
@@ -803,17 +795,17 @@ const handleCapture = async (photo: { uri: string }) => {
                         <TouchableOpacity
                           disabled={capturing || uploading}
                           onPress={handleCapturePress}
-                          style={s.captureButton}
+                          style={styles.captureButton}
                           accessibilityLabel="Capture and scan ingredient"
                         >
                           {capturing || uploading ? (
                             <ActivityIndicator color="#fff" />
                           ) : (
-                            <View style={s.captureInner} />
+                            <View style={styles.captureInner} />
                           )}
                         </TouchableOpacity>
                       )}
-                      <Text style={s.scanPrompt}>
+                      <Text style={styles.scanPrompt}>
                         {uploading
                           ? "Scanning ingredient..."
                           : previewVisible
@@ -832,445 +824,4 @@ const handleCapture = async (photo: { uri: string }) => {
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
-}
-
-// —— styles ——
-const s = StyleSheet.create({
-  container: { flex: 1 },
-  center: { justifyContent: "center", alignItems: "center" },
-  head: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  title: { fontSize: 26, fontWeight: "bold", color: "#128AFA" },
-  search: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  searchInput: { flex: 1 },
-  filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-  scanButton: {
-    marginTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#128AFA",
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  scanButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  fChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#eef2f7",
-  },
-  fChipOn: { backgroundColor: "#128AFA" },
-  fTxt: { color: "#111827", fontWeight: "600" },
-  fTxtOn: { color: "#fff" },
-  tile: {
-    flex: 1,
-    backgroundColor: "#f9fafb",
-    borderRadius: 16,
-    padding: 12,
-    alignItems: "center",
-  },
-  tileImg: { width: "100%", height: 100, borderRadius: 12, marginBottom: 8 },
-  tileName: { fontSize: 15, fontWeight: "600" },
-  tileQty: { fontSize: 13, color: "#6b7280" },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 28,
-    backgroundColor: "#128AFA",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sheetTitle: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
-  sheetOpt: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomColor: "#f3f4f6",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  sheetTxt: { fontSize: 16, fontWeight: "600", color: "#111827" },
-  formWrap: { flex: 1 },
-  formBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(17,24,39,0.55)",
-    justifyContent: "flex-end",
-  },
-  formCard: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
-    maxHeight: SCREEN_HEIGHT * 0.85,
-  },
-  formContent: { paddingBottom: 12, gap: 12 },
-  formTitle: { fontSize: 20, fontWeight: "700", color: "#111827" },
-  formImg: {
-    width: "100%",
-    height: 140,
-    borderRadius: 16,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  label: { fontSize: 14, fontWeight: "600", color: "#374151" },
-  input: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  suggestPanel: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  suggestLoadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#f1f5f9",
-  },
-  suggestLoadingText: { color: "#475569", fontSize: 14 },
-  suggestRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#f1f5f9",
-  },
-  suggestRowHighlight: {
-    backgroundColor: "#e0f2fe",
-  },
-  suggestName: { fontSize: 15, fontWeight: "600", color: "#0f172a" },
-  suggestMeta: { marginTop: 2, fontSize: 13, color: "#64748b" },
-  suggestEmpty: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    textAlign: "center",
-    color: "#64748b",
-  },
-  unitWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
-  unitChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "#f3f4f6",
-  },
-  unitChipOn: { backgroundColor: "#128AFA" },
-  unitChipTxt: { color: "#111827", fontWeight: "600" },
-  unitChipTxtOn: { color: "#fff" },
-  btnRow: { flexDirection: "row", gap: 12, marginTop: 20 },
-  formBtn: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  cancelBtn: { backgroundColor: "#f3f4f6" },
-  cancelBtnTxt: { color: "#111827" },
-  saveBtn: { backgroundColor: "#128AFA" },
-  formBtnTxt: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  camOverlay: {
-    position: "absolute",
-    bottom: 40,
-    width: "100%",
-    alignItems: "center",
-  },
-  closeCam: {
-    position: "absolute",
-    top: 40,
-    right: 20,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    borderRadius: 20,
-    padding: 8,
-  },
-  shutter: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 6,
-    borderColor: "rgba(255,255,255,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  shutterInner: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#fff",
-  },
-  focusLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-  },
-  topCloseButton: {
-    position: "absolute",
-    top: 40,
-    left: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 3,
-  },
-  frameCorners: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  frameCorner: {
-    position: "absolute",
-    width: 36,
-    height: 36,
-    borderColor: "rgba(255,255,255,0.8)",
-    borderWidth: 3,
-  },
-  frameCorner_tl: {
-    top: 30,
-    left: 30,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  frameCorner_tr: {
-    top: 30,
-    right: 30,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  frameCorner_bl: {
-    bottom: 150,
-    left: 30,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-  },
-  frameCorner_br: {
-    bottom: 150,
-    right: 30,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-  },
-  reticleOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 0,
-  },
-  reticleCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.5)",
-  },
-  reticleLineHorizontal: {
-    position: "absolute",
-    width: 200,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  reticleLineVertical: {
-    position: "absolute",
-    height: 200,
-    width: 1,
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  reticlePlus: {
-    position: "absolute",
-    fontSize: 32,
-    color: "rgba(255,255,255,0.9)",
-    fontWeight: "600",
-  },
-  bottomControls: {
-    position: "absolute",
-    bottom: 40,
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  sideButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.25)",
-  },
-  captureButton: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#4a4a4a",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 4,
-    borderColor: "rgba(255,255,255,0.4)",
-  },
-  captureInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#ef4444",
-  },
-  scanIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-  },
-  modeLabelRow: {
-    position: "absolute",
-    bottom: 16,
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 24,
-  },
-  modeLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    letterSpacing: 1,
-  },
-  modeActive: {
-    color: "#fff",
-  },
-  modeInactive: {
-    color: "rgba(255,255,255,0.4)",
-  },
-  scanActionButton: {
-    marginTop: 12,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  scanActionText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  scanPrompt: {
-    marginTop: 12,
-    color: "rgba(255,255,255,0.75)",
-    textAlign: "center",
-    fontSize: 14,
-    fontWeight: "500",
-    letterSpacing: 0.4,
-  },
-  cameraContainer: {
-    flex: 1,
-    backgroundColor: "black",
-    justifyContent: "space-between",
-  },
-  previewWrapper: {
-    flex: 1,
-    width: "100%",
-  },
-  cameraPreview: {
-    flex: 1,
-    width: "100%",
-  },
-  previewOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-  },
-  camOverlayPanel: {
-    width: "100%",
-    paddingHorizontal: 32,
-    paddingTop: 18,
-    paddingBottom: 32,
-    backgroundColor: "rgba(0,0,0,0.82)",
-    alignItems: "center",
-    gap: 16,
-  },
-  previewActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    gap: 16,
-  },
-  previewBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  previewSecondary: {
-    backgroundColor: "transparent",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.6)",
-  },
-  previewPrimary: {
-    backgroundColor: "#f97316",
-  },
-  previewBtnText: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  previewSecondaryText: {
-    color: "#ffffff",
-  },
-  previewPrimaryText: {
-    color: "#111827",
-  },
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    borderRadius: 10,
-    backgroundColor: "#e5e7eb",
-  },
-  btnText: { color: "#fff", fontWeight: "700" },
-});
+};

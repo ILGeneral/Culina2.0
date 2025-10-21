@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
   Alert,
-  StyleSheet,
+  SafeAreaView 
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import recipeGenStyles from "@/styles/recipe/recipeGenStyles";
 import { auth, db } from "@/lib/firebaseConfig";
 import { collection, doc, getDoc, setDoc, serverTimestamp, onSnapshot } from "firebase/firestore";
 import { generateRecipe } from "@/lib/generateRecipe";
@@ -182,30 +182,30 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
   return (
     <Animated.View entering={FadeInUp.delay(index * 100).duration(400).springify()}>
       <TouchableOpacity activeOpacity={0.85} onPress={onPress}>
-        <View style={styles.savedCard}>
-          <View style={styles.savedContent}>
-            <Text style={styles.recipeTitle} numberOfLines={2}>
+        <View style={recipeGenStyles.savedCard}>
+          <View style={recipeGenStyles.savedContent}>
+            <Text style={recipeGenStyles.recipeTitle} numberOfLines={2}>
               {recipe.title}
             </Text>
 
             {!!recipe.description && (
-              <Text style={styles.recipeDescription} numberOfLines={2}>
+              <Text style={recipeGenStyles.recipeDescription} numberOfLines={2}>
                 {recipe.description}
               </Text>
             )}
 
             {ingredientsPreview.length > 0 && (
-              <View style={styles.previewSection}>
-                <Text style={styles.previewLabel}>Key ingredients</Text>
+              <View style={recipeGenStyles.previewSection}>
+                <Text style={recipeGenStyles.previewLabel}>Key ingredients</Text>
                 {ingredientsPreview.map((ingredient, idx) => {
                   const displayName = formatIngredientLabel(ingredient);
                   const count = getInventoryCount(ingredient);
                   const countLabel =
                     count === null ? "Not in pantry" : count === 0 ? "Out of stock" : `${count} in pantry`;
                   return (
-                    <View key={idx} style={styles.previewRow}>
-                      <Text style={styles.previewItem}>• {displayName}</Text>
-                      <Text style={[styles.previewCount, (count === null || count === 0) && styles.previewCountLow]}>
+                    <View key={idx} style={recipeGenStyles.previewRow}>
+                      <Text style={recipeGenStyles.previewItem}>• {displayName}</Text>
+                      <Text style={[recipeGenStyles.previewCount, (count === null || count === 0) && recipeGenStyles.previewCountLow]}>
                         {countLabel}
                       </Text>
                     </View>
@@ -215,45 +215,45 @@ const GeneratedRecipeCard = ({ recipe, index, onSave, onPress, saving, inventory
             )}
 
             <Animated.View
-              style={styles.recipeMetaContainer}
+              style={recipeGenStyles.recipeMetaContainer}
               entering={FadeIn.delay(index * 100 + 150).duration(400)}
             >
-              <View style={[styles.metaPill, styles.sourcePill]}>
-                <Text style={styles.metaText}>{sourceLabel}</Text>
+              <View style={[recipeGenStyles.metaPill, recipeGenStyles.sourcePill]}>
+                <Text style={recipeGenStyles.metaText}>{sourceLabel}</Text>
               </View>
               {!!recipe.servings && (
-                <View style={[styles.metaPill, styles.servingsPill]}>
+                <View style={[recipeGenStyles.metaPill, recipeGenStyles.servingsPill]}>
                   <Users size={14} color="#0284c7" />
-                  <Text style={styles.metaText}>Serves {recipe.servings}</Text>
+                  <Text style={recipeGenStyles.metaText}>Serves {recipe.servings}</Text>
                 </View>
               )}
               {!!recipe.estimatedCalories && (
-                <View style={[styles.metaPill, styles.caloriesPill]}>
+                <View style={[recipeGenStyles.metaPill, recipeGenStyles.caloriesPill]}>
                   <Flame size={14} color="#f97316" />
-                  <Text style={styles.metaText}>{recipe.estimatedCalories} kcal</Text>
+                  <Text style={recipeGenStyles.metaText}>{recipe.estimatedCalories} kcal</Text>
                 </View>
               )}
               {ingredientCount && (
-                <View style={[styles.metaPill, styles.ingredientsPill]}>
-                  <Text style={styles.metaText}>
+                <View style={[recipeGenStyles.metaPill, recipeGenStyles.ingredientsPill]}>
+                  <Text style={recipeGenStyles.metaText}>
                     🥕 {ingredientCount} ingredient{ingredientCount === 1 ? "" : "s"}
                   </Text>
                 </View>
               )}
-              <View style={[styles.metaPill, styles.sourcePill]}>
-                <Text style={styles.metaText}>{recipe.source || "AI Generated"}</Text>
+              <View style={[recipeGenStyles.metaPill, recipeGenStyles.sourcePill]}>
+                <Text style={recipeGenStyles.metaText}>{recipe.source || "AI Generated"}</Text>
               </View>
             </Animated.View>
 
             <TouchableOpacity
-              style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
+              style={[recipeGenStyles.primaryButton, saving && recipeGenStyles.primaryButtonDisabled]}
               onPress={onSave}
               disabled={saving}
             >
               {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.primaryButtonText}>Save Recipe</Text>
+                <Text style={recipeGenStyles.primaryButtonText}>Save Recipe</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -431,31 +431,31 @@ export default function RecipeGeneratorScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={recipeGenStyles.center}>
         <ActivityIndicator size="large" color="#128AFA" />
-        <Text style={styles.gray}>Loading your pantry...</Text>
+        <Text style={recipeGenStyles.gray}>Loading your pantry...</Text>
       </View>
     );
   }
 
   return (
     <Background>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={recipeGenStyles.container}>
         {!recipes.length ? (
-          <View style={styles.center}>
-            <TouchableOpacity style={styles.button} onPress={generateNewRecipes} disabled={generating}>
-              <Text style={styles.buttonText}>{generating ? "Generating..." : "Generate Recipes!"}</Text>
+          <View style={recipeGenStyles.center}>
+            <TouchableOpacity style={recipeGenStyles.button} onPress={generateNewRecipes} disabled={generating}>
+              <Text style={recipeGenStyles.buttonText}>{generating ? "Generating..." : "Generate Recipes!"}</Text>
             </TouchableOpacity>
             {preferences.length > 0 && (
-              <Text style={styles.gray}>Preferences: {preferences.join(", ")}</Text>
+              <Text style={recipeGenStyles.gray}>Preferences: {preferences.join(", ")}</Text>
             )}
           </View>
         ) : (
           <>
-            <View style={styles.refreshRow}>
-              <Text style={styles.refreshHint}>Need a fresh batch?</Text>
+            <View style={recipeGenStyles.refreshRow}>
+              <Text style={recipeGenStyles.refreshHint}>Need a fresh batch?</Text>
               <TouchableOpacity
-                style={[styles.secondaryButton, generating && styles.secondaryButtonDisabled]}
+                style={[recipeGenStyles.secondaryButton, generating && recipeGenStyles.secondaryButtonDisabled]}
                 onPress={generateNewRecipes}
                 disabled={generating}
                 activeOpacity={0.85}
@@ -469,10 +469,10 @@ export default function RecipeGeneratorScreen() {
             </View>
 
             <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-          >
+              style={recipeGenStyles.scroll}
+              contentContainerStyle={recipeGenStyles.list}
+              showsVerticalScrollIndicator={false}
+            >
             {recipes.map((recipe, idx) => (
               <GeneratedRecipeCard
                 key={`${recipe.title}-${idx}`}
@@ -492,279 +492,3 @@ export default function RecipeGeneratorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  gray: { color: "#6b7280", marginTop: 10, textAlign: "center" },
-  button: {
-    backgroundColor: "#0284c7",
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-  },
-  headerBtn: {
-    padding: 10,
-    borderRadius: 12,
-    backgroundColor: "#f8fafc",
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  section: {
-    marginBottom: 24,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#94a3b8",
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#64748b",
-    marginTop: 4,
-  },
-  inventoryList: {
-    gap: 10,
-  },
-  inventoryTag: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: "#f8fafc",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  inventoryTagText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  inventoryTagCount: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0284c7",
-  },
-  inventoryEmpty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-    gap: 8,
-  },
-  inventoryEmptyText: {
-    color: "#94a3b8",
-    fontSize: 14,
-  },
-  generateButton: {
-    marginTop: 16,
-    backgroundColor: "#0284c7",
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  generateButtonDisabled: {
-    opacity: 0.6,
-  },
-  generateButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  generatedHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
-  generatedTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  generatedSub: {
-    color: "#64748b",
-    marginTop: 4,
-  },
-  recipeList: {
-    gap: 18,
-  },
-  refreshRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-  },
-  refreshHint: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#0f172a",
-    backgroundColor: "rgba(255,255,255,0.92)",
-  },
-  secondaryButtonDisabled: {
-    opacity: 0.6,
-  },
-  secondaryButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  scroll: {
-    paddingHorizontal: 20,
-  },
-  list: {
-    paddingBottom: 32,
-    gap: 20,
-  },
-  savedCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#94a3b8",
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 15,
-    elevation: 5,
-    marginBottom: 0,
-  },
-  savedContent: {
-    padding: 20,
-  },
-  recipeTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1e293b",
-    marginBottom: 8,
-  },
-  recipeDescription: {
-    color: "#475569",
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  previewSection: {
-    marginBottom: 16,
-    gap: 4,
-  },
-  previewLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  previewRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  previewItem: {
-    color: "#334155",
-    fontSize: 14,
-  },
-  previewCount: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  previewCountLow: {
-    color: "#dc2626",
-  },
-  recipeMetaContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
-    paddingTop: 14,
-  },
-  metaPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-  },
-  sourcePill: {
-    backgroundColor: "#e0f2fe",
-  },
-  servingsPill: {
-    backgroundColor: "#dbeafe",
-  },
-  caloriesPill: {
-    backgroundColor: "#fff7ed",
-  },
-  ingredientsPill: {
-    backgroundColor: "#f1f5f9",
-  },
-  metaText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#0f172a",
-  },
-  primaryButton: {
-    marginTop: 16,
-    backgroundColor: "#0284c7",
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonDisabled: {
-    opacity: 0.6,
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});

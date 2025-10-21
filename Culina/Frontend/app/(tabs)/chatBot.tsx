@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   View,
   Text,
-  StyleSheet,
   ImageBackground,
   Image,
   TextInput,
@@ -13,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import chatBotStyles from "@/styles/chat/chatBotStyles";
 import type { ImageSourcePropType } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
@@ -171,9 +171,20 @@ const ChatBotScreen = () => {
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === "user";
     return (
-      <View style={[styles.messageRow, isUser ? styles.messageRowEnd : styles.messageRowStart]}>
-        <View style={[styles.bubble, isUser ? styles.userBubble : styles.botBubble]}>
-          <Text style={[styles.messageText, isUser ? styles.userText : styles.botText]}>{item.content}</Text>
+      <View style={[
+        chatBotStyles.messageRow, 
+        isUser ? chatBotStyles.messageRowEnd : chatBotStyles.messageRowStart
+      ]}>
+        <View style={[
+          chatBotStyles.bubble, 
+          isUser ? chatBotStyles.userBubble : chatBotStyles.botBubble
+        ]}>
+          <Text style={[
+            chatBotStyles.messageText, 
+            isUser ? chatBotStyles.userText : chatBotStyles.botText
+          ]}>
+            {item.content}
+          </Text>
         </View>
       </View>
     );
@@ -182,67 +193,88 @@ const ChatBotScreen = () => {
   return (
     <ImageBackground
       source={require("@/assets/chatbotAssets/chatbotBG.png")}
-      style={styles.background}
+      style={chatBotStyles.background}
       resizeMode="cover"
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={chatBotStyles.safeArea} edges={["top"]}>
         <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={chatBotStyles.flex}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
-          <View style={styles.contentContainer}>
-            <View style={styles.culinaWrapper} pointerEvents="none">
+          <View style={chatBotStyles.contentContainer}>
+            <View style={chatBotStyles.culinaWrapper} pointerEvents="none">
               <Image
                 source={currentPose}
-                style={styles.culinaModel}
-                resizeMode="cover"
+                style={chatBotStyles.culinaModel}
+                resizeMode="contain"
               />
             </View>
-            <View style={styles.overlay}>
-              <View style={styles.controlsContainer}>
+            <View style={chatBotStyles.overlay}>
+              <View style={chatBotStyles.controlsContainer}>
                 <TouchableOpacity
                   onPress={toggleVoice}
-                  style={[styles.voiceButton, !voiceEnabled && styles.voiceButtonDisabled]}
+                  style={[
+                    chatBotStyles.voiceButton,
+                    !voiceEnabled && chatBotStyles.voiceButtonDisabled,
+                  ]}
                   activeOpacity={0.8}
                 >
-                  {voiceEnabled ? <Volume2 size={20} color="#f8fafc" /> : <VolumeX size={20} color="#f8fafc" />}
-                  <Text style={styles.voiceLabel}>{voiceEnabled ? (speaking ? "Speaking" : "Voice on") : "Voice off"}</Text>
+                  {voiceEnabled ? (
+                    <Volume2 size={18} color="#f8fafc" />
+                  ) : (
+                    <VolumeX size={18} color="#94a3b8" />
+                  )}
+                  <Text style={chatBotStyles.voiceLabel}>
+                    {voiceEnabled ? "Voice ON" : "Voice OFF"}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={toggleExpanded}
-                  style={styles.expandButton}
+                  style={chatBotStyles.expandButton}
                   activeOpacity={0.8}
                 >
-                  {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
+                  {expanded ? (
+                    <ChevronDown size={20} color="#f8fafc" />
+                  ) : (
+                    <ChevronUp size={20} color="#f8fafc" />
+                  )}
                 </TouchableOpacity>
               </View>
 
               {!expanded && displayedMessages.length > 0 && (
-                <View style={styles.collapsedMessageContainer}>
-                  <View style={styles.collapsedBubble}>
-                    <Text style={styles.collapsedText}>{displayedMessages[0].content}</Text>
+                <View style={chatBotStyles.collapsedMessageContainer}>
+                  <View style={chatBotStyles.collapsedBubble}>
+                    <Text style={chatBotStyles.collapsedText} numberOfLines={2}>
+                      {displayedMessages[0].content}
+                    </Text>
                   </View>
                 </View>
               )}
 
-              <View style={[styles.chatPanel, expanded ? styles.chatPanelExpanded : styles.chatPanelCollapsed]}>
-                <View style={expanded ? styles.messagesWrapper : styles.messagesPlaceholder}>
+              <View
+                style={[
+                  chatBotStyles.chatPanel,
+                  expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
+                ]}
+              >
+                <View style={expanded ? chatBotStyles.messagesWrapper : chatBotStyles.messagesPlaceholder}>
                   {expanded && (
                     <FlatList
                       ref={listRef}
                       data={displayedMessages}
                       keyExtractor={(item) => item.id}
                       renderItem={renderMessage}
-                      contentContainerStyle={styles.messages}
-                      style={styles.messageList}
+                      contentContainerStyle={chatBotStyles.messages}
+                      style={chatBotStyles.messageList}
                       showsVerticalScrollIndicator={false}
                     />
                   )}
                 </View>
 
-                <View style={styles.inputContainer}>
+                <View style={chatBotStyles.inputContainer}>
                   <TextInput
-                    style={styles.input}
+                    style={chatBotStyles.input}
                     placeholder="Share what you're cooking or ask me question! I am here for you!"
                     placeholderTextColor="#94a3b8"
                     value={input}
@@ -250,7 +282,10 @@ const ChatBotScreen = () => {
                     multiline
                   />
                   <TouchableOpacity
-                    style={[styles.sendButton, (!input.trim() || sending) && styles.sendButtonDisabled]}
+                    style={[
+                      chatBotStyles.sendButton,
+                      (!input.trim() || sending) && chatBotStyles.sendButtonDisabled,
+                    ]}
                     onPress={handleSend}
                     disabled={!input.trim() || sending}
                   >
@@ -272,193 +307,4 @@ const ChatBotScreen = () => {
 
 export default ChatBotScreen;
 
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  background: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  contentContainer: {
-    flex: 1,
-    justifyContent: "flex-end",
-    position: "relative",
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingHorizontal: 0,
-    paddingBottom: 16,
-    paddingTop: 80,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-    zIndex: 1,
-  },
-  controlsContainer: {
-    position: "absolute",
-    top: 24,
-    right: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    zIndex: 2,
-  },
-  culinaWrapper: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 0,
-  },
-  culinaModel: {
-    width: "120%",
-    height: "120%",
-    opacity: 1,
-    transform: [{ translateY: 100 }, { scale: 1.1 }],
-  },
-  chatPanel: {
-    width: "100%",
-    alignSelf: "stretch",
-    borderRadius: 28,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-    gap: 16,
-    transform: [{ translateY: 65 }],
-  },
-  chatPanelCollapsed: {
-    height: 120,
-  },
-  chatPanelExpanded: {
-    height: 460,
-  },
-  voiceButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    borderRadius: 999,
-  },
-  voiceButtonDisabled: {
-    backgroundColor: "rgba(15, 23, 42, 0.25)",
-  },
-  voiceLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#f8fafc",
-  },
-  expandButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  messagesWrapper: {
-    flex: 1,
-    borderRadius: 18,
-    backgroundColor: "rgba(15, 23, 42, 0.25)",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-  },
-  messageList: {
-    flexGrow: 0,
-  },
-  messages: {
-    paddingHorizontal: 10,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  messagesPlaceholder: {
-    flex: 1,
-  },
-  collapsedMessageContainer: {
-    width: "100%",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    marginBottom: 12,
-  },
-  collapsedBubble: {
-    width: "100%",
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-    borderRadius: 28,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-  },
-  collapsedText: {
-    fontSize: 18,
-    color: "#f8fafc",
-    textAlign: "center",
-    lineHeight: 26,
-  },
-  messageRow: {
-    flexDirection: "row",
-    width: "100%",
-  },
-  messageRowStart: {
-    justifyContent: "flex-start",
-  },
-  messageRowEnd: {
-    justifyContent: "flex-end",
-  },
-  bubble: {
-    maxWidth: "82%",
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  botBubble: {
-    backgroundColor: "#f1f5f9",
-    borderBottomLeftRadius: 6,
-  },
-  userBubble: {
-    backgroundColor: "#128AFA",
-    borderBottomRightRadius: 6,
-  },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  botText: {
-    color: "#0f172a",
-  },
-  userText: {
-    color: "#fff",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.35)",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
-    marginBottom:10,
-    backgroundColor: "rgba(15, 23, 42, 0.65)",
-  },
-  input: {
-    flex: 1,
-    color: "#f8fafc",
-    maxHeight: 120,
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#128AFA",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sendButtonDisabled: {
-    backgroundColor: "#94a3b8",
-  },
-});
+// Styles moved to @/styles/chat/chatBotStyles.ts
