@@ -1,5 +1,5 @@
-import { put } from "@vercel/blob";
 import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from 'expo-image-manipulator';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -257,8 +257,25 @@ const handleCapture = async (photo: { uri: string }) => {
     if (!user) return;
     setUploading(true);
 
-    // Step 1: Read local image as binary
-    const fileData = await FileSystem.readAsStringAsync(photo.uri, {
+    // Step 1: Resize and compress the image
+    // Food detection works well with smaller images (max 1024px)
+    const manipResult = await ImageManipulator.manipulateAsync(
+      photo.uri,
+      [
+        // Resize to max 1024px on longest side while maintaining aspect ratio
+        { resize: { width: 1024 } }
+      ],
+      {
+        compress: 0.6,  // 60% quality - good balance for food detection
+        format: ImageManipulator.SaveFormat.JPEG,
+        base64: false
+      }
+    );
+
+    console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
+
+    // Step 2: Read compressed image as binary
+    const fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
       encoding: "base64",
     });
     
@@ -266,7 +283,9 @@ const handleCapture = async (photo: { uri: string }) => {
       throw new Error("Failed to read image file");
     }
     
-    console.log(`📸 Image read successfully, converting to binary...`);
+    // Check file size (base64 string length / 1.37 ≈ binary size in bytes)
+    const estimatedSizeKB = Math.round((fileData.length / 1.37) / 1024);
+    console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
     
     const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
 
