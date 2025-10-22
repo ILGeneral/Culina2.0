@@ -1,6 +1,7 @@
 // hooks/useSharedRecipe.ts
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebaseConfig';
 import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
 
@@ -33,81 +34,101 @@ export const useSharedRecipes = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    
-    if (!uid) {
-      setLoading(false);
-      setError('User not authenticated');
-      return;
-    }
+    let unsubscribeMy: (() => void) | null = null;
+    let unsubscribeCommunity: (() => void) | null = null;
 
-    try {
-      // Subscribe to user's shared recipes
-      const myRecipesQuery = query(
-        collection(db, 'sharedRecipes'),
-        where('userId', '==', uid),
-        orderBy('sharedAt', 'desc'),
-        limit(20)
-      );
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      // Tear down any existing listeners when auth state changes
+      if (unsubscribeMy) {
+        unsubscribeMy();
+        unsubscribeMy = null;
+      }
+      if (unsubscribeCommunity) {
+        unsubscribeCommunity();
+        unsubscribeCommunity = null;
+      }
 
-      const unsubscribeMy = onSnapshot(
-        myRecipesQuery,
-        (snapshot) => {
-          const recipes = snapshot.docs.map((doc) => {
-            const data = doc.data() as SharedRecipe;
-            return {
-              ...data,
-              id: doc.id,
-              source: normalizeRecipeSource((data as any)?.source),
-            };
-          });
-          setMySharedRecipes(recipes);
-          setLoading(false);
-        },
-        (err) => {
-          console.error('Error fetching my shared recipes:', err);
-          setError('Failed to load your shared recipes');
-          setLoading(false);
-        }
-      );
+      if (!user) {
+        setMySharedRecipes([]);
+        setCommunityRecipes([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
 
-      // Subscribe to community recipes (excluding user's own)
-      const communityQuery = query(
-        collection(db, 'sharedRecipes'),
-        orderBy('sharedAt', 'desc'),
-        limit(50)
-      );
+      setLoading(true);
 
-      const unsubscribeCommunity = onSnapshot(
-        communityQuery,
-        (snapshot) => {
-          const recipes = snapshot.docs
-            .map((doc) => {
+      try {
+        const uid = user.uid;
+
+        const myRecipesQuery = query(
+          collection(db, 'sharedRecipes'),
+          where('userId', '==', uid),
+          orderBy('sharedAt', 'desc'),
+          limit(20)
+        );
+
+        unsubscribeMy = onSnapshot(
+          myRecipesQuery,
+          (snapshot) => {
+            const recipes = snapshot.docs.map((doc) => {
               const data = doc.data() as SharedRecipe;
               return {
                 ...data,
                 id: doc.id,
                 source: normalizeRecipeSource((data as any)?.source),
               };
-            })
-            .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
-          setCommunityRecipes(recipes);
-        },
-        (err) => {
-          console.error('Error fetching community recipes:', err);
-          setError('Failed to load community recipes');
-        }
-      );
+            });
+            setMySharedRecipes(recipes);
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error fetching my shared recipes:', err);
+            setError('Failed to load your shared recipes');
+            setLoading(false);
+          }
+        );
 
-      return () => {
-        unsubscribeMy();
-        unsubscribeCommunity();
-      };
-    } catch (err) {
-      console.error('Error setting up recipe listeners:', err);
-      setError('Failed to initialize recipes');
-      setLoading(false);
-    }
+        const communityQuery = query(
+          collection(db, 'sharedRecipes'),
+          orderBy('sharedAt', 'desc'),
+          limit(50)
+        );
+
+        unsubscribeCommunity = onSnapshot(
+          communityQuery,
+          (snapshot) => {
+            const recipes = snapshot.docs
+              .map((doc) => {
+                const data = doc.data() as SharedRecipe;
+                return {
+                  ...data,
+                  id: doc.id,
+                  source: normalizeRecipeSource((data as any)?.source),
+                };
+              })
+              .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
+            setCommunityRecipes(recipes);
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error fetching community recipes:', err);
+            setError('Failed to load community recipes');
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error('Error setting up recipe listeners:', err);
+        setError('Failed to initialize recipes');
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      if (unsubscribeMy) unsubscribeMy();
+      if (unsubscribeCommunity) unsubscribeCommunity();
+      unsubscribeAuth();
+    };
   }, []);
 
   return {
