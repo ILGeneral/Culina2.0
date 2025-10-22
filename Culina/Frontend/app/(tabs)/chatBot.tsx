@@ -245,9 +245,7 @@ const ChatBotScreen = () => {
               {!expanded && displayedMessages.length > 0 && (
                 <View style={chatBotStyles.collapsedMessageContainer}>
                   <View style={chatBotStyles.collapsedBubble}>
-                    <Text style={chatBotStyles.collapsedText} numberOfLines={2}>
-                      {displayedMessages[0].content}
-                    </Text>
+                    <Text style={chatBotStyles.collapsedText}>{displayedMessages[0].content}</Text>
                   </View>
                 </View>
               )}
