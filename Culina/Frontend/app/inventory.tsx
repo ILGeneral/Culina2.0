@@ -19,6 +19,8 @@ import {
   Pressable,
   ScrollView,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -49,7 +51,6 @@ import {
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-
 // —— helpers ——
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const capitalize = (s: string) =>
@@ -67,8 +68,25 @@ const sanitizeQuantity = (t: string) => {
 };
 const mealThumb = (n: string) =>
   `https://www.themealdb.com/images/ingredients/${encodeURIComponent(n)}.png`;
-const UNITS = ["g", "kg", "ml", "L", "pcs"] as const;
-type Unit = (typeof UNITS)[number];
+const UNIT_OPTIONS = [
+  "",
+  "g",
+  "kg",
+  "cups",
+  "tbsp",
+  "tsp",
+  "ml",
+  "l",
+  "oz",
+  "lb",
+  "pieces",
+  "slices",
+  "cloves",
+  "bunches",
+  "cans",
+  "bottles",
+] as const;
+type Unit = (typeof UNIT_OPTIONS)[number];
 type Filter = "All" | "Low Stock" | "Meat" | "Vegetables" | "Fruits";
 const CAT: Record<Exclude<Filter, "All" | "Low Stock">, string[]> = {
   Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham"],
@@ -104,8 +122,7 @@ export default function InventoryScreen() {
   const [editing, setEditing] = useState<any | null>(null);
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
-  const [unit, setUnit] = useState("");
-  const [unitChip, setUnitChip] = useState<Unit | null>(null);
+  const [unit, setUnit] = useState<Unit>("");
   const [img, setImg] = useState<string | null>(null);
   const [suggest, setSuggest] = useState<MealDbIngredient[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -214,28 +231,28 @@ export default function InventoryScreen() {
   };
 
   const handleCapturePress = async () => {
-  if (capturing || uploading || previewVisible) return;
-  try {
-    setCapturing(true);
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    if (capturing || uploading || previewVisible) return;
+    try {
+      setCapturing(true);
+      await new Promise((resolve) => setTimeout(resolve, 250));
 
-    const p = await camRef.current?.takePictureAsync({
-      base64: false,
-      quality: 0.3,  // Reduced from 0.5 to keep file size small
-      imageType: "jpg",
-      skipProcessing: true,
-    });
+      const p = await camRef.current?.takePictureAsync({
+        base64: false,
+        quality: 0.3, // Reduced from 0.5 to keep file size small
+        imageType: "jpg",
+        skipProcessing: true,
+      });
 
-    if (p?.uri) {
-      setCapturedPhoto(p);
-      setPreviewVisible(true);
+      if (p?.uri) {
+        setCapturedPhoto(p);
+        setPreviewVisible(true);
+      }
+    } catch {
+      Alert.alert("Capture failed");
+    } finally {
+      setCapturing(false);
     }
-  } catch {
-    Alert.alert("Capture failed");
-  } finally {
-    setCapturing(false);
-  }
-};
+  };
 
   const retakePhoto = () => {
     if (uploading) return;
@@ -265,7 +282,6 @@ export default function InventoryScreen() {
     setName("");
     setQty("");
     setUnit("");
-    setUnitChip(null);
     setImg(null);
     setSuggest([]);
     setSuggestLoading(false);
@@ -285,7 +301,6 @@ export default function InventoryScreen() {
     setName("");
     setQty("");
     setUnit("");
-    setUnitChip(null);
     setImg(null);
     setSuggest([]);
     setCapturedPhoto(null);
@@ -294,93 +309,93 @@ export default function InventoryScreen() {
     ensurePrefetch();
   };
 
-const handleCapture = async (photo: { uri: string }) => {
-  let success = false;
+  const handleCapture = async (photo: { uri: string }) => {
+    let success = false;
 
-  try {
-    if (!user) return;
-    setUploading(true);
-
-    // Step 1: Resize and compress the image
-    // Food detection works well with smaller images (max 1024px)
-    const manipResult = await ImageManipulator.manipulateAsync(
-      photo.uri,
-      [
-        // Resize to max 1024px on longest side while maintaining aspect ratio
-        { resize: { width: 1024 } }
-      ],
-      {
-        compress: 0.6,  // 60% quality - good balance for food detection
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: false
-      }
-    );
-
-    console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
-
-    // Step 2: Read compressed image as binary
-    const fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
-      encoding: "base64",
-    });
-    
-    if (!fileData) {
-      throw new Error("Failed to read image file");
-    }
-    
-    // Check file size (base64 string length / 1.37 ≈ binary size in bytes)
-    const estimatedSizeKB = Math.round((fileData.length / 1.37) / 1024);
-    console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
-    
-    const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
-
-    // Step 3: Upload to Vercel Blob via backend
-    const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "image/jpeg",
-      },
-      body: binary,
-    });
-
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
-    }
-
-    const uploadResult = await uploadRes.json();
-    const blobUrl = uploadResult.url;
-    console.log("✅ Uploaded to Vercel Blob:", blobUrl);
-
-    // Step 4: Send blob URL to Clarifai
     try {
-      const det = await detectFoodFromImage({ url: blobUrl });
-      const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
+      if (!user) return;
+      setUploading(true);
 
-      if (topConcept) {
-        setName(capitalize(topConcept));
-      } else {
-        Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
+      // Step 1: Resize and compress the image
+      // Food detection works well with smaller images (max 1024px)
+      const manipResult = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [
+          // Resize to max 1024px on longest side while maintaining aspect ratio
+          { resize: { width: 1024 } }
+        ],
+        {
+          compress: 0.6, // 60% quality - good balance for food detection
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: false
+        }
+      );
+
+      console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
+
+      // Step 2: Read compressed image as binary
+      const fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
+        encoding: "base64",
+      });
+      
+      if (!fileData) {
+        throw new Error("Failed to read image file");
+      }
+      
+      // Check file size (base64 string length / 1.37 ≈ binary size in bytes)
+      const estimatedSizeKB = Math.round((fileData.length / 1.37) / 1024);
+      console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
+      
+      const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
+
+      // Step 3: Upload to Vercel Blob via backend
+      const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "image/jpeg",
+        },
+        body: binary,
+      });
+
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
       }
 
-      success = true;
-      setCamOpen(false);
-      setFormVisible(true);
-    } catch (clarifaiError) {
-      console.error("Clarifai detection error:", clarifaiError);
-      Alert.alert("Error", "Failed to detect ingredient. Please try again.");
+      const uploadResult = await uploadRes.json();
+      const blobUrl = uploadResult.url;
+      console.log("✅ Uploaded to Vercel Blob:", blobUrl);
+
+      // Step 4: Send blob URL to Clarifai
+      try {
+        const det = await detectFoodFromImage({ url: blobUrl });
+        const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
+
+        if (topConcept) {
+          setName(capitalize(topConcept));
+        } else {
+          Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
+        }
+
+        success = true;
+        setCamOpen(false);
+        setFormVisible(true);
+      } catch (clarifaiError) {
+        console.error("Clarifai detection error:", clarifaiError);
+        Alert.alert("Error", "Failed to detect ingredient. Please try again.");
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("❌ Upload error:", errorMessage);
+      Alert.alert("Upload failed", errorMessage);
+    } finally {
+      setUploading(false);
+      if (success) {
+        setPreviewVisible(false);
+        setCapturedPhoto(null);
+      }
     }
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("❌ Upload error:", errorMessage);
-    Alert.alert("Upload failed", errorMessage);
-  } finally {
-    setUploading(false);
-    if (success) {
-      setPreviewVisible(false);
-      setCapturedPhoto(null);
-    }
-  }
-};
+  };
 
   // — Save —
   const save = async () => {
@@ -388,7 +403,9 @@ const handleCapture = async (photo: { uri: string }) => {
     if (!name.trim() || !qty) return Alert.alert("Missing fields");
     const qn = parseFloat(qty);
     if (isNaN(qn)) return Alert.alert("Invalid quantity");
-    const u = unitChip ?? (unit.trim() || "pcs");
+    if (!unit) return Alert.alert("Missing unit", "Please select a unit.");
+    const u = unit;
+
     const data = {
       name: capitalize(name),
       quantity: qn,
@@ -417,8 +434,8 @@ const handleCapture = async (photo: { uri: string }) => {
     setEditing(it);
     setName(it.name);
     setQty(String(it.quantity));
-    setUnit(it.unit);
-    setUnitChip(UNITS.includes(it.unit) ? it.unit : null);
+    setUnit((it.unit ?? "") as Unit);
+
     setImg(it.imageUrl);
     setSuggest([]);
     setSuggestLoading(false);
@@ -637,41 +654,30 @@ const handleCapture = async (photo: { uri: string }) => {
                       <TextInput
                         value={qty}
                         onChangeText={(t) => setQty(sanitizeQuantity(t))}
-                        keyboardType="decimal-pad"
+                        keyboardType="numeric"
+                        inputMode="decimal"
                         placeholder="0"
                         style={styles.input}
                       />
                       <Text style={styles.label}>Unit</Text>
-                      <View style={styles.unitWrap}>
-                        {UNITS.map((u) => (
-                          <TouchableOpacity
-                            key={u}
-                            style={[styles.unitChip, unitChip === u && styles.unitChipOn]}
-                            onPress={() => {
-                              setUnitChip(u);
-                              setUnit("");
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.unitChipTxt,
-                                unitChip === u && styles.unitChipTxtOn,
-                              ]}
-                            >
-                              {u}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                      <View style={[styles.input, styles.unitPickerContainer]}>
+                        <Picker
+                          selectedValue={unit}
+                          onValueChange={(value) => setUnit(value)}
+                          mode="dropdown"
+                          dropdownIconColor="#128AFA"
+                          style={styles.unitPicker}
+                        >
+                          {UNIT_OPTIONS.map((option) => (
+                            <Picker.Item
+                              key={option || "none"}
+                              label={option === "" ? "Select unit" : option}
+                              value={option}
+                            />
+                          ))}
+                        </Picker>
                       </View>
-                      <TextInput
-                        value={unit}
-                        onChangeText={(t) => {
-                          setUnit(t);
-                          setUnitChip(null);
-                        }}
-                        placeholder="Custom unit (optional)"
-                        style={styles.input}
-                      />
+
                       <View style={styles.btnRow}>
                         <TouchableOpacity
                           style={[styles.formBtn, styles.cancelBtn]}

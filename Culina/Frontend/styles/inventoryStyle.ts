@@ -158,6 +158,15 @@ const inventoryStyle = StyleSheet.create({
   unitChipOn: { backgroundColor: "#128AFA" },
   unitChipTxt: { color: "#111827", fontWeight: "600" },
   unitChipTxtOn: { color: "#fff" },
+  unitPickerContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderColor: "transparent",
+  },
+  unitPicker: {
+    height: 48,
+    color: "#0f172a",
+  },
   btnRow: { flexDirection: "row", gap: 12, marginTop: 20 },
   formBtn: {
     flex: 1,

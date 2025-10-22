@@ -8,6 +8,7 @@ import {
   Alert,
   StyleSheet,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
@@ -28,6 +29,35 @@ type IngredientForm = {
   qty: string;
   unit: string;
 };
+
+const sanitizeQuantityInput = (value: string) => {
+  const numericOnly = value.replace(/[^0-9.]/g, "");
+  const parts = numericOnly.split(".");
+  if (parts.length <= 1) {
+    return numericOnly;
+  }
+  const [first, ...rest] = parts;
+  return `${first}.${rest.join("")}`;
+};
+
+const UNIT_OPTIONS = [
+  "",
+  "g",
+  "kg",
+  "cups",
+  "tbsp",
+  "tsp",
+  "ml",
+  "l",
+  "oz",
+  "lb",
+  "pieces",
+  "slices",
+  "cloves",
+  "bunches",
+  "cans",
+  "bottles",
+];
 
 // Helper function to parse ingredient strings
 const parseIngredientString = (ingredientStr: string): IngredientForm => {
@@ -213,6 +243,11 @@ export default function RecipeMakerScreen() {
           : item
       )
     );
+  };
+
+  const handleQuantityChange = (index: number, text: string) => {
+    const sanitized = sanitizeQuantityInput(text);
+    updateIngredient(index, "qty", sanitized);
   };
 
   const addStep = () => {
@@ -444,15 +479,28 @@ export default function RecipeMakerScreen() {
                   placeholder="Qty"
                   placeholderTextColor="#94a3b8"
                   value={item.qty}
-                  onChangeText={(text) => updateIngredient(index, "qty", text)}
+                  onChangeText={(text) => handleQuantityChange(index, text)}
+                  keyboardType="numeric"
+                  inputMode="decimal"
                 />
-                <TextInput
-                  style={[styles.input, styles.ingredientUnit]}
-                  placeholder="Unit"
-                  placeholderTextColor="#94a3b8"
-                  value={item.unit}
-                  onChangeText={(text) => updateIngredient(index, "unit", text)}
-                />
+                <View style={[styles.input, styles.unitPickerContainer]}>
+                  <Picker
+                    selectedValue={item.unit}
+                    onValueChange={(value) => updateIngredient(index, "unit", value)}
+                    mode="dropdown"
+                    dropdownIconColor="#128AFAFF"
+                    style={styles.unitPicker}
+                  >
+                    {UNIT_OPTIONS.map((option) => (
+                      <Picker.Item
+                        key={option || "none"}
+                        label={option === "" ? "Select unit" : option}
+                        value={option}
+                      />
+                    ))}
+                  </Picker>
+                </View>
+
                 {ingredients.length > 1 && (
                   <TouchableOpacity
                     style={styles.removeButton}
@@ -614,8 +662,15 @@ const styles = StyleSheet.create({
   ingredientQty: {
     width: 70,
   },
-  ingredientUnit: {
-    width: 80,
+  unitPickerContainer: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderColor: "transparent",
+    width: 110,
+  },
+  unitPicker: {
+    height: 48,
+    color: "#0f172a",
   },
   removeButton: {
     padding: 8,
