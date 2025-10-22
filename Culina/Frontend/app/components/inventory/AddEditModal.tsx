@@ -5,6 +5,8 @@ import {
   Text,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { X } from "lucide-react-native";
@@ -81,63 +83,68 @@ export default function AddEditModal({ visible, onClose, item, onSave }: Props) 
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
-        <View className="bg-white rounded-t-3xl p-6">
-          <View className="flex-row justify-between items-center mb-5">
-            <Text className="text-2xl font-bold text-gray-800">
-              {item ? "Edit Ingredient" : "Add Ingredient"}
-            </Text>
-            <TouchableOpacity onPress={onClose} className="p-1">
-              <X size={24} color="#6b7280" />
-            </TouchableOpacity>
-          </View>
-          
-          {/* UI Improvement: Use dedicated FormInput components */}
-          <FormInput label="Ingredient Name" placeholder="e.g., Chicken Breast" value={name} onChangeText={setName} />
-          <View className="flex-row gap-4">
-            <View className="flex-1">
-              <FormInput
-                label="Quantity"
-                placeholder="e.g., 500"
-                value={quantity}
-                onChangeText={(text) => setQuantity(sanitizeQuantity(text))}
-                keyboardType="numeric"
-                inputMode="decimal"
-              />
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View className="flex-1 justify-end bg-black/60">
+          <View className="bg-white rounded-t-3xl p-6">
+            <View className="flex-row justify-between items-center mb-5">
+              <Text className="text-2xl font-bold text-gray-800">
+                {item ? "Edit Ingredient" : "Add Ingredient"}
+              </Text>
+              <TouchableOpacity onPress={onClose} className="p-1">
+                <X size={24} color="#6b7280" />
+              </TouchableOpacity>
             </View>
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-gray-600 mb-1">Unit</Text>
-              <View className="border border-gray-300 rounded-xl bg-white overflow-hidden">
-                <Picker
-                  selectedValue={unit}
-                  onValueChange={(value) => setUnit(value)}
-                  mode="dropdown"
-                  dropdownIconColor="#6b7280"
-                  style={{ height: 48, color: "#0f172a" }}
-                >
-                  {UNIT_OPTIONS.map((option) => (
-                    <Picker.Item
-                      key={option || "none"}
-                      label={option === "" ? "Select unit" : option}
-                      value={option}
-                    />
-                  ))}
-                </Picker>
+            <View>
+              <FormInput label="Ingredient Name" placeholder="e.g., Chicken Breast" value={name} onChangeText={setName} />
+              <View className="flex-row gap-4">
+                <View className="flex-1">
+                  <FormInput
+                    label="Quantity"
+                    placeholder="e.g., 500"
+                    value={quantity}
+                    onChangeText={(text) => setQuantity(sanitizeQuantity(text))}
+                    keyboardType="numeric"
+                    inputMode="decimal"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-gray-600 mb-1">Unit</Text>
+                  <View className="border border-gray-300 rounded-xl bg-white overflow-hidden">
+                    <Picker
+                      selectedValue={unit}
+                      onValueChange={(value) => setUnit(value)}
+                      dropdownIconColor="#6b7280"
+                      style={{ height: 48, color: "#0f172a" }}
+                      mode="dropdown"
+                    >
+                      {UNIT_OPTIONS.map((option) => (
+                        <Picker.Item
+                          key={option || "none"}
+                          label={option === "" ? "Select unit" : option}
+                          value={option}
+                        />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
               </View>
+              <FormInput label="Category (optional)" placeholder="e.g., Meat, Dairy, Vegetable" value={type} onChangeText={setType} />
+
+              <TouchableOpacity
+                onPress={handleSave}
+                className="bg-green-600 py-4 rounded-xl mt-6 active:bg-green-700"
+              >
+                <Text className="text-white text-center text-lg font-bold">
+                  {item ? "Update Ingredient" : "Add to Pantry"}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-          <FormInput label="Category (optional)" placeholder="e.g., Meat, Dairy, Vegetable" value={type} onChangeText={setType} />
-
-          <TouchableOpacity
-            onPress={handleSave}
-            className="bg-green-600 py-4 rounded-xl mt-6 active:bg-green-700"
-          >
-            <Text className="text-white text-center text-lg font-bold">
-              {item ? "Update Ingredient" : "Add to Pantry"}
-            </Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
