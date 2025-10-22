@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
@@ -21,7 +31,12 @@ export default function Login() {
 
   return (
     <Background>
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+      <View style={styles.inner}>
       <Image
         source={require("@/assets/login/culinalogo.png")}
         style={styles.logo}
@@ -55,12 +70,16 @@ export default function Login() {
         </Text>
       </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  inner: {
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,

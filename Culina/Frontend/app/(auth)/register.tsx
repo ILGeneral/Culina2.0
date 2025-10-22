@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
@@ -85,10 +86,16 @@ export default function RegisterScreen() {
 
   return (
     <Background>
-      <ScrollView
+      <KeyboardAvoidingView
         style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+      <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
       <Text style={styles.title}>Create your account!</Text>
 
@@ -226,12 +233,16 @@ export default function RegisterScreen() {
         </Text>
       </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scroll: {
     flex: 1,
   },
   contentContainer: {
