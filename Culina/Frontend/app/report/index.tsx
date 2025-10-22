@@ -9,8 +9,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
+  SafeAreaView,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Send } from "lucide-react-native";
 import { httpsCallable } from "firebase/functions";
@@ -18,6 +19,30 @@ import { functions, auth } from "@/lib/firebaseConfig";
 import Constants from "expo-constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import AnimatedPageWrapper from "../components/AnimatedPageWrapper";
+import { reportStyles } from "@/styles/report/styles";
+
+const styles = StyleSheet.create({
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoContainer: {
+    backgroundColor: "#f1f5f9",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: "#475569",
+    marginBottom: 8,
+  },
+  infoLabelText: {
+    fontWeight: '600',
+    color: "#334155",
+  },
+});
 
 export default function ReportIssueScreen() {
   const router = useRouter();
@@ -52,19 +77,54 @@ export default function ReportIssueScreen() {
 
     try {
       setSubmitting(true);
-      const submitReport = httpsCallable(functions, "submitReport");
-      await submitReport({
+      
+      // Log the function call
+      console.log("Attempting to call submitReport function...");
+      
+      // Get the functions instance with the correct region if needed
+      const functionsInstance = functions;
+      // If your functions are in a specific region, use:
+      // const functionsInstance = getFunctions(app, 'your-region');
+      
+      // Call the Firebase Cloud Function
+      const submitReport = httpsCallable(functionsInstance, "submitReport");
+      console.log("Function reference created, calling...");
+      
+      const result = await submitReport({
         type: reportType,
         description,
         appVersion,
         device: deviceInfo,
         userEmail,
+        timestamp: new Date().toISOString()
       });
-      Alert.alert("✅ Report Sent", "Thank you for your feedback!");
+      
+      // Log success and show confirmation
+      console.log("Report submitted successfully:", result);
+      Alert.alert("Report Sent!", "Thank you for your feedback! We'll review it soon.");
+      
+      // Reset form and navigate back
+      setDescription('');
+      setReportType(null);
       router.back();
-    } catch (err: any) {
-      console.error("Submit report error:", err);
-      Alert.alert("⚠️ Error", "Failed to send report. Please try again later.");
+    } catch (error: any) {
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        stack: error.stack
+      });
+      
+      // Handle specific error cases
+      if (error.code === 'unauthenticated') {
+        Alert.alert("Authentication Error", "Please log in to submit a report.");
+      } else if (error.code === 'not-found') {
+        Alert.alert("Service Unavailable", "The report service is currently unavailable. Please try again later.");
+      } else if (error.code === 'invalid-argument') {
+        Alert.alert("Invalid Input", error.message || "Please check your input and try again.");
+      } else {
+        Alert.alert("Error", `Failed to submit report: ${error.message || 'Please try again later.'}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -72,93 +132,107 @@ export default function ReportIssueScreen() {
 
   return (
     <AnimatedPageWrapper>
-      <SafeAreaView className="flex-1 bg-white">
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          className="flex-1"
+          style={{ flex: 1 }}
         >
-          <ScrollView className="px-5 pt-5">
-            <View className="flex-row items-center mb-6">
-              <TouchableOpacity onPress={() => router.back()}>
-                <ArrowLeft color="#16a34a" size={24} />
-              </TouchableOpacity>
-              <Text className="text-2xl font-bold text-green-700 ml-3">
-                Report an Issue
-              </Text>
-            </View>
+          <View style={reportStyles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <ArrowLeft color="#128AFA" size={24} />
+            </TouchableOpacity>
+            <Text style={reportStyles.headerTitle}>Report an Issue</Text>
+          </View>
 
-            <Text className="text-gray-700 mb-4">
+          <ScrollView 
+            style={{ flex: 1 }}
+            contentContainerStyle={reportStyles.content}
+          >
+            <Text style={reportStyles.description}>
               Please describe the issue you encountered in the app.
             </Text>
 
-            <Text className="text-sm font-semibold text-gray-700 mb-2">
-              Report Type
-            </Text>
-            <DropDownPicker
-              open={open}
-              value={reportType}
-              items={items}
-              setOpen={setOpen}
-              setValue={setReportType}
-              setItems={setItems}
-              placeholder="Select a category..."
-              style={{
-                borderColor: "#d1d5db",
-                minHeight: 50,
-                borderRadius: 10,
-                marginBottom: open ? 150 : 10,
-              }}
-              dropDownContainerStyle={{
-                borderColor: "#d1d5db",
-                borderRadius: 10,
-              }}
-              textStyle={{ fontSize: 16 }}
-            />
+            <Text style={reportStyles.label}>Report Type</Text>
+            <View style={reportStyles.dropdownContainer}>
+              <DropDownPicker
+                open={open}
+                value={reportType}
+                items={items}
+                setOpen={setOpen}
+                setValue={setReportType}
+                setItems={setItems}
+                placeholder="Select an issue type"
+                style={reportStyles.dropdown}
+                textStyle={reportStyles.dropdownText}
+                placeholderStyle={[reportStyles.dropdownText, reportStyles.dropdownPlaceholder]}
+                dropDownContainerStyle={reportStyles.dropdownList}
+                listMode="SCROLLVIEW"
+                scrollViewProps={{
+                  nestedScrollEnabled: true,
+                }}
+              />
+            </View>
 
-            <Text className="text-sm font-semibold text-gray-700 mt-4 mb-2">
-              Description
-            </Text>
+            <Text style={reportStyles.label}>Description</Text>
             <TextInput
+              style={reportStyles.input}
+              placeholder="Please provide details about the issue..."
+              placeholderTextColor="#94a3b8"
+              multiline
               value={description}
               onChangeText={setDescription}
-              placeholder="Describe what happened..."
-              multiline
-              numberOfLines={6}
               textAlignVertical="top"
-              className="border border-gray-300 rounded-lg p-3 text-base"
             />
 
-            <View className="bg-green-50 p-3 rounded-lg mt-6">
-              <Text className="text-gray-700 text-sm">
-                <Text className="font-semibold">User:</Text> {userEmail}
+            <View style={styles.infoContainer}>
+              <Text style={styles.infoLabel}>
+                <Text style={styles.infoLabelText}>User: </Text>{userEmail}
               </Text>
-              <Text className="text-gray-700 text-sm">
-                <Text className="font-semibold">Device:</Text> {deviceInfo}
+              <Text style={styles.infoLabel}>
+                <Text style={styles.infoLabelText}>Device: </Text>{deviceInfo}
               </Text>
-              <Text className="text-gray-700 text-sm">
-                <Text className="font-semibold">App Version:</Text> {appVersion}
+              <Text style={styles.infoLabel}>
+                <Text style={styles.infoLabelText}>App Version: </Text>{appVersion}
               </Text>
             </View>
 
             <TouchableOpacity
-              disabled={submitting}
+              style={[
+                reportStyles.submitButton,
+                (!reportType || !description.trim() || submitting) && reportStyles.submitButtonDisabled
+              ]}
               onPress={handleSubmit}
-              className="mt-8 mb-10 bg-orange-500 rounded-xl py-4 flex-row justify-center items-center"
+              disabled={!reportType || !description.trim() || submitting}
+              activeOpacity={0.9}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <>
-                  <Send color="#fff" size={20} />
-                  <Text className="text-white font-semibold text-lg ml-2">
+                <View style={styles.buttonContent}>
+                  <Text style={reportStyles.submitButtonText}>
                     Submit Report
                   </Text>
-                </>
+                  <Send size={18} color="#ffffff" style={{ marginLeft: 8 }} />
+                </View>
               )}
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      
+      {Platform.OS === 'web' && (
+        <style type="text/css">
+          {`
+            /* Fix for DropDownPicker z-index issues on web */
+            .css-view-1dbjc4n {
+              z-index: 1000 !important;
+            }
+            .css-1dbjc4n {
+              z-index: 1000 !important;
+            }
+          `}
+        </style>
+      )}
     </AnimatedPageWrapper>
   );
 }
