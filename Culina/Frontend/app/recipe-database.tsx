@@ -361,7 +361,12 @@ const RecipeDatabaseCard = ({
 
           {missingIngredients.length > 0 && (
             <View style={styles.missingSection}>
-              <Text style={styles.sectionLabel}>Missing ingredients</Text>
+              <View style={styles.missingSectionHeader}>
+                <Text style={styles.sectionLabel}>Missing ingredients ({missingIngredients.length})</Text>
+                {canSuggest && suggestionState.status === "idle" && (
+                  <Text style={styles.canSuggestHint}>Can suggest alternatives ✨</Text>
+                )}
+              </View>
               {missingIngredients.slice(0, 3).map((item, idx) => (
                 <Text key={`${recipe.id}-missing-${idx}`} style={styles.missingItem} numberOfLines={1}>
                   • {item}
@@ -373,7 +378,7 @@ const RecipeDatabaseCard = ({
                 </Text>
               )}
 
-              {canSuggest && (
+              {canSuggest && suggestionState.status !== "ready" && (
                 <TouchableOpacity
                   style={[styles.suggestButton, suggestionState.status === "loading" && styles.suggestButtonDisabled]}
                   activeOpacity={0.85}
@@ -381,18 +386,28 @@ const RecipeDatabaseCard = ({
                   disabled={suggestionState.status === "loading"}
                 >
                   <Text style={styles.suggestButtonText}>
-                    {suggestionState.status === "loading" ? "Fetching alternatives…" : "Suggest alternatives"}
+                    {suggestionState.status === "loading" ? "🤖 Finding alternatives…" : "✨ Get AI Suggestions"}
                   </Text>
                 </TouchableOpacity>
               )}
 
               {suggestionState.status === "error" && suggestionState.error && (
-                <Text style={styles.suggestionError}>{suggestionState.error}</Text>
+                <View style={styles.suggestionErrorContainer}>
+                  <Text style={styles.suggestionError}>{suggestionState.error}</Text>
+                  <TouchableOpacity
+                    style={styles.retrySmallButton}
+                    activeOpacity={0.85}
+                    onPress={onSuggest}
+                  >
+                    <Text style={styles.retrySmallButtonText}>Try Again</Text>
+                  </TouchableOpacity>
+                </View>
               )}
 
-              {suggestionState.status === "ready" && suggestionState.data?.length && (
+              {suggestionState.status === "ready" && suggestionState.data?.length ? (
                 <View style={styles.alternativeList}>
-                  {suggestionState.data.slice(0, 2).map((alt, idx) => (
+                  <Text style={styles.alternativeHeader}>🤖 AI-Suggested Alternatives:</Text>
+                  {suggestionState.data.slice(0, 3).map((alt, idx) => (
                     <View key={`${recipe.id}-alt-${idx}`} style={styles.alternativeCard}>
                       <Text style={styles.alternativeTitle}>{alt.title}</Text>
                       {!!alt.description && (
@@ -400,9 +415,27 @@ const RecipeDatabaseCard = ({
                           {alt.description}
                         </Text>
                       )}
+                      {alt.ingredients?.length > 0 && (
+                        <View style={styles.altIngredients}>
+                          <Text style={styles.altIngredientsLabel}>Ingredients:</Text>
+                          {alt.ingredients.slice(0, 3).map((ing, i) => (
+                            <Text key={i} style={styles.altIngredientItem} numberOfLines={1}>
+                              • {ing}
+                            </Text>
+                          ))}
+                          {alt.ingredients.length > 3 && (
+                            <Text style={styles.altMoreIngredients}>+{alt.ingredients.length - 3} more</Text>
+                          )}
+                        </View>
+                      )}
                     </View>
                   ))}
+                  {suggestionState.data.length > 3 && (
+                    <Text style={styles.moreAlternatives}>+{suggestionState.data.length - 3} more alternatives</Text>
+                  )}
                 </View>
+              ) : suggestionState.status === "ready" && (
+                <Text style={styles.noAlternatives}>No alternatives found. Try adding more ingredients to your inventory.</Text>
               )}
             </View>
           )}
@@ -908,6 +941,17 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
     gap: 6,
   },
+  missingSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  canSuggestHint: {
+    fontSize: 11,
+    color: "#128AFA",
+    fontWeight: "600",
+  },
   missingItem: {
     fontSize: 13,
     color: "#1e293b",
@@ -937,9 +981,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#dc2626",
   },
+  suggestionErrorContainer: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    gap: 8,
+  },
+  retrySmallButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: "#128AFA",
+    alignSelf: "flex-start",
+  },
+  retrySmallButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
   alternativeList: {
     marginTop: 10,
     gap: 10,
+  },
+  alternativeHeader: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0f172a",
+    marginBottom: 4,
   },
   alternativeCard: {
     padding: 12,
@@ -957,5 +1028,39 @@ const styles = StyleSheet.create({
   alternativeDescription: {
     fontSize: 13,
     color: "#475569",
+  },
+  altIngredients: {
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    gap: 3,
+  },
+  altIngredientsLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  altIngredientItem: {
+    fontSize: 12,
+    color: "#64748b",
+  },
+  altMoreIngredients: {
+    fontSize: 11,
+    color: "#94a3b8",
+    fontStyle: "italic",
+  },
+  moreAlternatives: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center",
+    fontStyle: "italic",
+    marginTop: 4,
+  },
+  noAlternatives: {
+    fontSize: 13,
+    color: "#64748b",
+    fontStyle: "italic",
+    marginTop: 8,
   },
 });
