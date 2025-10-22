@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
@@ -22,7 +22,12 @@ export default function Login() {
   return (
     <Background>
       <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Culina</Text>
+      <Image
+        source={require("@/assets/login/culinalogo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+      <Text style={styles.title}>Welcome to Culina!</Text>
 
       <TextInput
         placeholder="Email"
@@ -46,7 +51,7 @@ export default function Login() {
 
       <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}>
         <Text style={styles.linkText}>
-          Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
+          Don't have an account? <Text style={styles.linkHighlight}>Sign up!</Text>
         </Text>
       </TouchableOpacity>
       </View>
@@ -66,6 +71,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     textAlign: "center",
     color: "#128AFA",
+  },
+  logo: {
+    width: 260,
+    height: 260,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   input: {
     borderWidth: 1,
