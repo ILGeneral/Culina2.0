@@ -5,13 +5,14 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Share,
   StyleSheet,
   Pressable,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebaseConfig";
+import { shareRecipe } from "@/lib/utils/shareRecipe";
 import {
   ArrowLeft,
   Clock,
@@ -239,11 +240,35 @@ export default function RecipeDetailsScreen() {
   };
 
   const onShare = async () => {
-    if (!recipe) return;
+    if (!recipe || !auth.currentUser) return;
+    
     try {
-      await Share.share({ message: `${recipe.title} recipe from Culina!` });
+      const result = await shareRecipe({
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description,
+        ingredients: recipe.ingredients || [],
+        instructions: recipe.instructions || [],
+        servings: recipe.servings,
+        estimatedCalories: recipe.estimatedCalories,
+        prepTime: recipe.prepTime,
+        cookTime: recipe.cookTime,
+        difficulty: recipe.difficulty as any,
+        cuisine: recipe.cuisine,
+        tags: recipe.tags,
+        imageUrl: recipe.imageUrl,
+        source: recipe.source,
+        createdAt: recipe.createdAt
+      }, auth.currentUser.uid);
+
+      if (result.success) {
+        Alert.alert("Shared", "Recipe has been shared with the community!");
+      } else {
+        Alert.alert("Already Shared", result.error || "This recipe is already shared with the community.");
+      }
     } catch (error) {
-      console.log("Share error:", error);
+      console.error("Share error:", error);
+      Alert.alert("Error", "Failed to share recipe. Please try again.");
     }
   };
 
