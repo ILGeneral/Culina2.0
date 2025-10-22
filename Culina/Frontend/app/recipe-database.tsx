@@ -16,6 +16,7 @@ import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
 import { useInventory } from "@/hooks/useInventory";
 import { suggestAlternatives, type AlternativeRecipe } from "@/lib/suggestAlternatives";
+import { matchRecipeWithInventory, type RecipeMatchResult } from "@/lib/ingredientMatcher";
 import {
   ArrowLeft,
   RefreshCw,
@@ -70,128 +71,30 @@ type DatabaseRecipe = {
   readyInMinutes?: number | null;
   servings?: number | null;
   provider: RecipeProvider;
-  matchCount?: number;
-  totalIngredients?: number;
-  matchPercentage?: number;
+  matchResult?: RecipeMatchResult;
+  matchScore?: number;
 };
 
-const INGREDIENT_STOP_WORDS = [
-  "tsp",
-  "teaspoon",
-  "teaspoons",
-  "tbsp",
-  "tablespoon",
-  "tablespoons",
-  "cup",
-  "cups",
-  "ounce",
-  "ounces",
-  "oz",
-  "pound",
-  "pounds",
-  "lb",
-  "lbs",
-  "gram",
-  "grams",
-  "g",
-  "kg",
-  "milliliter",
-  "milliliters",
-  "ml",
-  "liter",
-  "liters",
-  "l",
-  "pinch",
-  "dash",
-  "clove",
-  "cloves",
-  "slice",
-  "slices",
-  "diced",
-  "minced",
-  "chopped",
-  "fresh",
-  "large",
-  "small",
-  "medium",
-  "extra",
-  "virgin",
-  "boneless",
-  "skinless",
-  "optional",
-  "taste",
-  "ground",
-  "crushed",
-  "peeled",
-  "ripe",
-  "finely",
-  "roughly",
-  "softened",
-  "room",
-  "temperature",
-  "cooked",
-  "uncooked",
-  "packaged",
-  "for",
-  "serving",
-  "and",
-  "or",
-  "with",
-  "of",
-  "to",
-  "the",
-];
 
-const normalizeIngredientLabel = (input?: string | null) => {
-  if (!input) return "";
-  let value = input.toString().toLowerCase();
-  value = value.replace(/\([^)]*\)/g, " ");
-  value = value.replace(/[\d+\/*.,%-]+/g, " ");
-  value = value.replace(/[-–—]/g, " ");
-  INGREDIENT_STOP_WORDS.forEach((word) => {
-    const pattern = new RegExp(`\\b${word}\\b`, "g");
-    value = value.replace(pattern, " ");
-  });
-  value = value.replace(/\s+/g, " ").trim();
-  return value;
-};
-
-const normalizeMealIngredient = (ingredient: string) => {
-  const [namePart] = ingredient.split("—");
-  return normalizeIngredientLabel(namePart || ingredient);
-};
-
-const attachMatchMetadata = (recipe: DatabaseRecipe, inventorySet: Set<string>) => {
-  const normalizedIngredients = recipe.ingredients
-    .map((ingredient) =>
-      recipe.provider === "mealdb" ? normalizeMealIngredient(ingredient) : normalizeIngredientLabel(ingredient)
-    )
-    .map((label) => label.trim())
-    .filter(Boolean);
-
-  const uniqueIngredients = Array.from(new Set(normalizedIngredients));
-  const matchCount = uniqueIngredients.filter((item) => inventorySet.has(item)).length;
-  const totalIngredients = uniqueIngredients.length;
-  const matchPercentage = totalIngredients > 0 ? Math.round((matchCount / totalIngredients) * 100) : undefined;
+const attachMatchMetadata = (recipe: DatabaseRecipe, inventory: any[]) => {
+  const matchResult = matchRecipeWithInventory(recipe.ingredients, inventory);
 
   return {
     ...recipe,
-    matchCount,
-    totalIngredients,
-    matchPercentage,
+    matchResult,
+    matchScore: matchResult.matchScore,
   };
 };
 
-const rankRecipesByInventory = (list: DatabaseRecipe[], inventorySet: Set<string>) => {
+const rankRecipesByInventory = (list: DatabaseRecipe[], inventory: any[]) => {
   return list
-    .map((recipe) => attachMatchMetadata(recipe, inventorySet))
+    .map((recipe) => attachMatchMetadata(recipe, inventory))
     .sort((a, b) => {
-      const matchDiff = (b.matchCount ?? 0) - (a.matchCount ?? 0);
-      if (matchDiff !== 0) return matchDiff;
+      // Sort by match score (higher is better)
+      const scoreDiff = (b.matchScore ?? 0) - (a.matchScore ?? 0);
+      if (scoreDiff !== 0) return scoreDiff;
 
-      const percentageDiff = (b.matchPercentage ?? 0) - (a.matchPercentage ?? 0);
-      if (percentageDiff !== 0) return percentageDiff;
-
+      // If scores are equal, sort by title
       return a.title.localeCompare(b.title);
     });
 };
@@ -277,6 +180,7 @@ type RecipeDatabaseCardProps = {
   index: number;
   onPress: () => void;
   missingIngredients: string[];
+  partialMatches: Array<{ ingredient: string; percentage: number; inventoryItem: any }>;
   canSuggest: boolean;
   onSuggest: () => void;
   suggestionState: SuggestionState;
@@ -287,6 +191,7 @@ const RecipeDatabaseCard = ({
   index,
   onPress,
   missingIngredients,
+  partialMatches,
   canSuggest,
   onSuggest,
   suggestionState,
@@ -327,6 +232,22 @@ const RecipeDatabaseCard = ({
           )}
 
           <Animated.View entering={FadeIn.delay(index * 80 + 120).duration(400)} style={styles.metaRow}>
+            {recipe.matchResult && (
+              <View
+                style={[
+                  styles.metaPill,
+                  recipe.matchResult.matchScore >= 80
+                    ? styles.matchHighPill
+                    : recipe.matchResult.matchScore >= 50
+                    ? styles.matchMediumPill
+                    : styles.matchLowPill,
+                ]}
+              >
+                <Text style={styles.metaText}>
+                  {recipe.matchResult.matchScore}% Match
+                </Text>
+              </View>
+            )}
             <View style={[styles.metaPill, styles.sourcePill]}>
               <Text style={styles.metaText}>{providerLabel}</Text>
             </View>
@@ -358,6 +279,27 @@ const RecipeDatabaseCard = ({
               </View>
             ))}
           </Animated.View>
+
+          {partialMatches.length > 0 && (
+            <View style={styles.partialSection}>
+              <Text style={styles.sectionLabel}>Partial matches ({partialMatches.length})</Text>
+              {partialMatches.slice(0, 3).map((item, idx) => (
+                <View key={`${recipe.id}-partial-${idx}`} style={styles.partialMatchItem}>
+                  <Text style={styles.partialMatchText} numberOfLines={1}>
+                    • {item.ingredient}
+                  </Text>
+                  <Text style={styles.partialMatchPercentage}>
+                    {item.percentage}% available
+                  </Text>
+                </View>
+              ))}
+              {partialMatches.length > 3 && (
+                <Text style={styles.moreMissing} numberOfLines={1}>
+                  +{partialMatches.length - 3} more
+                </Text>
+              )}
+            </View>
+          )}
 
           {missingIngredients.length > 0 && (
             <View style={styles.missingSection}>
@@ -459,17 +401,17 @@ export default function RecipeDatabaseScreen() {
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>({});
 
-  const inventorySet = useMemo(() => {
-    const labels = inventory.map((item) => normalizeIngredientLabel(item.name)).filter((label) => !!label);
-    return new Set(labels);
-  }, [inventory]);
-
   const preparedRecipes = useMemo(() => {
-    return recipes.map((recipe) => ({
-      recipe,
-      missingIngredients: getMissingIngredients(recipe, inventorySet),
-    }));
-  }, [recipes, inventorySet]);
+    return recipes.map((recipe) => {
+      const matchResult = recipe.matchResult || matchRecipeWithInventory(recipe.ingredients, inventory);
+      return {
+        recipe: { ...recipe, matchResult },
+        missingIngredients: matchResult.missingIngredients,
+        partialMatches: matchResult.partialMatches,
+        fullMatches: matchResult.fullMatches,
+      };
+    });
+  }, [recipes, inventory]);
 
   const handleSuggest = useCallback(
     async (recipe: DatabaseRecipe, missingIngredients: string[]) => {
@@ -559,11 +501,7 @@ export default function RecipeDatabaseScreen() {
           return;
         }
 
-        const inventorySet = new Set(
-          inventory.map((item) => normalizeIngredientLabel(item.name)).filter((label) => !!label)
-        );
-
-        const ranked = inventorySet.size > 0 ? rankRecipesByInventory(combined, inventorySet) : combined;
+        const ranked = inventory.length > 0 ? rankRecipesByInventory(combined, inventory) : combined;
         setRecipes(ranked);
       } catch (err) {
         console.error("Failed to load recipes", err);
@@ -643,12 +581,12 @@ export default function RecipeDatabaseScreen() {
               </View>
             ) : (
               <View style={styles.cardList}>
-                {preparedRecipes.map(({ recipe, missingIngredients }, index) => {
+                {preparedRecipes.map(({ recipe, missingIngredients, partialMatches }, index) => {
                   const suggestionState = suggestions[recipe.id] ?? { status: "idle" };
                   const canSuggest =
                     missingIngredients.length > 0 &&
                     missingIngredients.length <= 2 &&
-                    inventorySet.size > 0 &&
+                    inventory.length > 0 &&
                     !inventoryLoading;
 
                   return (
@@ -657,6 +595,7 @@ export default function RecipeDatabaseScreen() {
                       recipe={recipe}
                       index={index}
                       missingIngredients={missingIngredients}
+                      partialMatches={partialMatches}
                       canSuggest={canSuggest}
                       suggestionState={suggestionState}
                       onSuggest={() => handleSuggest(recipe, missingIngredients)}
@@ -679,29 +618,6 @@ export default function RecipeDatabaseScreen() {
   );
 }
 
-const getMissingIngredients = (recipe: DatabaseRecipe, inventorySet: Set<string>) => {
-  const normalizedIngredients = recipe.ingredients
-    .map((ingredient) =>
-      recipe.provider === "mealdb" ? normalizeMealIngredient(ingredient) : normalizeIngredientLabel(ingredient)
-    )
-    .map((label, index) => ({ label: label.trim(), original: recipe.ingredients[index] }))
-    .filter(({ label }) => !!label);
-
-  const seen = new Set<string>();
-  const missing: string[] = [];
-
-  normalizedIngredients.forEach(({ label, original }) => {
-    if (seen.has(label)) {
-      return;
-    }
-    seen.add(label);
-    if (!inventorySet.has(label)) {
-      missing.push(original);
-    }
-  });
-
-  return missing;
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -908,6 +824,15 @@ const styles = StyleSheet.create({
   sourcePill: {
     backgroundColor: "#e0f2fe",
   },
+  matchHighPill: {
+    backgroundColor: "#d1fae5",
+  },
+  matchMediumPill: {
+    backgroundColor: "#fed7aa",
+  },
+  matchLowPill: {
+    backgroundColor: "#fecaca",
+  },
   categoryPill: {
     backgroundColor: "#f1f5f9",
   },
@@ -931,6 +856,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#0f172a",
+  },
+  partialSection: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "#fef3c7",
+    borderWidth: 1,
+    borderColor: "#fcd34d",
+    gap: 6,
+  },
+  partialMatchItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  partialMatchText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#78350f",
+  },
+  partialMatchPercentage: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#92400e",
+    backgroundColor: "#fef9c3",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   missingSection: {
     marginTop: 16,
