@@ -13,13 +13,14 @@ import { useRouter } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
 import { collection, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
-  ArrowLeft,
   ChefHat,
   Users,
   Flame,
   Clock,
   Share2,
   Pencil,
+  Package,
+  User,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import Background from '@/components/Background';
@@ -428,14 +429,24 @@ export default function SavedRecipesScreen() {
     <Background>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerIcon}
-            onPress={() => router.back()}
-          >
-            <ArrowLeft color="#0284c7" size={28} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Recipes</Text>
+          <Text style={styles.headerTitle}>Culina</Text>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              onPress={() => router.push('/inventory' as any)}
+              style={styles.iconButton}
+            >
+              <Package color="#128AFAFF" size={24} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/profile')}
+              style={styles.iconButton}
+            >
+              <User color="#128AFAFF" size={24} />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        <Text style={styles.sectionTitle}>Saved Recipes</Text>
 
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -477,21 +488,34 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerIcon: {
-    padding: 4,
-  },
   headerTitle: {
-    marginLeft: 12,
     fontSize: 28,
     fontWeight: 'bold',
+    color: '#128AFAFF',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  iconButton: {
+    backgroundColor: '#DCF3FCFF',
+    borderRadius: 20,
+    padding: 8,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     color: '#0f172a',
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: '#6b7280', fontSize: 16 },
