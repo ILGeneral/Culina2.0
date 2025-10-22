@@ -63,24 +63,42 @@ module.exports = async (req, res) => {
 
     // Gather user data
     const { preferences, inventory } = await getUserContext(uid);
-    const diet = preferences?.dietaryPreference || 'none';
-    const religion = preferences?.religiousPreference || 'none';
+    const diet = preferences?.diet || 'none';
+    const religion = preferences?.religion || preferences?.religiousPreference || 'none';
     const caloriePlan = preferences?.caloriePlan || 'none';
-    const allergies = preferences?.allergies || 'none';
+    const allergies = preferences?.allergies || [];
 
     const model = req.body?.model || 'llama-3.1-8b-instant';
 
+    // Log the preferences being used
+    console.log('User preferences:', {
+      diet,
+      religion,
+      caloriePlan,
+      allergies: allergies.length > 0 ? allergies : 'none'
+    });
+
     // Improved prompt with stricter formatting requirements
+    const allergyText = allergies.length > 0 ? allergies.join(', ') : 'none';
+    
+    // Extract just ingredient names for clearer prompt
+    const availableIngredients = inventory.map(item => item.name || item.ingredient).filter(Boolean);
+    
     const prompt = `
 You are a culinary assistant. Create EXACTLY 5 different and varied recipes.
 
-STRICT REQUIREMENTS:
-- Use ONLY ingredients from the inventory provided below
+CRITICAL INVENTORY CONSTRAINT:
+You can ONLY use these ingredients (nothing else):
+${availableIngredients.map(ing => `- ${ing}`).join('\n')}
+
+DO NOT include ANY ingredients not in this list above. Every ingredient in your recipes MUST come from this list.
+
+ADDITIONAL REQUIREMENTS:
 - Each recipe MUST be significantly different from the others
-- Follow dietary preference: ${diet}
-- Follow religious preference: ${religion}
-- Follow calorie goal: ${caloriePlan}
-- Avoid allergies: ${allergies}
+${diet !== 'none' ? `- MUST follow dietary restriction: ${diet} (strictly enforce - e.g., vegan means NO animal products)` : '- No specific dietary restrictions'}
+${religion !== 'none' && religion !== '' ? `- MUST follow religious dietary law: ${religion} (strictly enforce)` : '- No religious dietary restrictions'}
+${caloriePlan !== 'none' ? `- Target calorie goal per day: ${caloriePlan} calories` : '- No specific calorie restrictions'}
+${allergies.length > 0 ? `- STRICTLY AVOID these allergens: ${allergyText} (do NOT include in any form)` : '- No known allergies'}
 - Return EXACTLY 5 recipes, no more, no less
 
 Return ONLY valid JSON in this EXACT format (no additional text). 
@@ -105,12 +123,7 @@ and unit as a string or null if not applicable:
   ]
 }
 
-Available Inventory:
-${JSON.stringify(inventory, null, 2)}
-
-Remember: Return EXACTLY 5 different recipes in the JSON format above. 
-Ensure ingredient quantities are numeric values 
-and units are separate strings (use null if no unit applies).
+REMINDER: Every single ingredient in your recipes must be from the available ingredients list shown above.
 `.trim();
 
     const fetch = (await import('node-fetch')).default;
@@ -161,15 +174,39 @@ and units are separate strings (use null if no unit applies).
     // Log what we got
     console.log(`AI returned ${recipes.length} recipes`);
     
+    // Create a set of available ingredient names for quick lookup (case-insensitive)
+    const availableIngredientsSet = new Set(
+      inventory.map(item => (item.name || item.ingredient || '').toLowerCase().trim())
+    );
 
-    // Validate each recipe has required fields
+    // Validate each recipe has required fields AND uses only available ingredients
     const validRecipes = recipes.filter(recipe => {
-      return recipe.title && 
-             recipe.description && 
-             Array.isArray(recipe.ingredients) && 
-             Array.isArray(recipe.instructions) &&
-             recipe.ingredients.length > 0 &&
-             recipe.instructions.length > 0;
+      // Check basic structure
+      const hasValidStructure = recipe.title && 
+                                recipe.description && 
+                                Array.isArray(recipe.ingredients) && 
+                                Array.isArray(recipe.instructions) &&
+                                recipe.ingredients.length > 0 &&
+                                recipe.instructions.length > 0;
+      
+      if (!hasValidStructure) {
+        console.log(`Recipe "${recipe.title}" failed structure validation`);
+        return false;
+      }
+
+      // Check if all ingredients are in inventory
+      const missingIngredients = recipe.ingredients.filter(ing => {
+        const ingredientName = (ing.name || '').toLowerCase().trim();
+        return !availableIngredientsSet.has(ingredientName);
+      });
+
+      if (missingIngredients.length > 0) {
+        console.log(`Recipe "${recipe.title}" uses unavailable ingredients:`, 
+                    missingIngredients.map(i => i.name).join(', '));
+        return false;
+      }
+
+      return true;
     });
 
     console.log(`${validRecipes.length} valid recipes after filtering`);
@@ -177,7 +214,7 @@ and units are separate strings (use null if no unit applies).
     // If we don't have at least 5 valid recipes, return an error
     if (validRecipes.length < 5) {
       console.error('Not enough valid recipes. Got:', validRecipes.length);
-      throw new Error(`AI model only generated ${validRecipes.length} valid recipes. Expected at least 5.`);
+      throw new Error(`AI model only generated ${validRecipes.length} valid recipes using available ingredients. Expected at least 5.`);
     }
 
     // Return exactly 5 recipes (in case AI returned more)
