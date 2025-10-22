@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 0,
     borderColor: "transparent",
-    width: 110,
+    width: 80,
   },
   unitPicker: {
     height: 48,
