@@ -198,9 +198,9 @@ const ChatBotScreen = () => {
     >
       <SafeAreaView style={chatBotStyles.safeArea} edges={["top"]}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={chatBotStyles.flex}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         >
           <View style={chatBotStyles.contentContainer}>
             <View style={chatBotStyles.culinaWrapper} pointerEvents="none">
