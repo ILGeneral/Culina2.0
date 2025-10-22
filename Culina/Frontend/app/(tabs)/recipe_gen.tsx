@@ -431,10 +431,15 @@ export default function RecipeGeneratorScreen() {
 
   if (loading) {
     return (
-      <View style={recipeGenStyles.center}>
-        <ActivityIndicator size="large" color="#128AFA" />
-        <Text style={recipeGenStyles.gray}>Loading your pantry...</Text>
-      </View>
+      <Background>
+        <SafeAreaView style={recipeGenStyles.container}>
+          <View style={recipeGenStyles.center}>
+            <ActivityIndicator size="large" color="#128AFA" />
+            <Text style={recipeGenStyles.loadingTitle}>Loading your pantry...</Text>
+            <Text style={recipeGenStyles.loadingSubtitle}>Culina is preparing something special! 🍳</Text>
+          </View>
+        </SafeAreaView>
+      </Background>
     );
   }
 
@@ -443,11 +448,25 @@ export default function RecipeGeneratorScreen() {
       <SafeAreaView style={recipeGenStyles.container}>
         {!recipes.length ? (
           <View style={recipeGenStyles.center}>
+            <Text style={recipeGenStyles.culinaIntro}>Hey! I'm Culina, your kitchen buddy! 🍳</Text>
+            <Text style={recipeGenStyles.culinaPrompt}>
+              Let me create some delicious recipes with what you have in your pantry!
+            </Text>
             <TouchableOpacity style={recipeGenStyles.button} onPress={generateNewRecipes} disabled={generating}>
-              <Text style={recipeGenStyles.buttonText}>{generating ? "Generating..." : "Generate Recipes!"}</Text>
+              <Text style={recipeGenStyles.buttonText}>
+                {generating ? "🤖 Culina is cooking up ideas..." : "✨ Let Culina Generate Recipes!"}
+              </Text>
             </TouchableOpacity>
             {preferences.length > 0 && (
-              <Text style={recipeGenStyles.gray}>Preferences: {preferences.join(", ")}</Text>
+              <Text style={recipeGenStyles.gray}>Your preferences: {preferences.join(", ")}</Text>
+            )}
+            {generating && (
+              <View style={recipeGenStyles.generatingBox}>
+                <ActivityIndicator size="small" color="#128AFA" />
+                <Text style={recipeGenStyles.generatingText}>
+                  I'm whipping up 5 amazing recipes just for you...
+                </Text>
+              </View>
             )}
           </View>
         ) : (
