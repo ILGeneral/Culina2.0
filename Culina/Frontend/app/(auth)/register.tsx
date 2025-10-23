@@ -1,10 +1,34 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Platform,
+  KeyboardAvoidingView,
+} from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+import Background from "@/components/Background";
+
+const ALLERGY_OPTIONS = [
+  "Peanuts",
+  "Tree Nuts",
+  "Shellfish",
+  "Fish",
+  "Eggs",
+  "Milk",
+  "Soy",
+  "Wheat",
+  "Sesame",
+  "Gluten",
+];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -17,11 +41,18 @@ export default function RegisterScreen() {
 
   // Step 2 fields
   const [diet, setDiet] = useState("");
-  const [religion, setReligion] = useState("");
+  const [religiousPreference, setReligiousPreference] = useState("");
   const [calories, setCalories] = useState("");
+  const [allergies, setAllergies] = useState<string[]>([]);
+
+  const toggleAllergy = (value: string) => {
+    setAllergies((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  };
 
   const handleRegister = async () => {
-    if (!email || !username || !password || !confirm || !diet || !religion || !calories)
+    if (!email || !username || !password || !confirm || !diet || !religiousPreference || !calories)
       return Alert.alert("Please fill in all fields");
 
     if (password !== confirm)
@@ -38,8 +69,9 @@ export default function RegisterScreen() {
         email: email.trim(),
         preferences: {
           diet,
-          religion,
+          religiousPreference,
           caloriePlan: calories,
+          allergies,
         },
         createdAt: new Date(),
       });
@@ -53,7 +85,18 @@ export default function RegisterScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <Background>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={styles.title}>Create your account!</Text>
 
       {/* Step 1: Account Info */}
@@ -93,6 +136,28 @@ export default function RegisterScreen() {
         />
       </View>
 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Allergies</Text>
+        <Text style={styles.helperText}>Tap to select or deselect.</Text>
+        <View style={styles.checkboxList}>
+          {ALLERGY_OPTIONS.map((option) => {
+            const checked = allergies.includes(option);
+            return (
+              <TouchableOpacity
+                key={option}
+                onPress={() => toggleAllergy(option)}
+                style={styles.checkboxRow}
+              >
+                <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+                  {checked && <Text style={styles.checkboxMark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>{option}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
       {/* Step 2: Preferences */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Preferences</Text>
@@ -122,16 +187,16 @@ export default function RegisterScreen() {
           <Text style={styles.pickerLabel}>Religious Preference</Text>
           <View style={styles.pickerWrapper}>
             <Picker
-              selectedValue={religion}
-              onValueChange={(itemValue) => setReligion(itemValue)}
+              selectedValue={religiousPreference}
+              onValueChange={(itemValue) => setReligiousPreference(itemValue)}
               style={styles.picker}
             >
               <Picker.Item label="Select religious preference..." value="" />
-              <Picker.Item label="No Restriction" value="none" />
+              <Picker.Item label="None" value="none" />
               <Picker.Item label="Halal" value="halal" />
               <Picker.Item label="Kosher" value="kosher" />
-              <Picker.Item label="Hindu (No Beef)" value="hindu" />
-              <Picker.Item label="Buddhist (Vegetarian)" value="buddhist" />
+              <Picker.Item label="Hindu" value="hindu" />
+              <Picker.Item label="Buddhist" value="buddhist" />
             </Picker>
           </View>
         </View>
@@ -167,14 +232,18 @@ export default function RegisterScreen() {
           <Text style={styles.linkHighlight}>Log in</Text>
         </Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+      </KeyboardAvoidingView>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+  },
+  scroll: {
+    flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 24,
@@ -185,7 +254,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 24,
-    color: "#16a34a",
+    color: "#128AFA",
   },
   section: {
     marginBottom: 24,
@@ -195,6 +264,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
     color: "#1f2937",
+  },
+  helperText: {
+    color: "#6b7280",
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
@@ -206,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 16,
     borderRadius: 8,
     marginTop: 8,
@@ -223,7 +296,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   linkHighlight: {
-    color: "#16a34a",
+    color: "#128AFA",
     fontWeight: "600",
   },
   pickerContainer: {
@@ -244,5 +317,59 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: Platform.OS === "ios" ? 180 : 50,
+  },
+  allergyList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  allergyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#dcfce7",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  allergyText: {
+    color: "#128AFA",
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  allergyRemove: {
+    color: "#128AFA",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  checkboxList: {
+    gap: 10,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#128AFA",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxBoxChecked: {
+    backgroundColor: "#128AFA",
+  },
+  checkboxMark: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: "#1f2937",
   },
 });

@@ -52,18 +52,22 @@ export const generateRecipe = onCall(
     const religion = preferences?.religion;
     const caloriePlan = preferences?.caloriePlan;
     const prompt = `
-You are a culinary assistant. Create ONE recipe that uses ONLY
-ingredients from the user's inventory.
+You are a culinary assistant.
+Create at least FIVE different recipes that use ONLY ingredients from the user's inventory.
 Honor dietary preference: ${diet}, religious preference: ${religion},
 calorie goal: ${caloriePlan}.
 Return strict JSON:
 {
-  "title": "string",
-  "description": "string",
-  "ingredients": ["string"],
-  "instructions": ["string"],
-  "servings": "number",
-  "estimatedCalories": "number"
+  "recipes": [
+    {
+      "title": "string",
+      "description": "string",
+      "ingredients": ["string"],
+      "instructions": ["string"],
+      "servings": number,
+      "estimatedCalories": number
+    }
+  ]
 }
 Inventory:
 ${JSON.stringify(inventory, null, 2)}
@@ -102,9 +106,14 @@ ${JSON.stringify(inventory, null, 2)}
     const json = (await resp.json()) as GroqResponse;
     const content = json?.choices?.[0]?.message?.content ?? "";
 
-    let recipe: object;
+    interface GroqPayload {
+      recipes?: unknown;
+    }
+
+    let recipes: unknown;
     try {
-      recipe = JSON.parse(content);
+      const parsed = JSON.parse(content) as GroqPayload;
+      recipes = parsed.recipes;
     } catch {
       throw new functions.https.HttpsError(
         "data-loss",
@@ -112,7 +121,14 @@ ${JSON.stringify(inventory, null, 2)}
       );
     }
 
-    return {recipe};
+    if (!Array.isArray(recipes) || recipes.length < 5) {
+      throw new functions.https.HttpsError(
+        "data-loss",
+        "Model returned fewer than five recipes"
+      );
+    }
+
+    return {recipes};
   }
 );
 

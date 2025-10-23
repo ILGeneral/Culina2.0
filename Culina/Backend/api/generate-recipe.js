@@ -238,7 +238,7 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
     console.log(`${validRecipes.length} valid recipes after filtering`);
 
     // If we don't have at least 5 valid recipes, return an error
-    if (validRecipes.length < 4) {
+    if (validRecipes.length < 5) {
       console.error('Not enough valid recipes. Got:', validRecipes.length);
       throw new Error(`AI model only generated ${validRecipes.length} valid recipes using available ingredients. Expected at least 5.`);
     }

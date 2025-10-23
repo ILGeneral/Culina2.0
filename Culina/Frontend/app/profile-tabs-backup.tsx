@@ -76,7 +76,7 @@ export default function ProfileScreen() {
       if (docSnap.exists()) setUserData(docSnap.data());
     } catch (error) {
       console.error("Error fetching user data:", error);
-      showToast("❌ Failed to load profile", "#DC2626");
+      showToast("Failed to load profile", "#DC2626");
     } finally {
       setLoading(false);
     }
@@ -135,17 +135,25 @@ export default function ProfileScreen() {
         >
           <Text style={styles.sectionTitle}>Your Preferences</Text>
           <Text style={styles.infoText}>
-            🥗 Dietary Preference:{" "}
+            Dietary Preference:{" "}
             <Text style={styles.highlight}>
               {userData?.preferences?.diet || "Not set"}
             </Text>
           </Text>
           <Text style={styles.infoText}>
-            🔥 Calorie Plan:{" "}
+            Calorie Plan:{" "}
             <Text style={styles.highlight}>
               {userData?.preferences?.caloriePlan
                 ? `${userData.preferences.caloriePlan} kcal/day`
                 : "Not set"}
+            </Text>
+          </Text>
+          <Text style={styles.infoText}>
+            Allergies:{" "}
+            <Text style={styles.highlight}>
+              {userData?.preferences?.allergies?.length
+                ? userData.preferences.allergies.join(", ")
+                : "None"}
             </Text>
           </Text>
 

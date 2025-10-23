@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Animated } from "react-native";
 import { BottomTabBar } from "@react-navigation/bottom-tabs";
 import React, { useRef } from "react";
@@ -39,15 +39,6 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
-            name="inventory"
-            options={{
-              title: "Inventory",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="list-outline" color={color} size={size} />
-              ),
-            }}
-          />
-          <Tabs.Screen
             name="saved"
             options={{
               title: "Saved",
@@ -57,20 +48,20 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
+            name="chatBot"
+            options={{
+              title: "Assistant",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialCommunityIcons name="robot-outline" color={color} size={size} />
+              ),
+            }}
+          />
+          <Tabs.Screen
             name="recipe_gen"
             options={{
               title: "Recipe Generator",
               tabBarIcon: ({ color, size }) => (
                 <Ionicons name="add-outline" color={color} size={size} />
-              ),
-            }}
-          />
-          <Tabs.Screen
-            name="profile"
-            options={{
-              title: "Profile",
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="person-outline" color={color} size={size} />
               ),
             }}
           />

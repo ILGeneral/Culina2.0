@@ -24,12 +24,12 @@ export default function TestAddRecipe() {
         source,
         visibility: "public",
       });
-      Alert.alert("Success 🎉", "Recipe added successfully!");
+      Alert.alert("Success", "Recipe added successfully!");
       setTitle("");
       setImageUrl("");
       setEstKcal("");
     } catch (err) {
-      Alert.alert("Error ❌", "Failed to add recipe.");
+      Alert.alert("Error", "Failed to add recipe.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -39,7 +39,7 @@ export default function TestAddRecipe() {
   return (
     <SafeAreaView className="flex-1 bg-white px-5 pt-10">
       <ScrollView>
-        <Text className="text-2xl font-bold text-green-700 mb-5">
+        <Text className="text-2xl font-bold text-blue-700 mb-5">
           Add a New Recipe
         </Text>
 
@@ -72,7 +72,7 @@ export default function TestAddRecipe() {
               onPress={() => setSource(type as any)}
               className={`px-5 py-2 rounded-full border ${
                 source === type
-                  ? "bg-green-600 border-green-600"
+                  ? "bg-blue-600 border-blue-600"
                   : "bg-white border-gray-300"
               }`}
             >
@@ -90,7 +90,7 @@ export default function TestAddRecipe() {
         <TouchableOpacity
           onPress={handleAdd}
           disabled={loading}
-          className={`bg-green-600 py-4 rounded-xl ${
+          className={`bg-blue-600 py-4 rounded-xl ${
             loading ? "opacity-50" : ""
           }`}
         >

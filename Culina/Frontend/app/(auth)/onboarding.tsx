@@ -10,6 +10,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import Background from "@/components/Background";
 
 const { width } = Dimensions.get("window");
 
@@ -84,7 +85,7 @@ export default function OnboardingScreen() {
           height: 8,
           width: dotWidth,
           borderRadius: 4,
-          backgroundColor: "#16a34a",
+          backgroundColor: "#128AFA",
           marginHorizontal: 4,
           opacity,
         }}
@@ -101,7 +102,8 @@ export default function OnboardingScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <Background>
+      <View style={styles.container}>
       <FlatList
         data={slides}
         renderItem={renderItem}
@@ -128,14 +130,14 @@ export default function OnboardingScreen() {
           {currentIndex === slides.length - 1 ? "Proceed" : "Next"}
         </Text>
       </TouchableOpacity>
-    </View>
+      </View>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   slide: {
     flex: 1,
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#16a34a",
+    color: "#128AFA",
     marginBottom: 12,
   },
   description: {
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 12,
     marginHorizontal: 40,
     marginBottom: 40,

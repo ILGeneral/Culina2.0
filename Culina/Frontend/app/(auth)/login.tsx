@@ -1,8 +1,19 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebaseConfig";
+import Background from "@/components/Background";
 
 export default function Login() {
   const router = useRouter();
@@ -19,8 +30,19 @@ export default function Login() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome to Culina</Text>
+    <Background>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+      <View style={styles.inner}>
+      <Image
+        source={require("@/assets/login/culinalogo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+      <Text style={styles.title}>Welcome to Culina!</Text>
 
       <TextInput
         placeholder="Email"
@@ -42,28 +64,38 @@ export default function Login() {
         <Text style={styles.buttonText}>Login</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}> 
+      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}>
         <Text style={styles.linkText}>
-          Don't have an account? <Text style={styles.linkHighlight}>Sign up</Text>
+          Don't have an account? <Text style={styles.linkHighlight}>Sign up!</Text>
         </Text>
       </TouchableOpacity>
-    </View>
+      </View>
+      </KeyboardAvoidingView>
+    </Background>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  inner: {
+    flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#fff",
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
     marginBottom: 24,
     textAlign: "center",
-    color: "#16a34a",
+    color: "#128AFA",
+  },
+  logo: {
+    width: 260,
+    height: 260,
+    alignSelf: "center",
+    marginBottom: 16,
   },
   input: {
     borderWidth: 1,
@@ -75,7 +107,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#16a34a",
+    backgroundColor: "#128AFA",
     paddingVertical: 14,
     borderRadius: 8,
     marginTop: 8,
@@ -92,7 +124,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   linkHighlight: {
-    color: "#16a34a",
+    color: "#128AFA",
     fontWeight: "600",
   },
 });
