@@ -38,12 +38,14 @@ export function useInventory() {
   useEffect(() => {
     if (!userId || !authReady) return;
 
+    let unsubscribe: (() => void) | null = null;
+
     // Add a small delay to ensure auth token has fully propagated
     const timer = setTimeout(() => {
       const invRef = collection(db, "users", userId, "inventory");
       const q = query(invRef, orderBy("name", "asc"));
 
-      const unsub = onSnapshot(
+      unsubscribe = onSnapshot(
         q,
         (snapshot) => {
           const items: Ingredient[] = snapshot.docs.map((d) => ({
@@ -58,12 +60,15 @@ export function useInventory() {
           setLoading(false);
         }
       );
-
-      // Cleanup function
-      return () => unsub();
     }, 100);
 
-    return () => clearTimeout(timer);
+    // Cleanup function - clear both timer and listener
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [userId, authReady]);
 
   // Add ingredient

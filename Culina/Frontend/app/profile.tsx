@@ -22,6 +22,7 @@ import { auth, db } from "@/lib/firebaseConfig";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useRecipeDatabaseState } from "@/contexts/RecipeDatabaseContext";
 import Animated, {
   FadeInUp,
   useSharedValue,
@@ -84,6 +85,7 @@ const formatPreferenceValue = (value?: string) => {
 export default function ProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { clearState } = useRecipeDatabaseState();
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -222,6 +224,8 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     /* ... (same as before) */
     try {
+      // Clear recipe database cache before logging out
+      clearState();
       await signOut(auth);
       router.replace("/login");
     } catch (error) {

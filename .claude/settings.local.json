@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

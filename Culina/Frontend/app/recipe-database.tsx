@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import {
   Tag,
   MapPin,
 } from "lucide-react-native";
+import { useRecipeDatabaseState } from "@/contexts/RecipeDatabaseContext";
 
 type RecipeProvider = "spoonacular" | "mealdb";
 
@@ -395,11 +396,15 @@ const RecipeDatabaseCard = ({
 export default function RecipeDatabaseScreen() {
   const router = useRouter();
   const { inventory, loading: inventoryLoading } = useInventory();
-  const [recipes, setRecipes] = useState<DatabaseRecipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { state: persistedState, updateScrollPosition, updateSuggestions, updateRecipes } = useRecipeDatabaseState();
+  const [recipes, setRecipes] = useState<DatabaseRecipe[]>(persistedState.recipes);
+  const [loading, setLoading] = useState(persistedState.recipes.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>({});
+  const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>(persistedState.suggestions);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const hasRestoredScroll = useRef(false);
+  const hasLoadedRecipes = useRef(persistedState.recipes.length > 0);
 
   const preparedRecipes = useMemo(() => {
     return recipes.map((recipe) => {
@@ -419,10 +424,12 @@ export default function RecipeDatabaseScreen() {
         return;
       }
 
-      setSuggestions((prev) => ({
-        ...prev,
-        [recipe.id]: { status: "loading" },
-      }));
+      const updatedSuggestions = {
+        ...suggestions,
+        [recipe.id]: { status: "loading" } as SuggestionState,
+      };
+      setSuggestions(updatedSuggestions);
+      updateSuggestions(updatedSuggestions);
 
       try {
         const response = await suggestAlternatives({
@@ -433,21 +440,25 @@ export default function RecipeDatabaseScreen() {
           inventory,
         });
 
-        setSuggestions((prev) => ({
-          ...prev,
-          [recipe.id]: { status: "ready", data: response.alternatives },
-        }));
+        const successSuggestions = {
+          ...updatedSuggestions,
+          [recipe.id]: { status: "ready", data: response.alternatives } as SuggestionState,
+        };
+        setSuggestions(successSuggestions);
+        updateSuggestions(successSuggestions);
       } catch (err) {
-        setSuggestions((prev) => ({
-          ...prev,
+        const errorSuggestions = {
+          ...updatedSuggestions,
           [recipe.id]: {
             status: "error",
             error: err instanceof Error ? err.message : "Failed to fetch alternatives",
-          },
-        }));
+          } as SuggestionState,
+        };
+        setSuggestions(errorSuggestions);
+        updateSuggestions(errorSuggestions);
       }
     },
-    [inventory]
+    [inventory, suggestions, updateSuggestions]
   );
 
   const loadRecipes = useCallback(
@@ -503,6 +514,8 @@ export default function RecipeDatabaseScreen() {
 
         const ranked = inventory.length > 0 ? rankRecipesByInventory(combined, inventory) : combined;
         setRecipes(ranked);
+        updateRecipes(ranked);
+        hasLoadedRecipes.current = true;
       } catch (err) {
         console.error("Failed to load recipes", err);
         setError(err instanceof Error ? err.message : "Failed to load recipes. Please try again.");
@@ -514,12 +527,46 @@ export default function RecipeDatabaseScreen() {
         }
       }
     },
-    [inventory]
+    [inventory, updateRecipes]
   );
 
   useEffect(() => {
-    loadRecipes("initial");
+    // Only load recipes if we don't have cached recipes
+    if (!hasLoadedRecipes.current) {
+      loadRecipes("initial");
+    }
   }, [loadRecipes]);
+
+  // Re-rank recipes when inventory changes (without re-fetching)
+  const lastInventoryRef = useRef(inventory);
+  useEffect(() => {
+    // Only re-rank if inventory actually changed and we have cached recipes
+    if (hasLoadedRecipes.current && persistedState.recipes.length > 0 &&
+        lastInventoryRef.current !== inventory && inventory.length > 0) {
+      const reranked = rankRecipesByInventory(persistedState.recipes, inventory);
+      setRecipes(reranked);
+      updateRecipes(reranked);
+      lastInventoryRef.current = inventory;
+    }
+  }, [inventory, persistedState.recipes, updateRecipes]);
+
+  // Restore scroll position after recipes are loaded
+  useEffect(() => {
+    if (!loading && recipes.length > 0 && !hasRestoredScroll.current && persistedState.scrollPosition > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: persistedState.scrollPosition,
+          animated: false,
+        });
+        hasRestoredScroll.current = true;
+      }, 100);
+    }
+  }, [loading, recipes.length, persistedState.scrollPosition]);
+
+  const handleScroll = useCallback((event: any) => {
+    const yOffset = event.nativeEvent.contentOffset.y;
+    updateScrollPosition(yOffset);
+  }, [updateScrollPosition]);
 
   const handleRefresh = useCallback(() => {
     loadRecipes("refresh");
@@ -556,9 +603,12 @@ export default function RecipeDatabaseScreen() {
           </View>
         ) : (
           <ScrollView
+            ref={scrollViewRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={400}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
