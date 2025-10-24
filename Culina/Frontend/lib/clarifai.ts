@@ -5,6 +5,7 @@ import {
   CLARIFAI_PAT,
   CLARIFAI_USER_ID,
 } from "@/lib/secrets";
+import { auth } from "@/lib/firebaseConfig";
 
 type ClarifaiImageSource = {
   url?: string;
@@ -38,11 +39,20 @@ export async function detectFoodFromImage(source: ClarifaiImageSource) {
 
 async function tryBackendClarifai(source: ClarifaiImageSource) {
   try {
+    // ✅ SECURITY FIX: Get auth token before making request
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('Authentication required');
+    }
+
+    const token = await user.getIdToken();
+
     const res = await fetch(`${API_BASE}/clarifai-ingredient-detection`, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         imageUrl: source.url,

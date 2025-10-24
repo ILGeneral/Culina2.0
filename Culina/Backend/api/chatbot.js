@@ -1,3 +1,6 @@
+import { verifyAuthToken } from '../lib/firebase-admin.js';
+import { chatbotLimiter } from '../lib/rate-limiter.js';
+
 const sanitizeHistory = (history = []) => {
   if (!Array.isArray(history)) return [];
 
@@ -29,7 +32,7 @@ const SYSTEM_PROMPT = `You are Culina 🍳, a cheerful, confident, and supportiv
 \n    "instructions": ["step 1", "step 2"]\n  }
 \nOtherwise, reply with natural conversation.`;
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -42,6 +45,28 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // ✅ STEP 1: Apply rate limiting
+  try {
+    await new Promise((resolve, reject) => {
+      chatbotLimiter(req, res, (result) => {
+        if (result instanceof Error) {
+          return reject(result);
+        }
+        resolve(result);
+      });
+    });
+  } catch (rateLimitError) {
+    // Rate limit exceeded - limiter already sent response
+    return;
+  }
+
+  // ✅ STEP 2: Verify authentication
+  try {
+    await verifyAuthToken(req);
+  } catch (authError) {
+    return res.status(401).json({ error: authError.message });
+  }
+
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: "Missing GROQ_API_KEY environment variable" });
@@ -50,8 +75,13 @@ module.exports = async (req, res) => {
   try {
     const { message, history, model } = req.body || {};
 
+    // ✅ SECURITY FIX: Add input validation
     if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "`message` is required" });
+      return res.status(400).json({ error: "`message` is required and must be a string" });
+    }
+
+    if (message.length > 2000) {
+      return res.status(400).json({ error: "Message too long. Maximum 2000 characters." });
     }
 
     const conversation = sanitizeHistory(history);

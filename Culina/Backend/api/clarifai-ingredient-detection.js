@@ -1,4 +1,6 @@
-const { Model } = require("clarifai-nodejs");
+import { Model } from "clarifai-nodejs";
+import { verifyAuthToken } from '../lib/firebase-admin.js';
+import { clarifaiLimiter } from '../lib/rate-limiter.js';
 
 const {
   CLARIFAI_USER_ID,
@@ -61,27 +63,70 @@ async function callClarifai({ url, base64 }) {
   }));
 }
 
-async function handler(req, res) {
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  //STEP 1: Apply rate limiting
+  try {
+    await new Promise((resolve, reject) => {
+      clarifaiLimiter(req, res, (result) => {
+        if (result instanceof Error) {
+          return reject(result);
+        }
+        resolve(result);
+      });
+    });
+  } catch (rateLimitError) {
     return;
+  }
+
+  //STEP 2: Verify authentication
+  try {
+    await verifyAuthToken(req);
+  } catch (authError) {
+    return res.status(401).json({ error: authError.message });
   }
 
   const { imageUrl, imageBase64 } = req.body || {};
 
   if (!imageUrl && !imageBase64) {
-    res.status(400).json({ error: "imageUrl or imageBase64 is required" });
-    return;
+    return res.status(400).json({ error: "imageUrl or imageBase64 is required" });
+  }
+
+  // ✅ SECURITY FIX: Validate Base64 size to prevent memory exhaustion
+  if (imageBase64 && imageBase64.length > 10 * 1024 * 1024) { // 10MB limit
+    return res.status(400).json({ error: "Image too large. Maximum 10MB." });
+  }
+
+  // ✅ SECURITY FIX: Validate URL format
+  if (imageUrl) {
+    try {
+      const url = new URL(imageUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return res.status(400).json({ error: "Only HTTP(S) URLs are allowed" });
+      }
+    } catch (error) {
+      return res.status(400).json({ error: "Invalid image URL" });
+    }
   }
 
   try {
     const concepts = await callClarifai({ url: imageUrl, base64: imageBase64 });
-    res.status(200).json({ concepts });
+    return res.status(200).json({ concepts });
   } catch (error) {
     console.error("Clarifai handler error:", error);
-    res.status(500).json({ error: "Failed to detect ingredients" });
+    return res.status(500).json({ error: "Failed to detect ingredients" });
   }
 }
 
-module.exports = handler;
-module.exports.callClarifai = callClarifai;
+export { callClarifai };

@@ -26,8 +26,6 @@ type UserPrefsDoc = {
   caloriePlan?: string;
 };
 
-const STORAGE_KEY = "@culina/generated_recipes";
-
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
 type GeneratedRecipeCardProps = {
@@ -274,9 +272,16 @@ export default function RecipeGeneratorScreen() {
   const user = auth.currentUser;
   const router = useRouter();
 
+  const getStorageKey = () => {
+    if (!user?.uid) return null;
+    return `@culina/generated_recipes_${user.uid}`;
+  };
+
   const persistRecipes = async (items: Recipe[]) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      const storageKey = getStorageKey();
+      if (!storageKey) return;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(items));
     } catch (err) {
       console.warn("Failed to persist generated recipes:", err);
     }
@@ -358,7 +363,10 @@ export default function RecipeGeneratorScreen() {
   useEffect(() => {
     const loadStoredRecipes = async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const storageKey = getStorageKey();
+        if (!storageKey) return;
+
+        const raw = await AsyncStorage.getItem(storageKey);
         if (raw) {
           const stored = JSON.parse(raw) as Recipe[];
           if (Array.isArray(stored) && stored.length) {
@@ -371,7 +379,7 @@ export default function RecipeGeneratorScreen() {
     };
 
     loadStoredRecipes();
-  }, []);
+  }, [user?.uid]);
 
   const handleGenerate = async () => {
     if (ingredients.length === 0) {
@@ -454,7 +462,7 @@ export default function RecipeGeneratorScreen() {
             </Text>
             <TouchableOpacity style={recipeGenStyles.button} onPress={generateNewRecipes} disabled={generating}>
               <Text style={recipeGenStyles.buttonText}>
-                {generating ? "🤖 Culina is cooking up ideas..." : "✨ Let Culina Generate Recipes!"}
+                {generating ? "🤖 Culina is cooking up ideas..." : "Generate recipes!"}
               </Text>
             </TouchableOpacity>
             {preferences.length > 0 && (

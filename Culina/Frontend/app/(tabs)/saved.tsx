@@ -279,6 +279,8 @@ export default function SavedRecipesScreen() {
 
     const uid = auth.currentUser?.uid;
     if (!uid) {
+      setRecipes([]);
+      setInventoryCounts({});
       setLoading(false);
       return;
     }
@@ -334,7 +336,7 @@ export default function SavedRecipesScreen() {
       unsubscribeInventory?.();
       unsubscribeRecipes?.();
     };
-  }, []);
+  }, [auth.currentUser?.uid]);
 
   const handleShare = async (recipe: SavedRecipe) => {
     const uid = auth.currentUser?.uid;

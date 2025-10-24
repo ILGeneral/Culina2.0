@@ -1,4 +1,5 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
+import { recipeGenLimiter } from '../lib/rate-limiter.js';
 
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
@@ -34,7 +35,7 @@ async function getUserContext(uid) {
   return { preferences, inventory };
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -48,8 +49,22 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ✅ STEP 1: Apply rate limiting
   try {
-    // Verify Firebase auth token
+    await new Promise((resolve, reject) => {
+      recipeGenLimiter(req, res, (result) => {
+        if (result instanceof Error) {
+          return reject(result);
+        }
+        resolve(result);
+      });
+    });
+  } catch (rateLimitError) {
+    return;
+  }
+
+  try {
+    // ✅ STEP 2: Verify Firebase auth token
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });

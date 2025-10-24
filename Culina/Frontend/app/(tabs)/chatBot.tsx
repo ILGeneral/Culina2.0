@@ -17,6 +17,7 @@ import type { ImageSourcePropType } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
 import * as Speech from "expo-speech";
+import { auth } from "@/lib/firebaseConfig";
 
 type ChatMessage = {
   id: string;
@@ -132,9 +133,20 @@ const ChatBotScreen = () => {
     setSending(true);
 
     try {
+      // ✅ SECURITY FIX: Get auth token before making request
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('Please log in to use the chatbot');
+      }
+
+      const token = await user.getIdToken();
+
       const response = await fetch(`${API_BASE}/chatbot`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({
           message: trimmed,
           history: historyPayload,
@@ -142,6 +154,13 @@ const ChatBotScreen = () => {
       });
 
       if (!response.ok) {
+        // ✅ Handle rate limit error (429)
+        if (response.status === 429) {
+          const data = await response.json().catch(() => ({}));
+          const retryAfter = response.headers.get('RateLimit-Reset') || '1 minute';
+          throw new Error(data.error || `Too many messages. Please wait ${retryAfter} and try again.`);
+        }
+
         const errorText = await response.text();
         throw new Error(errorText || "Chatbot request failed");
       }
@@ -162,7 +181,25 @@ const ChatBotScreen = () => {
       speak(replyText);
     } catch (error: any) {
       console.error("Chatbot request error:", error);
-      Alert.alert("Chatbot", error.message || "Something went wrong. Please try again.");
+
+      // ✅ User-friendly error messages
+      let errorMessage = error.message || "Something went wrong. Please try again.";
+
+      if (error.message?.includes('Too many')) {
+        Alert.alert(
+          "Slow Down",
+          error.message,
+          [{ text: 'OK' }]
+        );
+      } else if (error.message?.includes('log in')) {
+        Alert.alert(
+          "Authentication Required",
+          "Please log in to use the chatbot.",
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert("Chatbot Error", errorMessage);
+      }
     } finally {
       setSending(false);
     }
@@ -304,5 +341,3 @@ const ChatBotScreen = () => {
 };
 
 export default ChatBotScreen;
-
-// Styles moved to @/styles/chat/chatBotStyles.ts

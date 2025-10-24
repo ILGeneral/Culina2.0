@@ -23,6 +23,7 @@ import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useRecipeDatabaseState } from "@/contexts/RecipeDatabaseContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   FadeInUp,
   useSharedValue,
@@ -226,6 +227,14 @@ export default function ProfileScreen() {
     try {
       // Clear recipe database cache before logging out
       clearState();
+
+      // Clear user-specific generated recipes from AsyncStorage
+      const currentUser = auth.currentUser;
+      if (currentUser?.uid) {
+        const recipeStorageKey = `@culina/generated_recipes_${currentUser.uid}`;
+        await AsyncStorage.removeItem(recipeStorageKey);
+      }
+
       await signOut(auth);
       router.replace("/login");
     } catch (error) {
