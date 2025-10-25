@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "@/lib/firebaseConfig";
 import { RecipeDatabaseProvider } from "@/contexts/RecipeDatabaseContext";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
   const router = useRouter();
@@ -35,11 +36,13 @@ export default function RootLayout() {
   }
 
   return (
-    <RecipeDatabaseProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(auth)" />
-      </Stack>
-    </RecipeDatabaseProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <RecipeDatabaseProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(auth)" />
+        </Stack>
+      </RecipeDatabaseProvider>
+    </GestureHandlerRootView>
   );
 }

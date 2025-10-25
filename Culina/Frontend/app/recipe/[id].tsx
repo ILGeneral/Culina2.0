@@ -8,25 +8,25 @@ import {
   StyleSheet,
   Pressable,
   Alert,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebaseConfig";
-import { shareRecipe } from "@/lib/utils/shareRecipe";
+import { saveRecipeToCollection, isRecipeSaved } from "@/lib/utils/saveRecipe";
 import {
   ArrowLeft,
   Clock,
   Users,
   Flame,
-  Share2,
   BookmarkPlus,
   ChevronDown,
   Leaf,
   Check,
   ChefHat,
-  ClipboardPlus,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
+import CookingMode from "@/components/CookingMode";
 import type { Recipe } from "@/types/recipe";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -37,6 +37,7 @@ import Animated, {
   withSpring,
   FadeInUp,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -110,6 +111,7 @@ export default function RecipeDetailsScreen() {
   const [openIngredients, setOpenIngredients] = useState(true);
   const [openInstructions, setOpenInstructions] = useState(true);
   const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
+  const [cookingMode, setCookingMode] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -140,11 +142,55 @@ export default function RecipeDetailsScreen() {
     return { transform: [{ scale: saveButtonScale.value }] };
   });
 
-  const handleSavePress = () => {
-    saveButtonScale.value = withSpring(0.8, {}, () => {
-      saveButtonScale.value = withSpring(1);
-    });
-    setSaved((s) => !s);
+  const handleSavePress = async () => {
+    if (!recipe || !auth.currentUser) return;
+
+    // If already saved, just show message
+    if (saved) {
+      Alert.alert("Already Saved", "This recipe is already in your collection.");
+      return;
+    }
+
+    try {
+      saveButtonScale.value = withSpring(0.8, {}, () => {
+        saveButtonScale.value = withSpring(1);
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const result = await saveRecipeToCollection({
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description,
+        ingredients: recipe.ingredients || [],
+        instructions: recipe.instructions || [],
+        servings: recipe.servings,
+        estimatedCalories: recipe.estimatedCalories,
+        prepTime: recipe.prepTime,
+        cookTime: recipe.cookTime,
+        difficulty: recipe.difficulty as any,
+        cuisine: recipe.cuisine,
+        tags: recipe.tags,
+        imageUrl: recipe.imageUrl,
+        source: recipe.source,
+        readyInMinutes: recipe.readyInMinutes,
+      }, auth.currentUser.uid);
+
+      if (result.success) {
+        setSaved(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Saved!", "Recipe has been saved to your collection.");
+      } else {
+        Alert.alert("Already Saved", result.error || "This recipe is already in your collection.");
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      Alert.alert("Error", "Failed to save recipe. Please try again.");
+    }
+  };
+
+  const handleStartCooking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setCookingMode(true);
   };
 
   useEffect(() => {
@@ -169,13 +215,20 @@ export default function RecipeDetailsScreen() {
           console.log('3. Fetching from sharedRecipes collection (source param)...');
           const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
           const sharedSnap = await getDoc(sharedRecipeRef);
-          
+
           console.log('4. Fetched from sharedRecipes. Exists:', sharedSnap.exists());
-          
+
           if (sharedSnap.exists()) {
             const data = sharedSnap.data();
             console.log('5. SUCCESS: Found in sharedRecipes collection.', data);
             setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
+
+            // Check if this recipe is already saved in user's collection
+            if (data.title) {
+              const alreadySaved = await isRecipeSaved(data.title, uid);
+              setSaved(alreadySaved);
+            }
+
             setLoading(false);
             return;
           } else {
@@ -203,11 +256,18 @@ export default function RecipeDetailsScreen() {
         console.log("6. Trying sharedRecipes collection as fallback...");
         const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
         const sharedSnap = await getDoc(sharedRecipeRef);
-        
+
         if (sharedSnap.exists()) {
           const data = sharedSnap.data();
           console.log("7. SUCCESS: Found in sharedRecipes collection.", data);
           setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
+
+          // Check if this recipe is already saved in user's collection
+          if (data.title) {
+            const alreadySaved = await isRecipeSaved(data.title, uid);
+            setSaved(alreadySaved);
+          }
+
           return;
         }
 
@@ -236,40 +296,8 @@ export default function RecipeDetailsScreen() {
   }, [id, source]); // Added 'source' to dependencies
 
   const toggleIngredient = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCheckedIngredients((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
-  };
-
-  const onShare = async () => {
-    if (!recipe || !auth.currentUser) return;
-    
-    try {
-      const result = await shareRecipe({
-        id: recipe.id,
-        title: recipe.title,
-        description: recipe.description,
-        ingredients: recipe.ingredients || [],
-        instructions: recipe.instructions || [],
-        servings: recipe.servings,
-        estimatedCalories: recipe.estimatedCalories,
-        prepTime: recipe.prepTime,
-        cookTime: recipe.cookTime,
-        difficulty: recipe.difficulty as any,
-        cuisine: recipe.cuisine,
-        tags: recipe.tags,
-        imageUrl: recipe.imageUrl,
-        source: recipe.source,
-        createdAt: recipe.createdAt
-      }, auth.currentUser.uid);
-
-      if (result.success) {
-        Alert.alert("Shared", "Recipe has been shared with the community!");
-      } else {
-        Alert.alert("Already Shared", result.error || "This recipe is already shared with the community.");
-      }
-    } catch (error) {
-      console.error("Share error:", error);
-      Alert.alert("Error", "Failed to share recipe. Please try again.");
-    }
   };
 
   const chips = useMemo(() => {
@@ -315,18 +343,13 @@ export default function RecipeDetailsScreen() {
         <Animated.Text numberOfLines={1} style={[styles.headerTitle, animatedCompactTitleStyle]}>
           {recipe.title}
         </Animated.Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerButton} onPress={onShare}>
-            <Share2 color="#0F172A" size={20} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleSavePress}>
-            <Animated.View style={animatedSaveButtonStyle}>
-              <View style={styles.headerButton}>
-                <BookmarkPlus color={saved ? "#128AFA" : "#0F172A"} size={20} />
-              </View>
-            </Animated.View>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={handleSavePress}>
+          <Animated.View style={animatedSaveButtonStyle}>
+            <View style={styles.headerButton}>
+              <BookmarkPlus color={saved ? "#10b981" : "#0F172A"} size={22} fill={saved ? "#10b981" : "none"} />
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
       </View>
 
       <Animated.ScrollView
@@ -423,16 +446,27 @@ export default function RecipeDetailsScreen() {
       </Animated.ScrollView>
 
       <View style={styles.ctaContainer}>
-        <View style={styles.ctaInner}>
-          <TouchableOpacity style={styles.primaryButton}>
-            <ChefHat color="white" size={20} />
-            <Text style={styles.primaryButtonText}>Cook Now</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <ClipboardPlus color="#128AFA" size={24} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.primaryButton} onPress={handleStartCooking}>
+          <ChefHat color="white" size={20} />
+          <Text style={styles.primaryButtonText}>Start Cooking</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Cooking Mode Modal */}
+      <Modal
+        visible={cookingMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setCookingMode(false)}
+      >
+        {recipe?.instructions && (
+          <CookingMode
+            instructions={recipe.instructions}
+            recipeTitle={recipe.title}
+            onClose={() => setCookingMode(false)}
+          />
+        )}
+      </Modal>
     </AnimatedPageWrapper>
   );
 }
@@ -475,7 +509,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   headerTitle: { fontSize: 17, fontWeight: "600", color: "#0F172A", maxWidth: "60%", textAlign: "center" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   scrollContainer: { paddingBottom: 140 },
   hero: { height: HERO_HEIGHT, backgroundColor: "#E0F2FE" },
   heroImage: { width: "100%", height: "100%" },
@@ -614,11 +647,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
   },
-  ctaInner: { flexDirection: "row", alignItems: "center", gap: 12 },
   primaryButton: {
-    flex: 1,
     backgroundColor: "#128AFA",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 9999,
     flexDirection: "row",
     alignItems: "center",
@@ -631,5 +662,4 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   primaryButtonText: { textAlign: "center", color: "white", fontSize: 18, fontWeight: "bold" },
-  secondaryButton: { padding: 12, backgroundColor: "#E0F2FE", borderRadius: 9999, justifyContent: "center", aspectRatio: 1 },
 });

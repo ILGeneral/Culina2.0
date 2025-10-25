@@ -36,18 +36,27 @@ export function useInventory() {
 
   // Step 2: Set up Firestore listener only after auth token is ready
   useEffect(() => {
-    if (!userId || !authReady) return;
+    if (!userId || !authReady) {
+      setInventory([]);
+      setLoading(false);
+      return;
+    }
 
     let unsubscribe: (() => void) | null = null;
+    let isMounted = true;
 
     // Add a small delay to ensure auth token has fully propagated
     const timer = setTimeout(() => {
+      if (!isMounted) return;
+
       const invRef = collection(db, "users", userId, "inventory");
       const q = query(invRef, orderBy("name", "asc"));
 
       unsubscribe = onSnapshot(
         q,
         (snapshot) => {
+          if (!isMounted) return;
+
           const items: Ingredient[] = snapshot.docs.map((d) => ({
             id: d.id,
             ...d.data(),
@@ -56,6 +65,7 @@ export function useInventory() {
           setLoading(false);
         },
         (error) => {
+          if (!isMounted) return;
           console.error("Inventory snapshot error:", error);
           setLoading(false);
         }
@@ -64,6 +74,7 @@ export function useInventory() {
 
     // Cleanup function - clear both timer and listener
     return () => {
+      isMounted = false;
       clearTimeout(timer);
       if (unsubscribe) {
         unsubscribe();

@@ -156,39 +156,94 @@ export default function InventoryScreen() {
 
   // — Firestore listener —
   useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "users", user.uid, "ingredients"));
-    const unsub = onSnapshot(q, (snap) => {
-      const arr: any[] = [];
-      snap.forEach((d) => arr.push({ id: d.id, ...d.data() }));
-      setItems(arr.sort((a, b) => a.name.localeCompare(b.name)));
+    if (!user?.uid) {
       setLoading(false);
-    });
+      setItems([]);
+      return;
+    }
+
+    const q = query(collection(db, "users", user.uid, "ingredients"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const arr: any[] = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          // Only add items with valid names
+          if (data?.name) {
+            arr.push({ id: d.id, ...data });
+          }
+        });
+        // Safe sort with null check
+        setItems(arr.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Firestore snapshot error:", error);
+        setLoading(false);
+        Alert.alert("Error", "Failed to load inventory. Please try again.");
+      }
+    );
     return unsub;
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
     ensurePrefetch();
+
+    // Cleanup timer on unmount to prevent state updates
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+      }
+    };
   }, []);
 
   // — Suggestions —
   const onChangeName = (t: string) => {
     setName(t);
     setHighlightIndex(null);
-    if (timer.current) clearTimeout(timer.current);
+
+    // Clear existing timer
+    if (timer.current) {
+      clearTimeout(timer.current);
+    }
+
+    // Reset if input too short
     if (t.trim().length < 2) {
       setSuggest([]);
       setSuggestLoading(false);
       return;
     }
+
+    // Debounced search with comprehensive error handling
     timer.current = setTimeout(async () => {
-      if (!hasMealDbIngredientsLoaded()) {
-        await prefetchMealDbIngredients();
+      try {
+        // Ensure data is loaded before searching
+        if (!hasMealDbIngredientsLoaded()) {
+          try {
+            await prefetchMealDbIngredients();
+          } catch (prefetchError) {
+            console.warn("MealDB prefetch failed:", prefetchError);
+            setSuggestLoading(false);
+            return;
+          }
+        }
+
+        setSuggestLoading(true);
+        const results = await searchMealDbIngredients(t, 8);
+
+        // Only update state if results are valid
+        if (Array.isArray(results)) {
+          setSuggest(results);
+        } else {
+          setSuggest([]);
+        }
+      } catch (err) {
+        console.error("Ingredient search failed:", err);
+        setSuggest([]);
+      } finally {
+        setSuggestLoading(false);
       }
-      setSuggestLoading(true);
-      const results = await searchMealDbIngredients(t, 8);
-      setSuggest(results);
-      setSuggestLoading(false);
     }, 300);
   };
 
@@ -293,10 +348,26 @@ export default function InventoryScreen() {
   // — Camera add —
   const cameraAdd = async () => {
     closeSheet();
+
+    // Check and request camera permission with user feedback
     if (!permission?.granted) {
-      const res = await requestPermission();
-      if (!res.granted) return;
+      try {
+        const res = await requestPermission();
+        if (!res.granted) {
+          Alert.alert(
+            "Camera Permission Required",
+            "Please enable camera access in your device settings to scan ingredients."
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Permission request failed:", err);
+        Alert.alert("Error", "Could not request camera permission");
+        return;
+      }
     }
+
+    // Reset state before opening camera
     setEditing(null);
     setName("");
     setQty("");
@@ -305,15 +376,22 @@ export default function InventoryScreen() {
     setSuggest([]);
     setCapturedPhoto(null);
     setPreviewVisible(false);
-    setCamOpen(true);
     ensurePrefetch();
+
+    // Small delay to ensure state is clean before opening
+    setTimeout(() => {
+      setCamOpen(true);
+    }, 100);
   };
 
   const handleCapture = async (photo: { uri: string }) => {
     let success = false;
 
     try {
-      if (!user) return;
+      if (!user?.uid) {
+        Alert.alert("Error", "Please log in to upload images");
+        return;
+      }
       setUploading(true);
 
       // Step 1: Resize and compress the image
@@ -333,56 +411,88 @@ export default function InventoryScreen() {
 
       console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
 
+      // Step 1.5: Check file size BEFORE reading
+      const fileInfo = await FileSystem.getInfoAsync(manipResult.uri);
+      if (fileInfo.exists && fileInfo.size > 5 * 1024 * 1024) {
+        throw new Error("Image too large. Maximum 5MB allowed. Please try a smaller photo.");
+      }
+
       // Step 2: Read compressed image as binary
-      const fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
-        encoding: "base64",
-      });
-      
+      let fileData: string;
+      try {
+        fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
+          encoding: "base64",
+        });
+      } catch (readErr) {
+        throw new Error("Failed to read image file. Please try again.");
+      }
+
       if (!fileData) {
         throw new Error("Failed to read image file");
       }
-      
+
       // Check file size (base64 string length / 1.37 ≈ binary size in bytes)
       const estimatedSizeKB = Math.round((fileData.length / 1.37) / 1024);
       console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
-      
-      const binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
 
-      // Step 3: Upload to Vercel Blob via backend
-      const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "image/jpeg",
-        },
-        body: binary,
-      });
-
-      if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
-        throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
+      // Safe base64 decoding with error handling
+      let binary: Uint8Array;
+      try {
+        binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
+      } catch (decodeErr) {
+        throw new Error("Image encoding failed. Please try a different photo.");
       }
 
-      const uploadResult = await uploadRes.json();
-      const blobUrl = uploadResult.url;
-      console.log("✅ Uploaded to Vercel Blob:", blobUrl);
+      // Step 3: Upload to Vercel Blob via backend with timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      // Step 4: Send blob URL to Clarifai
       try {
-        const det = await detectFoodFromImage({ url: blobUrl });
-        const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
+        const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Authorization": `Bearer ${await user.getIdToken()}`,
+          },
+          body: binary,
+          signal: controller.signal,
+        });
 
-        if (topConcept) {
-          setName(capitalize(topConcept));
-        } else {
-          Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
+        clearTimeout(timeout);
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
         }
 
-        success = true;
-        setCamOpen(false);
-        setFormVisible(true);
-      } catch (clarifaiError) {
-        console.error("Clarifai detection error:", clarifaiError);
-        Alert.alert("Error", "Failed to detect ingredient. Please try again.");
+        const uploadResult = await uploadRes.json();
+        const blobUrl = uploadResult.url;
+        console.log("✅ Uploaded to Vercel Blob:", blobUrl);
+
+        // Step 4: Send blob URL to Clarifai
+        try {
+          const det = await detectFoodFromImage({ url: blobUrl });
+          const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
+
+          if (topConcept) {
+            setName(capitalize(topConcept));
+          } else {
+            Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
+          }
+
+          success = true;
+          setCamOpen(false);
+          setFormVisible(true);
+        } catch (clarifaiError) {
+          console.error("Clarifai detection error:", clarifaiError);
+          Alert.alert("Error", "Failed to detect ingredient. Please try again.");
+        }
+      } catch (uploadError) {
+        clearTimeout(timeout);
+        if (uploadError.name === 'AbortError') {
+          throw new Error("Upload timed out after 30 seconds. Please check your connection and try again.");
+        }
+        throw uploadError;
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -399,34 +509,66 @@ export default function InventoryScreen() {
 
   // — Save —
   const save = async () => {
-    if (!user) return;
-    if (!name.trim() || !qty) return Alert.alert("Missing fields");
-    const qn = parseFloat(qty);
-    if (isNaN(qn)) return Alert.alert("Invalid quantity");
-    if (!unit) return Alert.alert("Missing unit", "Please select a unit.");
-    const u = unit;
+    if (!user?.uid) {
+      Alert.alert("Error", "Please log in to save ingredients");
+      return;
+    }
+
+    // Validate inputs with detailed error messages
+    const trimmedName = (name ?? "").trim();
+    if (!trimmedName) {
+      return Alert.alert("Missing Name", "Please enter an ingredient name");
+    }
+
+    const trimmedQty = (qty ?? "").trim();
+    if (!trimmedQty) {
+      return Alert.alert("Missing Quantity", "Please enter a quantity");
+    }
+
+    const qn = parseFloat(trimmedQty);
+    if (isNaN(qn) || qn <= 0) {
+      return Alert.alert("Invalid Quantity", "Please enter a valid positive number");
+    }
+
+    if (!unit || unit === "") {
+      return Alert.alert("Missing Unit", "Please select a unit of measurement");
+    }
+
+    // Safe capitalize with null check
+    const safeName = capitalize(trimmedName);
+
+    // Safe image URL with proper encoding to prevent URL crash
+    const safeImageUrl = img ?? mealThumb(encodeURIComponent(trimmedName));
 
     const data = {
-      name: capitalize(name),
+      name: safeName,
       quantity: qn,
-      unit: u,
-      imageUrl: img ?? mealThumb(name),
+      unit: unit,
+      imageUrl: safeImageUrl,
       updatedAt: serverTimestamp(),
     };
+
     try {
-      if (editing?.id)
+      if (editing?.id) {
+        // Validate editing.id exists and is valid
+        if (typeof editing.id !== 'string' || !editing.id.trim()) {
+          throw new Error("Invalid ingredient ID");
+        }
         await updateDoc(
           doc(db, "users", user.uid, "ingredients", editing.id),
           data
         );
-      else
+      } else {
         await addDoc(collection(db, "users", user.uid, "ingredients"), {
           ...data,
           createdAt: serverTimestamp(),
         });
+      }
       setFormVisible(false);
-    } catch {
-      Alert.alert("Error", "Failed to save.");
+    } catch (err) {
+      console.error("Save ingredient error:", err);
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      Alert.alert("Save Failed", `Could not save ingredient: ${errorMessage}`);
     }
   };
 
@@ -444,14 +586,29 @@ export default function InventoryScreen() {
   };
 
   const del = (it: any) => {
-    if (!user) return;
+    if (!user?.uid) {
+      Alert.alert("Error", "Please log in to delete ingredients");
+      return;
+    }
+
+    if (!it?.id || !it?.name) {
+      Alert.alert("Error", "Invalid ingredient");
+      return;
+    }
+
     Alert.alert("Delete", `Remove "${it.name}"?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: () =>
-          deleteDoc(doc(db, "users", user.uid, "ingredients", it.id)),
+        onPress: async () => {
+          try {
+            await deleteDoc(doc(db, "users", user.uid, "ingredients", it.id));
+          } catch (err) {
+            console.error("Delete failed:", err);
+            Alert.alert("Delete Failed", "Could not delete ingredient. Please try again.");
+          }
+        },
       },
     ]);
   };
@@ -533,7 +690,7 @@ export default function InventoryScreen() {
             ) : (
               <FlatList
                 data={filtered}
-                keyExtractor={(i) => i.id}
+                keyExtractor={(i, index) => i.id || `temp-${index}`}
                 numColumns={2}
                 columnWrapperStyle={{ gap: 12 }}
                 contentContainerStyle={{
@@ -542,6 +699,16 @@ export default function InventoryScreen() {
                   gap: 12,
                 }}
                 renderItem={render}
+                ListEmptyComponent={
+                  <View style={[styles.center, { paddingTop: 60 }]}>
+                    <Text style={{ fontSize: 18, fontWeight: '600', color: '#6b7280', marginBottom: 8 }}>
+                      No ingredients found
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#9ca3af' }}>
+                      {search ? "Try a different search" : "Add your first ingredient to get started!"}
+                    </Text>
+                  </View>
+                }
               />
             )}
 

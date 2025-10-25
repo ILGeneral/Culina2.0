@@ -21,8 +21,11 @@ import {
   Pencil,
   Package,
   User,
+  Trash2,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import { Swipeable } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import Background from '@/components/Background';
 import type { Recipe } from '@/types/recipe';
 import { shareRecipe, unshareRecipe, isRecipeShared } from '@/lib/utils/shareRecipe';
@@ -139,6 +142,7 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
   const handleEditPress = (event: any) => {
     event?.stopPropagation?.();
     if (!canEdit) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onEdit?.();
   };
 
@@ -160,17 +164,56 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
     return null;
   };
 
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    onDelete(recipe.id);
+  };
+
+  const handleShare = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onShare(recipe);
+  };
+
+  const handlePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
+  const renderRightActions = () => (
+    <View style={styles.swipeActionsContainer}>
+      <TouchableOpacity
+        style={[styles.swipeAction, styles.shareAction]}
+        onPress={handleShare}
+      >
+        <Share2 size={24} color="#fff" />
+        <Text style={styles.swipeActionText}>Share</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.swipeAction, styles.deleteAction]}
+        onPress={handleDelete}
+      >
+        <Trash2 size={24} color="#fff" />
+        <Text style={styles.swipeActionText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <Animated.View
       entering={FadeInUp.delay(index * 100).duration(400).springify()}
     >
-      <TouchableOpacity
-        onPress={onPress}
-        onLongPress={() => onDelete(recipe.id)}
-        delayLongPress={500}
-        style={styles.recipeCard}
-        activeOpacity={0.8}
+      <Swipeable
+        renderRightActions={renderRightActions}
+        overshootRight={false}
+        friction={2}
       >
+        <TouchableOpacity
+          onPress={handlePress}
+          onLongPress={handleDelete}
+          delayLongPress={500}
+          style={styles.recipeCard}
+          activeOpacity={0.8}
+        >
         <View style={styles.recipeContent}>
           <View style={styles.titleRow}>
             <Text style={styles.recipeTitle} numberOfLines={2}>
@@ -263,6 +306,7 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
           </Animated.View>
         </View>
       </TouchableOpacity>
+      </Swipeable>
     </Animated.View>
   );
 };
@@ -669,5 +713,27 @@ const styles = StyleSheet.create({
   },
   datePill: {
     backgroundColor: '#f1f5f9',
+  },
+  swipeActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    paddingVertical: 20,
+  },
+  shareAction: {
+    backgroundColor: '#0ea5e9',
+  },
+  deleteAction: {
+    backgroundColor: '#ef4444',
+  },
+  swipeActionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
