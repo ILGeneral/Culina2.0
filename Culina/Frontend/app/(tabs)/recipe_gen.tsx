@@ -456,9 +456,9 @@ export default function RecipeGeneratorScreen() {
       <SafeAreaView style={recipeGenStyles.container}>
         {!recipes.length ? (
           <View style={recipeGenStyles.center}>
-            <Text style={recipeGenStyles.culinaIntro}>Hey! I'm Culina, your kitchen buddy! 🍳</Text>
+            <Text style={recipeGenStyles.culinaIntro}>Hey! I'm Culina, your AI kitchen assistant!</Text>
             <Text style={recipeGenStyles.culinaPrompt}>
-              Let me create some delicious recipes with what you have in your pantry!
+              Let me help you create recipes with the ingredients you have!
             </Text>
             <TouchableOpacity style={recipeGenStyles.button} onPress={generateNewRecipes} disabled={generating}>
               <Text style={recipeGenStyles.buttonText}>
@@ -472,7 +472,7 @@ export default function RecipeGeneratorScreen() {
               <View style={recipeGenStyles.generatingBox}>
                 <ActivityIndicator size="small" color="#128AFA" />
                 <Text style={recipeGenStyles.generatingText}>
-                  I'm whipping up 5 amazing recipes just for you...
+                  I'm whipping up 5 amazing recipes just for you!
                 </Text>
               </View>
             )}

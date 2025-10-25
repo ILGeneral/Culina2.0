@@ -1,5 +1,5 @@
 // lib/utils/shareRecipe.ts
-import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
 
@@ -36,15 +36,20 @@ export const shareRecipe = async (
       where('userId', '==', userId),
       where('userRecipeId', '==', recipe.id)
     );
-    
+
     const existingShares = await getDocs(q);
-    
+
     if (!existingShares.empty) {
       return {
         success: false,
         error: 'This recipe is already shared',
       };
     }
+
+    // Fetch user data for username and profile picture
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.exists() ? userDoc.data() : {};
 
     // Create shared recipe document - only include defined fields
     const sharedRecipeData: any = {
@@ -56,6 +61,9 @@ export const shareRecipe = async (
       userRecipeId: recipe.id,
       sharedAt: serverTimestamp(),
       createdAt: recipe.createdAt || serverTimestamp(),
+      // Add author information
+      authorUsername: userData?.username || 'Anonymous',
+      authorProfilePicture: userData?.profilePicture || 'https://avatar.iran.liara.run/public',
     };
 
     const sourceLabel = normalizeRecipeSource(recipe.source);

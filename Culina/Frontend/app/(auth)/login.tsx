@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebaseConfig";
+import { auth, db } from "@/lib/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import Background from "@/components/Background";
 
 export default function Login() {
@@ -22,8 +23,28 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/(auth)/onboarding" as unknown as never);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Check if user has completed onboarding
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const hasCompletedOnboarding = userData?.hasCompletedOnboarding ?? false;
+
+        if (hasCompletedOnboarding) {
+          // Returning user - go to main app
+          router.replace("/(tabs)");
+        } else {
+          // First-time user - show onboarding
+          router.replace("/(auth)/onboarding");
+        }
+      } else {
+        // No user document (shouldn't happen, but handle gracefully)
+        router.replace("/(auth)/onboarding");
+      }
     } catch (err: any) {
       Alert.alert("Login failed", err.message);
     }

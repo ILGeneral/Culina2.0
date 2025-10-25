@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import type { AlternativeRecipe } from '@/lib/suggestAlternatives';
 
 type SuggestionState = {
   status: 'idle' | 'loading' | 'ready' | 'error';
-  data?: Array<{ ingredient: string; alternatives: string[] }>;
+  data?: AlternativeRecipe[];
   error?: string;
 };
 

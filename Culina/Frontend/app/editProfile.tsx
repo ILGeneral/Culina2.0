@@ -7,12 +7,16 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { updateProfile, User } from "firebase/auth";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { Camera } from "lucide-react-native";
 import Background from "@/components/Background";
 import styles from "@/styles/editProfile/styles";
 
@@ -41,6 +45,10 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [allergies, setAllergies] = useState<string[]>([]);
   const [showAllergyList, setShowAllergyList] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string>("");
+  const [tempProfilePicture, setTempProfilePicture] = useState<string>("");
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const toggleAllergy = (value: string) => {
     setAllergies((prev) =>
@@ -69,12 +77,89 @@ export default function EditProfileScreen() {
         setReligiousPreference(data?.preferences?.religiousPreference || "");
         setCalories(data?.preferences?.caloriePlan || "");
         setAllergies(data?.preferences?.allergies ?? []);
+        setProfilePicture(data?.profilePicture || user?.photoURL || "");
+      } else {
+        setProfilePicture(user?.photoURL || "");
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
       Alert.alert("Error", "Failed to load user data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please enable photo library access in your device settings.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        // Store temporarily and show preview
+        setTempProfilePicture(result.assets[0].uri);
+        setShowImagePreview(true);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image.');
+    }
+  };
+
+  const handleCancelImage = () => {
+    setTempProfilePicture("");
+    setShowImagePreview(false);
+  };
+
+  const handleConfirmImage = async () => {
+    if (!tempProfilePicture) return;
+    await uploadProfilePicture(tempProfilePicture);
+    setShowImagePreview(false);
+  };
+
+  const uploadProfilePicture = async (uri: string) => {
+    if (!user) return;
+
+    try {
+      setUploadingImage(true);
+
+      // For now, we'll use a placeholder that uses the image URI
+      // In a production app, you would upload to Firebase Storage or another cloud storage service
+      const imageUrl = uri; // Direct use of local URI for demonstration
+
+      // Update local state
+      setProfilePicture(imageUrl);
+
+      // Update Firestore
+      const docRef = doc(db, 'users', user.uid);
+      await updateDoc(docRef, {
+        profilePicture: imageUrl,
+      });
+
+      // Update Firebase Auth profile
+      await updateProfile(user, {
+        photoURL: imageUrl,
+      });
+
+      Alert.alert('Success', 'Profile picture updated!');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      Alert.alert('Error', 'Failed to update profile picture. Please try again.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -137,6 +222,59 @@ export default function EditProfileScreen() {
     <Background>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <Text style={styles.title}>Edit Profile</Text>
+
+        {/* Profile Picture Section */}
+        <View style={styles.profilePictureSection}>
+          <Text style={styles.label}>Profile Picture</Text>
+          <View style={styles.profilePictureContainer}>
+            <Image
+              source={{
+                uri: (showImagePreview ? tempProfilePicture : profilePicture) || "https://avatar.iran.liara.run/public"
+              }}
+              style={styles.profilePictureImage}
+            />
+            {!showImagePreview && (
+              <TouchableOpacity
+                style={styles.profilePictureButton}
+                onPress={handlePickImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Camera size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {showImagePreview ? (
+            <View style={styles.imageActionButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelImage}
+                disabled={uploadingImage}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleConfirmImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.profilePictureHint}>
+              Tap the camera icon to change your profile picture
+            </Text>
+          )}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Username</Text>

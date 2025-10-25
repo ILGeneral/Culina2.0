@@ -3,7 +3,8 @@
     "allow": [
       "Bash(git rebase:*)",
       "Bash(npx tsc:*)",
-      "Bash(tail:*)"
+      "Bash(tail:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

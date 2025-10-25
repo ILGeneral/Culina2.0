@@ -10,6 +10,8 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { auth, db } from "@/lib/firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
 import Background from "@/components/Background";
 
 const { width } = Dimensions.get("window");
@@ -55,11 +57,22 @@ export default function OnboardingScreen() {
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentIndex < slides.length - 1) {
       slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      router.replace("/home");
+      // Mark onboarding as completed before navigating
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          await updateDoc(doc(db, "users", user.uid), {
+            hasCompletedOnboarding: true,
+          });
+        } catch (error) {
+          console.error("Error updating onboarding status:", error);
+        }
+      }
+      router.replace("/(tabs)");
     }
   };
 

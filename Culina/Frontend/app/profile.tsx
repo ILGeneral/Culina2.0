@@ -17,6 +17,7 @@ import {
   Heart,
   Flame,
   WheatOff,
+  History,
 } from "lucide-react-native";
 import { auth, db } from "@/lib/firebaseConfig";
 import { signOut, onAuthStateChanged } from "firebase/auth";
@@ -204,6 +205,10 @@ export default function ProfileScreen() {
     router.push("/report");
   };
 
+  const handlePostHistory = () => {
+    router.push("/postHistory");
+  };
+
   const fetchUserData = async (uid: string) => {
     /* ... (same as before) */
     try {
@@ -317,6 +322,11 @@ export default function ProfileScreen() {
                 icon={<Edit3 color="#0f172a" size={20} />}
                 text="Edit Profile"
                 onPress={handleEditProfile}
+              />
+              <MenuItem
+                icon={<History color="#0ea5e9" size={20} />}
+                text="Post History"
+                onPress={handlePostHistory}
               />
               <MenuItem
                 icon={<AlertTriangle color="#f97316" size={20} />}

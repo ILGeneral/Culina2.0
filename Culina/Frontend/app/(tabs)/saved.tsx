@@ -315,7 +315,17 @@ export default function SavedRecipesScreen() {
   const [recipes, setRecipes] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
+  const [activeTab, setActiveTab] = useState<'AI' | 'Human'>('AI');
   const router = useRouter();
+
+  // Filter recipes based on active tab
+  const filteredRecipes = recipes.filter((recipe) => {
+    if (activeTab === 'AI') {
+      return isAISource(recipe.source);
+    } else {
+      return normalizeRecipeSource(recipe.source) === 'Human';
+    }
+  });
 
   useEffect(() => {
     let unsubscribeInventory: (() => void) | undefined;
@@ -494,22 +504,62 @@ export default function SavedRecipesScreen() {
 
         <Text style={styles.sectionTitle}>Saved Recipes</Text>
 
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'AI' && styles.tabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('AI');
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === 'AI' && styles.tabTextActive]}>
+              AI-Generated
+            </Text>
+            <View style={[styles.tabBadge, activeTab === 'AI' && styles.tabBadgeActive]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'AI' && styles.tabBadgeTextActive]}>
+                {recipes.filter(r => isAISource(r.source)).length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'Human' && styles.tabActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setActiveTab('Human');
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === 'Human' && styles.tabTextActive]}>
+              Human-Made
+            </Text>
+            <View style={[styles.tabBadge, activeTab === 'Human' && styles.tabBadgeActive]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'Human' && styles.tabBadgeTextActive]}>
+                {recipes.filter(r => normalizeRecipeSource(r.source) === 'Human').length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#0ea5e9" />
             <Text style={styles.loadingText}>Loading recipes...</Text>
           </View>
-        ) : recipes.length === 0 ? (
+        ) : filteredRecipes.length === 0 ? (
           <View style={styles.emptyContainer}>
             <ChefHat size={64} color="#9ca3af" />
-            <Text style={styles.emptyPrimary}>No Saved Recipes</Text>
+            <Text style={styles.emptyPrimary}>
+              No {activeTab === 'AI' ? 'AI-Generated' : 'Human-Made'} Recipes
+            </Text>
             <Text style={styles.emptySecondary}>
-              Your culinary creations will appear here.
+              {activeTab === 'AI'
+                ? 'Generate recipes using AI to see them here.'
+                : 'Create or save human-made recipes to see them here.'}
             </Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.list}>
-            {recipes.map((recipe, index) => (
+            {filteredRecipes.map((recipe, index) => (
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
@@ -562,6 +612,54 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     paddingHorizontal: 20,
     paddingTop: 12,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 12,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    gap: 8,
+  },
+  tabActive: {
+    backgroundColor: '#0ea5e9',
+  },
+  tabText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  tabTextActive: {
+    color: '#fff',
+  },
+  tabBadge: {
+    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  tabBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tabBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  tabBadgeTextActive: {
+    color: '#fff',
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, color: '#6b7280', fontSize: 16 },

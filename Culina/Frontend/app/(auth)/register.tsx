@@ -74,10 +74,11 @@ export default function RegisterScreen() {
           allergies,
         },
         createdAt: new Date(),
+        hasCompletedOnboarding: false, // New users haven't completed onboarding yet
       });
 
       Alert.alert("Success", "Account created successfully!");
-      router.replace("/onboarding");
+      router.replace("/(auth)/onboarding");
     } catch (err: any) {
       console.error(err);
       Alert.alert("Registration failed", err.message);

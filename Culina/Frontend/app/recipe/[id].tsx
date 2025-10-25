@@ -52,6 +52,8 @@ type RecipeDoc = Recipe & {
   readyInMinutes?: number;
   tags?: string[];
   servings?: number;
+  authorUsername?: string;
+  authorProfilePicture?: string;
 };
 
 const HERO_HEIGHT = 320;
@@ -372,6 +374,22 @@ export default function RecipeDetailsScreen() {
         <View style={styles.contentArea}>
           <Animated.View entering={FadeInUp.delay(100).duration(500).springify()}>
             <View style={styles.card}>
+              {/* Author Info for Shared Recipes */}
+              {(recipe.authorUsername || source === 'shared') && (
+                <View style={styles.authorContainer}>
+                  <Image
+                    source={{
+                      uri: recipe.authorProfilePicture || "https://avatar.iran.liara.run/public"
+                    }}
+                    style={styles.authorImage}
+                  />
+                  <View style={styles.authorInfo}>
+                    <Text style={styles.authorLabel}>Created by</Text>
+                    <Text style={styles.authorName}>{recipe.authorUsername || 'Anonymous'}</Text>
+                  </View>
+                </View>
+              )}
+
               <View style={styles.chipsContainer}>
                 {chips.map((chip, idx) => (
                   <View key={idx} style={styles.chip}>
@@ -532,6 +550,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 5,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 16,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  authorImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: '#128AFA',
+  },
+  authorInfo: {
+    flex: 1,
+  },
+  authorLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  authorName: {
+    fontSize: 16,
+    color: '#0F172A',
+    fontWeight: '600',
   },
   chipsContainer: {
     flexDirection: 'row',
