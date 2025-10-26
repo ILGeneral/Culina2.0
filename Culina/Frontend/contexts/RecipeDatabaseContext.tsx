@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import type { AlternativeRecipe } from '@/lib/suggestAlternatives';
+import type { SuggestIngredientSubstitutesResponse } from '@/lib/suggestIngredientSubstitutes';
 
 type SuggestionState = {
   status: 'idle' | 'loading' | 'ready' | 'error';
-  data?: AlternativeRecipe[];
+  data?: SuggestIngredientSubstitutesResponse;
   error?: string;
 };
 

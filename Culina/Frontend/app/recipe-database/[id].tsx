@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
 import { ArrowLeft, Clock, Users, ChefHat, MapPin, Tag } from "lucide-react-native";
+import { useInventory } from "@/hooks/useInventory";
+import { matchRecipeWithInventory } from "@/lib/ingredientMatcher";
+import { suggestIngredientSubstitutes, type SuggestIngredientSubstitutesResponse } from "@/lib/suggestIngredientSubstitutes";
 
 type RecipeProvider = "spoonacular" | "mealdb";
 
@@ -43,6 +46,12 @@ type DetailedRecipe = {
   area?: string;
   tags?: string[];
   provider: RecipeProvider;
+};
+
+type SuggestionState = {
+  status: "idle" | "loading" | "ready" | "error";
+  data?: SuggestIngredientSubstitutesResponse;
+  error?: string;
 };
 
 const parseSpoonacularInstructions = (data: any): Step[] => {
@@ -148,6 +157,8 @@ export default function RecipeDatabaseDetailsScreen() {
   const provider: RecipeProvider = providerParam === "mealdb" ? "mealdb" : "spoonacular";
   const [recipe, setRecipe] = useState<DetailedRecipe | null>(null);
   const [loading, setLoading] = useState(false);
+  const { inventory, loading: inventoryLoading } = useInventory();
+  const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>({});
 
   useEffect(() => {
     if (!id) {
@@ -267,6 +278,72 @@ export default function RecipeDatabaseDetailsScreen() {
 
   const tagList = useMemo(() => recipe?.tags ?? [], [recipe?.tags]);
 
+  const matchResult = useMemo(() => {
+    if (!recipe || !inventory.length) return null;
+    return matchRecipeWithInventory(recipe.ingredients, inventory);
+  }, [recipe, inventory]);
+
+  const handleSuggestSubstitute = useCallback(
+    async (targetIngredient: string) => {
+      if (!recipe || !targetIngredient || !targetIngredient.trim()) {
+        return;
+      }
+
+      const suggestionKey = targetIngredient;
+
+      setSuggestions((prev) => ({
+        ...prev,
+        [suggestionKey]: { status: "loading" },
+      }));
+
+      try {
+        const response = await suggestIngredientSubstitutes({
+          recipeTitle: recipe.title,
+          recipeDescription: recipe.description,
+          targetIngredient,
+          inventory,
+        });
+
+        if (!response.hasResults || response.suggestions.length === 0) {
+          Alert.alert(
+            "No Substitutes Found",
+            `No suitable substitutes for "${targetIngredient}" were found. This could mean:\n\n• No matching ingredients in your inventory\n• The ingredient is essential for this recipe\n• Try adding more ingredients to your pantry`,
+            [{ text: "OK" }]
+          );
+
+          setSuggestions((prev) => ({
+            ...prev,
+            [suggestionKey]: {
+              status: "error",
+              error: "No suitable substitutes found",
+            },
+          }));
+          return;
+        }
+
+        setSuggestions((prev) => ({
+          ...prev,
+          [suggestionKey]: { status: "ready", data: response },
+        }));
+      } catch (err) {
+        Alert.alert(
+          "Error",
+          err instanceof Error ? err.message : "Failed to fetch ingredient substitutes",
+          [{ text: "OK" }]
+        );
+
+        setSuggestions((prev) => ({
+          ...prev,
+          [suggestionKey]: {
+            status: "error",
+            error: err instanceof Error ? err.message : "Failed to fetch ingredient substitutes",
+          },
+        }));
+      }
+    },
+    [recipe, inventory]
+  );
+
   if (!recipe) {
     return (
       <Background>
@@ -327,14 +404,92 @@ export default function RecipeDatabaseDetailsScreen() {
 
           {recipe.ingredients.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ingredients</Text>
-              <View style={styles.card}>
-                {recipe.ingredients.map((ingredient, index) => (
-                  <Text key={index} style={styles.listItem}>
-                    • {ingredient}
-                  </Text>
-                ))}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Ingredients</Text>
+                {matchResult && (
+                  <View
+                    style={[
+                      styles.matchBadge,
+                      matchResult.matchScore >= 80
+                        ? styles.matchBadgeHigh
+                        : matchResult.matchScore >= 50
+                        ? styles.matchBadgeMedium
+                        : styles.matchBadgeLow,
+                    ]}
+                  >
+                    <Text style={styles.matchBadgeText}>{Math.round(matchResult.matchScore)}% Match</Text>
+                  </View>
+                )}
               </View>
+              <View style={styles.card}>
+                {recipe.ingredients.map((ingredient, index) => {
+                  const isMissing = matchResult?.missingIngredients.includes(ingredient);
+                  const isPartial = matchResult?.partialMatches.some((p) => p.ingredient === ingredient);
+                  const isAvailable = !isMissing && !isPartial;
+                  const suggestionKey = ingredient;
+                  const suggestionState = suggestions[suggestionKey] ?? { status: "idle" };
+                  const isLoading = suggestionState.status === "loading";
+                  const hasSubstitutes = suggestionState.status === "ready" && suggestionState.data;
+
+                  return (
+                    <View key={index}>
+                      <View style={styles.ingredientRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.ingredientButton,
+                            isLoading && styles.ingredientButtonLoading,
+                            hasSubstitutes && styles.ingredientButtonActive,
+                            isAvailable && styles.ingredientButtonAvailable,
+                          ]}
+                          onPress={() => handleSuggestSubstitute(ingredient)}
+                          disabled={isLoading}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.listItem,
+                              isMissing && styles.missingIngredient,
+                              isPartial && styles.partialIngredient,
+                              isAvailable && styles.availableIngredient,
+                            ]}
+                          >
+                            {isLoading
+                              ? "⏳"
+                              : hasSubstitutes
+                              ? "✓"
+                              : isMissing
+                              ? "✗"
+                              : isPartial
+                              ? "⚠"
+                              : "•"}{" "}
+                            {ingredient}
+                          </Text>
+                          {isLoading && (
+                            <ActivityIndicator size="small" color="#128AFA" style={styles.miniLoader} />
+                          )}
+                        </TouchableOpacity>
+                      </View>
+
+                      {hasSubstitutes && suggestionState.data && (
+                        <Animated.View entering={FadeIn.duration(300)} style={styles.substituteContainer}>
+                          <Text style={styles.substituteHeader}>Substitute Options:</Text>
+                          {suggestionState.data.suggestions.map((suggestion, i) => (
+                            <View key={i} style={styles.substituteRow}>
+                              <View style={styles.substituteContent}>
+                                <Text style={styles.substituteName}>• {suggestion.ingredient}</Text>
+                                <Text style={styles.substituteReason}>{suggestion.reason}</Text>
+                              </View>
+                            </View>
+                          ))}
+                        </Animated.View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.ingredientHint}>
+                Tap any ingredient to find substitutes from your inventory
+              </Text>
             </View>
           )}
 
@@ -604,5 +759,114 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 17,
     fontWeight: "700",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  matchBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  matchBadgeHigh: {
+    backgroundColor: "#d1fae5",
+  },
+  matchBadgeMedium: {
+    backgroundColor: "#fed7aa",
+  },
+  matchBadgeLow: {
+    backgroundColor: "#fecaca",
+  },
+  matchBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  ingredientRow: {
+    marginBottom: 4,
+  },
+  ingredientButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginVertical: 2,
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ingredientButtonLoading: {
+    backgroundColor: "#f1f5f9",
+    borderColor: "#128AFA",
+  },
+  ingredientButtonActive: {
+    backgroundColor: "#e0f2fe",
+    borderColor: "#128AFA",
+  },
+  ingredientButtonAvailable: {
+    backgroundColor: "#f8fafc",
+    borderColor: "#e2e8f0",
+  },
+  missingIngredient: {
+    color: "#dc2626",
+    fontWeight: "600",
+  },
+  partialIngredient: {
+    color: "#d97706",
+    fontWeight: "600",
+  },
+  availableIngredient: {
+    color: "#1e293b",
+    fontWeight: "400",
+  },
+  miniLoader: {
+    marginLeft: 8,
+  },
+  substituteContainer: {
+    marginTop: 8,
+    marginLeft: 16,
+    marginBottom: 12,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#128AFA",
+    backgroundColor: "#f0f9ff",
+    borderRadius: 8,
+    padding: 12,
+  },
+  substituteHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#128AFA",
+    marginBottom: 8,
+  },
+  substituteRow: {
+    marginBottom: 8,
+  },
+  substituteContent: {
+    gap: 4,
+  },
+  substituteName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+  },
+  substituteReason: {
+    fontSize: 12,
+    color: "#64748b",
+    fontStyle: "italic",
+    lineHeight: 18,
+    paddingLeft: 12,
+  },
+  ingredientHint: {
+    marginTop: 12,
+    fontSize: 12,
+    color: "#64748b",
+    fontStyle: "italic",
+    textAlign: "center",
   },
 });

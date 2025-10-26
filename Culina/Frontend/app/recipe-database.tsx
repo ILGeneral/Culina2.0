@@ -15,7 +15,6 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
 import { useInventory } from "@/hooks/useInventory";
-import { suggestAlternatives, type AlternativeRecipe } from "@/lib/suggestAlternatives";
 import { matchRecipeWithInventory, type RecipeMatchResult } from "@/lib/ingredientMatcher";
 import {
   ArrowLeft,
@@ -170,21 +169,12 @@ const mapMeal = (meal: RawMeal): DatabaseRecipe => ({
   provider: "mealdb",
 });
 
-type SuggestionState = {
-  status: "idle" | "loading" | "ready" | "error";
-  data?: AlternativeRecipe[];
-  error?: string;
-};
-
 type RecipeDatabaseCardProps = {
   recipe: DatabaseRecipe;
   index: number;
   onPress: () => void;
   missingIngredients: string[];
   partialMatches: Array<{ ingredient: string; percentage: number; inventoryItem: any }>;
-  canSuggest: boolean;
-  onSuggest: () => void;
-  suggestionState: SuggestionState;
 };
 
 const RecipeDatabaseCard = ({
@@ -193,9 +183,6 @@ const RecipeDatabaseCard = ({
   onPress,
   missingIngredients,
   partialMatches,
-  canSuggest,
-  onSuggest,
-  suggestionState,
 }: RecipeDatabaseCardProps) => {
   const tagList = useMemo(() => recipe.tags?.slice(0, 2) ?? [], [recipe.tags]);
 
@@ -306,79 +293,16 @@ const RecipeDatabaseCard = ({
             <View style={styles.missingSection}>
               <View style={styles.missingSectionHeader}>
                 <Text style={styles.sectionLabel}>Missing ingredients ({missingIngredients.length})</Text>
-                {canSuggest && suggestionState.status === "idle" && (
-                  <Text style={styles.canSuggestHint}>Can suggest alternatives ✨</Text>
-                )}
               </View>
-              {missingIngredients.slice(0, 3).map((item, idx) => (
+              {missingIngredients.slice(0, 5).map((item, idx) => (
                 <Text key={`${recipe.id}-missing-${idx}`} style={styles.missingItem} numberOfLines={1}>
                   • {item}
                 </Text>
               ))}
-              {missingIngredients.length > 3 && (
+              {missingIngredients.length > 5 && (
                 <Text style={styles.moreMissing} numberOfLines={1}>
-                  +{missingIngredients.length - 3} more
+                  +{missingIngredients.length - 5} more
                 </Text>
-              )}
-
-              {canSuggest && suggestionState.status !== "ready" && (
-                <TouchableOpacity
-                  style={[styles.suggestButton, suggestionState.status === "loading" && styles.suggestButtonDisabled]}
-                  activeOpacity={0.85}
-                  onPress={onSuggest}
-                  disabled={suggestionState.status === "loading"}
-                >
-                  <Text style={styles.suggestButtonText}>
-                    {suggestionState.status === "loading" ? "🤖 Finding alternatives…" : "✨ Get AI Suggestions"}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {suggestionState.status === "error" && suggestionState.error && (
-                <View style={styles.suggestionErrorContainer}>
-                  <Text style={styles.suggestionError}>{suggestionState.error}</Text>
-                  <TouchableOpacity
-                    style={styles.retrySmallButton}
-                    activeOpacity={0.85}
-                    onPress={onSuggest}
-                  >
-                    <Text style={styles.retrySmallButtonText}>Try Again</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {suggestionState.status === "ready" && suggestionState.data?.length ? (
-                <View style={styles.alternativeList}>
-                  <Text style={styles.alternativeHeader}>🤖 AI-Suggested Alternatives:</Text>
-                  {suggestionState.data.slice(0, 3).map((alt, idx) => (
-                    <View key={`${recipe.id}-alt-${idx}`} style={styles.alternativeCard}>
-                      <Text style={styles.alternativeTitle}>{alt.title}</Text>
-                      {!!alt.description && (
-                        <Text style={styles.alternativeDescription} numberOfLines={2}>
-                          {alt.description}
-                        </Text>
-                      )}
-                      {alt.ingredients?.length > 0 && (
-                        <View style={styles.altIngredients}>
-                          <Text style={styles.altIngredientsLabel}>Ingredients:</Text>
-                          {alt.ingredients.slice(0, 3).map((ing, i) => (
-                            <Text key={i} style={styles.altIngredientItem} numberOfLines={1}>
-                              • {ing}
-                            </Text>
-                          ))}
-                          {alt.ingredients.length > 3 && (
-                            <Text style={styles.altMoreIngredients}>+{alt.ingredients.length - 3} more</Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  ))}
-                  {suggestionState.data.length > 3 && (
-                    <Text style={styles.moreAlternatives}>+{suggestionState.data.length - 3} more alternatives</Text>
-                  )}
-                </View>
-              ) : suggestionState.status === "ready" && (
-                <Text style={styles.noAlternatives}>No alternatives found. Try adding more ingredients to your inventory.</Text>
               )}
             </View>
           )}
@@ -396,12 +320,11 @@ const RecipeDatabaseCard = ({
 export default function RecipeDatabaseScreen() {
   const router = useRouter();
   const { inventory, loading: inventoryLoading } = useInventory();
-  const { state: persistedState, updateScrollPosition, updateSuggestions, updateRecipes } = useRecipeDatabaseState();
+  const { state: persistedState, updateScrollPosition, updateRecipes } = useRecipeDatabaseState();
   const [recipes, setRecipes] = useState<DatabaseRecipe[]>(persistedState.recipes);
   const [loading, setLoading] = useState(persistedState.recipes.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>(persistedState.suggestions);
   const scrollViewRef = useRef<ScrollView>(null);
   const hasRestoredScroll = useRef(false);
   const hasLoadedRecipes = useRef(persistedState.recipes.length > 0);
@@ -417,49 +340,6 @@ export default function RecipeDatabaseScreen() {
       };
     });
   }, [recipes, inventory]);
-
-  const handleSuggest = useCallback(
-    async (recipe: DatabaseRecipe, missingIngredients: string[]) => {
-      if (!missingIngredients.length || missingIngredients.length > 2) {
-        return;
-      }
-
-      const updatedSuggestions = {
-        ...suggestions,
-        [recipe.id]: { status: "loading" } as SuggestionState,
-      };
-      setSuggestions(updatedSuggestions);
-      updateSuggestions(updatedSuggestions);
-
-      try {
-        const response = await suggestAlternatives({
-          recipeTitle: recipe.title,
-          recipeDescription: recipe.description,
-          recipeIngredients: recipe.ingredients,
-          missingIngredients,
-          inventory,
-        });
-
-        const successSuggestions = {
-          ...updatedSuggestions,
-          [recipe.id]: { status: "ready", data: response.alternatives } as SuggestionState,
-        };
-        setSuggestions(successSuggestions);
-        updateSuggestions(successSuggestions);
-      } catch (err) {
-        const errorSuggestions = {
-          ...updatedSuggestions,
-          [recipe.id]: {
-            status: "error",
-            error: err instanceof Error ? err.message : "Failed to fetch alternatives",
-          } as SuggestionState,
-        };
-        setSuggestions(errorSuggestions);
-        updateSuggestions(errorSuggestions);
-      }
-    },
-    [inventory, suggestions, updateSuggestions]
-  );
 
   const loadRecipes = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -632,13 +512,6 @@ export default function RecipeDatabaseScreen() {
             ) : (
               <View style={styles.cardList}>
                 {preparedRecipes.map(({ recipe, missingIngredients, partialMatches }, index) => {
-                  const suggestionState = suggestions[recipe.id] ?? { status: "idle" };
-                  const canSuggest =
-                    missingIngredients.length > 0 &&
-                    missingIngredients.length <= 2 &&
-                    inventory.length > 0 &&
-                    !inventoryLoading;
-
                   return (
                     <RecipeDatabaseCard
                       key={recipe.id}
@@ -646,9 +519,6 @@ export default function RecipeDatabaseScreen() {
                       index={index}
                       missingIngredients={missingIngredients}
                       partialMatches={partialMatches}
-                      canSuggest={canSuggest}
-                      suggestionState={suggestionState}
-                      onSuggest={() => handleSuggest(recipe, missingIngredients)}
                       onPress={() => {
                         const initial = encodeURIComponent(JSON.stringify(recipe));
                         router.push({
@@ -1065,5 +935,91 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontStyle: "italic",
     marginTop: 8,
+  },
+  substituteItem: {
+    marginTop: 8,
+    paddingLeft: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  substituteReason: {
+    fontSize: 11,
+    color: "#64748b",
+    fontStyle: "italic",
+    marginTop: 4,
+    paddingLeft: 12,
+    lineHeight: 16,
+  },
+  tappableIngredient: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginVertical: 4,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  tappableIngredientLoading: {
+    backgroundColor: "#f1f5f9",
+    borderColor: "#128AFA",
+  },
+  tappableIngredientActive: {
+    backgroundColor: "#e0f2fe",
+    borderColor: "#128AFA",
+  },
+  missingItemTappable: {
+    fontSize: 13,
+    color: "#1e293b",
+    fontWeight: "500",
+    flex: 1,
+  },
+  ingredientLoader: {
+    marginLeft: 8,
+  },
+  substitutesList: {
+    marginTop: 8,
+    marginLeft: 16,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: "#128AFA",
+    gap: 8,
+  },
+  substitutesHeader: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#128AFA",
+    marginBottom: 4,
+  },
+  substituteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+  },
+  substituteIngredient: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0f172a",
+    flex: 1,
+  },
+  notInInventoryBadge: {
+    backgroundColor: "#fef3c7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#fcd34d",
+  },
+  notInInventoryText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#92400e",
   },
 });
