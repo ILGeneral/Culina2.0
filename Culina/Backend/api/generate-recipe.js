@@ -99,6 +99,85 @@ export default async function handler(req, res) {
     // Extract just ingredient names for clearer prompt
     const availableIngredients = inventory.map(item => item.name || item.ingredient).filter(Boolean);
 
+    // Define dietary restrictions explicitly
+    const getDietaryRestrictions = (dietType) => {
+      const restrictions = {
+        'vegetarian': {
+          forbidden: ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'goose', 'venison', 'sausage', 'bacon', 'ham', 'salami', 'fish', 'salmon', 'tuna', 'cod', 'shrimp', 'crab', 'lobster', 'shellfish', 'seafood', 'anchovies', 'prosciutto', 'pepperoni', 'chorizo', 'mutton', 'veal'],
+          definition: 'NO MEAT, NO POULTRY, NO FISH, NO SEAFOOD of any kind'
+        },
+        'vegan': {
+          forbidden: ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'fish', 'salmon', 'tuna', 'shrimp', 'crab', 'lobster', 'shellfish', 'seafood', 'eggs', 'milk', 'cheese', 'butter', 'cream', 'yogurt', 'dairy', 'honey', 'gelatin', 'whey', 'casein', 'anchovies'],
+          definition: 'NO ANIMAL PRODUCTS whatsoever - no meat, no poultry, no fish, no seafood, no eggs, no dairy, no honey'
+        },
+        'pescatarian': {
+          forbidden: ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'duck', 'goose', 'venison', 'sausage', 'bacon', 'ham', 'salami', 'prosciutto', 'pepperoni', 'chorizo', 'mutton', 'veal', 'poultry'],
+          definition: 'NO MEAT and NO POULTRY - fish and seafood are allowed, but absolutely NO beef, pork, chicken, lamb, or any land animal meat'
+        },
+        'keto': {
+          forbidden: ['rice', 'bread', 'pasta', 'flour', 'potato', 'corn', 'oats', 'wheat', 'sugar', 'honey', 'quinoa', 'barley', 'noodles'],
+          definition: 'NO HIGH-CARB foods - avoid grains, starches, sugars, most fruits'
+        },
+        'paleo': {
+          forbidden: ['bread', 'pasta', 'rice', 'beans', 'lentils', 'dairy', 'cheese', 'milk', 'yogurt', 'peanuts', 'soy', 'tofu', 'processed'],
+          definition: 'NO GRAINS, NO LEGUMES, NO DAIRY, NO PROCESSED FOODS'
+        },
+        'low-carb': {
+          forbidden: ['rice', 'bread', 'pasta', 'flour', 'potato', 'corn', 'sugar', 'honey', 'quinoa', 'noodles'],
+          definition: 'MINIMIZE CARBOHYDRATES - avoid grains, starches, sugars'
+        },
+        'gluten-free': {
+          forbidden: ['wheat', 'bread', 'pasta', 'flour', 'barley', 'rye', 'couscous', 'soy sauce', 'seitan'],
+          definition: 'NO GLUTEN - avoid wheat, barley, rye, and their derivatives'
+        }
+      };
+      return restrictions[dietType] || null;
+    };
+
+    const dietRestriction = getDietaryRestrictions(diet);
+    let dietInstructions = '- No specific dietary restrictions';
+
+    if (dietRestriction) {
+      const forbiddenList = dietRestriction.forbidden.join(', ');
+      dietInstructions = `- CRITICAL DIETARY RESTRICTION: ${diet.toUpperCase()}
+  ${dietRestriction.definition}
+  ABSOLUTELY FORBIDDEN INGREDIENTS: ${forbiddenList}
+  If ANY ingredient from the forbidden list appears in the available ingredients, DO NOT USE IT in any recipe`;
+    }
+
+    // Define religious dietary restrictions
+    const getReligiousRestrictions = (religionType) => {
+      const restrictions = {
+        'halal': {
+          forbidden: ['pork', 'bacon', 'ham', 'sausage', 'pepperoni', 'prosciutto', 'lard', 'alcohol', 'wine', 'beer', 'liquor', 'gelatin'],
+          definition: 'NO PORK, NO ALCOHOL - all meat must be halal certified'
+        },
+        'kosher': {
+          forbidden: ['pork', 'bacon', 'ham', 'shellfish', 'shrimp', 'crab', 'lobster', 'mixing meat and dairy'],
+          definition: 'NO PORK, NO SHELLFISH, NO MIXING MEAT AND DAIRY'
+        },
+        'hindu': {
+          forbidden: ['beef', 'cow', 'veal', 'steak'],
+          definition: 'NO BEEF or cow-derived products'
+        },
+        'buddhist': {
+          forbidden: ['meat', 'beef', 'pork', 'lamb', 'chicken', 'turkey', 'fish', 'seafood'],
+          definition: 'VEGETARIAN - no meat, poultry, fish, or seafood'
+        }
+      };
+      return restrictions[religionType] || null;
+    };
+
+    const religiousRestriction = getReligiousRestrictions(religion);
+    let religiousInstructions = '- No religious dietary restrictions';
+
+    if (religiousRestriction) {
+      const forbiddenList = religiousRestriction.forbidden.join(', ');
+      religiousInstructions = `- CRITICAL RELIGIOUS RESTRICTION: ${religion.toUpperCase()}
+  ${religiousRestriction.definition}
+  ABSOLUTELY FORBIDDEN INGREDIENTS: ${forbiddenList}`;
+    }
+
     const prompt = `
 You are Culina 🍳, a cheerful, confident, and supportive AI kitchen companion who absolutely LOVES cooking!
 
@@ -108,7 +187,7 @@ Your personality when creating recipes:
 - Make users feel excited about cooking with what they have
 - Sound confident but approachable - like a skilled home chef, not a fancy restaurant
 
-Create EXACTLY 5 different and varied recipes using the ingredients available.
+Create as many different and varied recipes as possible using ONLY the ingredients available.
 
 CRITICAL INVENTORY CONSTRAINT:
 You can ONLY use these ingredients (nothing else):
@@ -116,13 +195,18 @@ ${availableIngredients.map(ing => `- ${ing}`).join('\n')}
 
 DO NOT include ANY ingredients not in this list above. Every ingredient in your recipes MUST come from this list.
 
-ADDITIONAL REQUIREMENTS:
-- Each recipe MUST be significantly different from the others
-${diet !== 'none' ? `- MUST follow dietary restriction: ${diet} (strictly enforce - e.g., vegan means NO animal products)` : '- No specific dietary restrictions'}
-${religion !== 'none' && religion !== '' ? `- MUST follow religious dietary law: ${religion} (strictly enforce)` : '- No religious dietary restrictions'}
+RECIPE VARIETY REQUIREMENTS:
+- Generate multiple unique recipes (aim for 5-10 if possible based on available ingredients)
+- Each recipe MUST be significantly different from the others - different cuisines, cooking methods, flavor profiles
+- DO NOT create duplicate or very similar recipes (e.g., don't make "Tomato Pasta" and "Pasta with Tomatoes")
+- Maximize variety in cooking techniques (stir-fry, roast, grill, sauté, bake, steam, etc.)
+- Vary the main ingredients across recipes
+
+DIETARY RESTRICTIONS:
+${dietInstructions}
+${religiousInstructions}
 ${caloriePlan !== 'none' ? `- Target calorie goal per day: ${caloriePlan} calories` : '- No specific calorie restrictions'}
 ${allergies.length > 0 ? `- STRICTLY AVOID these allergens: ${allergyText} (do NOT include in any form)` : '- No known allergies'}
-- Return EXACTLY 5 recipes, no more, no less
 
 DESCRIPTION GUIDELINES (speak as Culina):
 - Write 1-2 sentences that make the dish sound delicious and approachable
@@ -178,8 +262,8 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7, // Increased for more variety
-        max_tokens: 4000, // Ensure enough tokens for 5 recipes
+        temperature: 0.8, // Increased for more variety and creativity
+        max_tokens: 6000, // Allow for more recipes
         response_format: { type: 'json_object' },
       }),
     });
@@ -220,16 +304,21 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
       inventory.map(item => (item.name || item.ingredient || '').toLowerCase().trim())
     );
 
+    // Get forbidden ingredients for the user's diet and religion
+    const forbiddenIngredients = dietRestriction ? dietRestriction.forbidden : [];
+    const religiousForbidden = religiousRestriction ? religiousRestriction.forbidden : [];
+    const allForbidden = [...forbiddenIngredients, ...religiousForbidden];
+
     // Validate each recipe has required fields AND uses only available ingredients
     const validRecipes = recipes.filter(recipe => {
       // Check basic structure
-      const hasValidStructure = recipe.title && 
-                                recipe.description && 
-                                Array.isArray(recipe.ingredients) && 
+      const hasValidStructure = recipe.title &&
+                                recipe.description &&
+                                Array.isArray(recipe.ingredients) &&
                                 Array.isArray(recipe.instructions) &&
                                 recipe.ingredients.length > 0 &&
                                 recipe.instructions.length > 0;
-      
+
       if (!hasValidStructure) {
         console.log(`Recipe "${recipe.title}" failed structure validation`);
         return false;
@@ -242,9 +331,56 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
       });
 
       if (missingIngredients.length > 0) {
-        console.log(`Recipe "${recipe.title}" uses unavailable ingredients:`, 
+        console.log(`Recipe "${recipe.title}" uses unavailable ingredients:`,
                     missingIngredients.map(i => i.name).join(', '));
         return false;
+      }
+
+      // Check if recipe violates dietary or religious restrictions
+      if (allForbidden.length > 0) {
+        const violatingIngredients = recipe.ingredients.filter(ing => {
+          const ingredientName = (ing.name || '').toLowerCase().trim();
+          // Check if ingredient name contains any forbidden term
+          return allForbidden.some(forbidden =>
+            ingredientName.includes(forbidden.toLowerCase())
+          );
+        });
+
+        if (violatingIngredients.length > 0) {
+          const restrictionType = diet !== 'none' ? diet : religion;
+          console.log(`Recipe "${recipe.title}" violates ${restrictionType} restriction. Contains forbidden ingredients:`,
+                      violatingIngredients.map(i => i.name).join(', '));
+          return false;
+        }
+
+        // Also check recipe title and description for forbidden terms (catch things like "Chicken Salad")
+        const recipeText = `${recipe.title} ${recipe.description}`.toLowerCase();
+        const titleViolations = allForbidden.filter(forbidden =>
+          recipeText.includes(forbidden.toLowerCase())
+        );
+
+        if (titleViolations.length > 0) {
+          const restrictionType = diet !== 'none' ? diet : religion;
+          console.log(`Recipe "${recipe.title}" title/description contains forbidden terms for ${restrictionType} restriction:`,
+                      titleViolations.join(', '));
+          return false;
+        }
+      }
+
+      // Check if recipe violates allergy restrictions
+      if (allergies.length > 0) {
+        const allergyViolations = recipe.ingredients.filter(ing => {
+          const ingredientName = (ing.name || '').toLowerCase().trim();
+          return allergies.some(allergen =>
+            ingredientName.includes(allergen.toLowerCase())
+          );
+        });
+
+        if (allergyViolations.length > 0) {
+          console.log(`Recipe "${recipe.title}" contains allergen:`,
+                      allergyViolations.map(i => i.name).join(', '));
+          return false;
+        }
       }
 
       return true;
@@ -252,17 +388,53 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
 
     console.log(`${validRecipes.length} valid recipes after filtering`);
 
-    // If we don't have at least 5 valid recipes, return an error
-    if (validRecipes.length < 5) {
-      console.error('Not enough valid recipes. Got:', validRecipes.length);
-      throw new Error(`AI model only generated ${validRecipes.length} valid recipes using available ingredients. Expected at least 5.`);
+    // Remove duplicate recipes based on similarity
+    const deduplicatedRecipes = [];
+    const seenTitles = new Set();
+    const seenIngredientSets = new Set();
+
+    for (const recipe of validRecipes) {
+      // Normalize title for comparison
+      const normalizedTitle = recipe.title.toLowerCase().trim();
+
+      // Create a signature from ingredients (sorted to catch reordered duplicates)
+      const ingredientSignature = recipe.ingredients
+        .map(ing => (ing.name || '').toLowerCase().trim())
+        .sort()
+        .join('|');
+
+      // Check if this is a duplicate based on title or ingredients
+      const isTitleDuplicate = seenTitles.has(normalizedTitle);
+      const isIngredientDuplicate = seenIngredientSets.has(ingredientSignature);
+
+      // Also check for very similar titles (e.g., "Tomato Pasta" vs "Pasta with Tomatoes")
+      const isSimilarTitle = Array.from(seenTitles).some(existingTitle => {
+        const titleWords = normalizedTitle.split(/\s+/);
+        const existingWords = existingTitle.split(/\s+/);
+        const commonWords = titleWords.filter(word => existingWords.includes(word) && word.length > 3);
+        // If they share 70% or more of meaningful words, consider them similar
+        return commonWords.length >= Math.min(titleWords.length, existingWords.length) * 0.7;
+      });
+
+      if (!isTitleDuplicate && !isIngredientDuplicate && !isSimilarTitle) {
+        deduplicatedRecipes.push(recipe);
+        seenTitles.add(normalizedTitle);
+        seenIngredientSets.add(ingredientSignature);
+      } else {
+        console.log(`Recipe "${recipe.title}" filtered out as duplicate/similar`);
+      }
     }
 
-    // Return exactly 5 recipes (in case AI returned more)
-    const finalRecipes = validRecipes.slice(0, 5);
+    console.log(`${deduplicatedRecipes.length} unique recipes after deduplication`);
 
-    console.log(`Successfully generated ${finalRecipes.length} recipes`);
-    return res.status(200).json({ recipes: finalRecipes });
+    // Return error only if we have zero recipes
+    if (deduplicatedRecipes.length === 0) {
+      console.error('No valid recipes could be generated');
+      throw new Error('Unable to generate recipes with the available ingredients and dietary restrictions. Try adding more ingredients to your pantry.');
+    }
+
+    console.log(`Successfully generated ${deduplicatedRecipes.length} unique recipes`);
+    return res.status(200).json({ recipes: deduplicatedRecipes });
 
   } catch (error) {
     console.error('Error:', error);

@@ -45,10 +45,10 @@ export default function RecipeGeneratorScreen() {
       const ingredients = inventory.map((i) => i.name);
       const data = await generateRecipe(ingredients, ["Vegetarian", "Maintain Calories"]);
 
-      if (data?.recipes?.length && data.recipes.length >= 5) {
+      if (data?.recipes?.length && data.recipes.length > 0) {
         setRecipe(data.recipes[0]);
       } else {
-        Alert.alert("Error", "Recipe generation failed to return enough recipes.");
+        Alert.alert("Error", "Recipe generation failed. Please add more ingredients to your pantry.");
       }
     } catch (err) {
       console.error("GenerateRecipe Error:", err);

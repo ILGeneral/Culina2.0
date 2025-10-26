@@ -12,7 +12,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
 import { auth, db } from "@/lib/firebaseConfig";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { updateProfile, User } from "firebase/auth";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
@@ -46,8 +46,6 @@ export default function EditProfileScreen() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [showAllergyList, setShowAllergyList] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string>("");
-  const [tempProfilePicture, setTempProfilePicture] = useState<string>("");
-  const [showImagePreview, setShowImagePreview] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const toggleAllergy = (value: string) => {
@@ -109,25 +107,13 @@ export default function EditProfileScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Store temporarily and show preview
-        setTempProfilePicture(result.assets[0].uri);
-        setShowImagePreview(true);
+        // Immediately upload after user confirms crop in native picker
+        await uploadProfilePicture(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to select image.');
     }
-  };
-
-  const handleCancelImage = () => {
-    setTempProfilePicture("");
-    setShowImagePreview(false);
-  };
-
-  const handleConfirmImage = async () => {
-    if (!tempProfilePicture) return;
-    await uploadProfilePicture(tempProfilePicture);
-    setShowImagePreview(false);
   };
 
   const uploadProfilePicture = async (uri: string) => {
@@ -154,12 +140,46 @@ export default function EditProfileScreen() {
         photoURL: imageUrl,
       });
 
+      // Update all shared recipes with new profile picture
+      await updateSharedRecipesProfile(username, imageUrl);
+
       Alert.alert('Success', 'Profile picture updated!');
     } catch (error) {
       console.error('Error uploading profile picture:', error);
       Alert.alert('Error', 'Failed to update profile picture. Please try again.');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const updateSharedRecipesProfile = async (newUsername: string, newProfilePicture: string) => {
+    if (!user) return;
+
+    try {
+      // Query all shared recipes by this user
+      const sharedRecipesRef = collection(db, 'sharedRecipes');
+      const q = query(sharedRecipesRef, where('userId', '==', user.uid));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return; // No shared recipes to update
+      }
+
+      // Batch update all shared recipes
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((docSnap) => {
+        const recipeRef = doc(db, 'sharedRecipes', docSnap.id);
+        batch.update(recipeRef, {
+          authorUsername: newUsername,
+          authorProfilePicture: newProfilePicture,
+        });
+      });
+
+      await batch.commit();
+      console.log(`Updated ${snapshot.docs.length} shared recipes with new profile info`);
+    } catch (error) {
+      console.error('Error updating shared recipes:', error);
+      // Don't throw - this is a non-critical update
     }
   };
 
@@ -189,19 +209,16 @@ export default function EditProfileScreen() {
 
       await updateProfile(user, { displayName: username.trim() });
 
+      // Update all shared recipes with new username and profile picture
+      await updateSharedRecipesProfile(username.trim(), profilePicture);
+
       Alert.alert("Success", "Profile updated successfully!", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error("Error updating profile:", error);
       Alert.alert("Error", "Failed to update profile. Please try again.");
-      router.replace({
-        pathname: "/(tabs)/profile",
-        params: {
-          toastMessage: "Failed to update profile. Please try again.",
-          toastType: "error",
-        },
-      });
+      router.replace("/profile");
     } finally {
       setSaving(false);
     }
@@ -229,51 +246,26 @@ export default function EditProfileScreen() {
           <View style={styles.profilePictureContainer}>
             <Image
               source={{
-                uri: (showImagePreview ? tempProfilePicture : profilePicture) || "https://avatar.iran.liara.run/public"
+                uri: profilePicture || "https://avatar.iran.liara.run/public"
               }}
               style={styles.profilePictureImage}
             />
-            {!showImagePreview && (
-              <TouchableOpacity
-                style={styles.profilePictureButton}
-                onPress={handlePickImage}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Camera size={20} color="#fff" />
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.profilePictureButton}
+              onPress={handlePickImage}
+              disabled={uploadingImage}
+            >
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Camera size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
           </View>
 
-          {showImagePreview ? (
-            <View style={styles.imageActionButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancelImage}
-                disabled={uploadingImage}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirmImage}
-                disabled={uploadingImage}
-              >
-                {uploadingImage ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Confirm</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.profilePictureHint}>
-              Tap the camera icon to change your profile picture
-            </Text>
-          )}
+          <Text style={styles.profilePictureHint}>
+            Tap the camera icon to change your profile picture
+          </Text>
         </View>
 
         <View style={styles.section}>

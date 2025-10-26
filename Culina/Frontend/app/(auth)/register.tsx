@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+import { Mail, User, Lock, Eye, EyeOff } from "lucide-react-native";
 import Background from "@/components/Background";
 
 const ALLERGY_OPTIONS = [
@@ -33,13 +34,15 @@ const ALLERGY_OPTIONS = [
 export default function RegisterScreen() {
   const router = useRouter();
 
-  // Step 1 fields
+  // Account fields
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Step 2 fields
+  // Preferences fields
   const [diet, setDiet] = useState("");
   const [religiousPreference, setReligiousPreference] = useState("");
   const [calories, setCalories] = useState("");
@@ -59,11 +62,9 @@ export default function RegisterScreen() {
       return Alert.alert("Passwords do not match");
 
     try {
-      // 1️⃣ Create Firebase Auth account
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(userCred.user, { displayName: username.trim() });
 
-      // 2️⃣ Create Firestore document for user
       await setDoc(doc(db, "users", userCred.user.uid), {
         username: username.trim(),
         email: email.trim(),
@@ -74,7 +75,7 @@ export default function RegisterScreen() {
           allergies,
         },
         createdAt: new Date(),
-        hasCompletedOnboarding: false, // New users haven't completed onboarding yet
+        hasCompletedOnboarding: false,
       });
 
       Alert.alert("Success", "Account created successfully!");
@@ -100,43 +101,80 @@ export default function RegisterScreen() {
       >
       <Text style={styles.title}>Create your account!</Text>
 
-      {/* Step 1: Account Info */}
+      {/* Account Information */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account Information</Text>
 
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+        {/* Email Input with Icon */}
+        <View style={styles.inputContainer}>
+          <Mail size={20} color="#6b7280" style={styles.inputIcon} />
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.inputWithIcon}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </View>
 
-        <TextInput
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
-          style={styles.input}
-        />
+        {/* Username Input with Icon */}
+        <View style={styles.inputContainer}>
+          <User size={20} color="#6b7280" style={styles.inputIcon} />
+          <TextInput
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.inputWithIcon}
+          />
+        </View>
 
-        <TextInput
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          style={styles.input}
-        />
+        {/* Password Input with Icon and Toggle */}
+        <View style={styles.inputContainer}>
+          <Lock size={20} color="#6b7280" style={styles.inputIcon} />
+          <TextInput
+            placeholder="Password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            style={styles.inputWithIcon}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={styles.eyeIcon}
+          >
+            {showPassword ? (
+              <EyeOff size={20} color="#6b7280" />
+            ) : (
+              <Eye size={20} color="#6b7280" />
+            )}
+          </TouchableOpacity>
+        </View>
 
-        <TextInput
-          placeholder="Confirm Password"
-          secureTextEntry
-          value={confirm}
-          onChangeText={setConfirm}
-          style={styles.input}
-        />
+        {/* Confirm Password Input with Icon and Toggle */}
+        <View style={styles.inputContainer}>
+          <Lock size={20} color="#6b7280" style={styles.inputIcon} />
+          <TextInput
+            placeholder="Confirm Password"
+            secureTextEntry={!showConfirmPassword}
+            value={confirm}
+            onChangeText={setConfirm}
+            style={styles.inputWithIcon}
+          />
+          <TouchableOpacity
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={styles.eyeIcon}
+          >
+            {showConfirmPassword ? (
+              <EyeOff size={20} color="#6b7280" />
+            ) : (
+              <Eye size={20} color="#6b7280" />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Allergies */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Allergies</Text>
         <Text style={styles.helperText}>Tap to select or deselect.</Text>
@@ -159,7 +197,7 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      {/* Step 2: Preferences */}
+      {/* Preferences */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Preferences</Text>
 
@@ -270,14 +308,26 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     marginBottom: 8,
   },
-  input: {
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     marginBottom: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingVertical: 12,
     fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 4,
   },
   button: {
     backgroundColor: "#128AFA",
@@ -318,30 +368,6 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: Platform.OS === "ios" ? 180 : 50,
-  },
-  allergyList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  },
-  allergyChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#dcfce7",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  allergyText: {
-    color: "#128AFA",
-    fontWeight: "600",
-    marginRight: 6,
-  },
-  allergyRemove: {
-    color: "#128AFA",
-    fontWeight: "700",
-    fontSize: 16,
   },
   checkboxList: {
     gap: 10,

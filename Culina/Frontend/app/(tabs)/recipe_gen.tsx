@@ -389,8 +389,8 @@ export default function RecipeGeneratorScreen() {
     try {
       setGenerating(true);
       const data = await generateRecipe(ingredients, preferences);
-      if (!data?.recipes || data.recipes.length < 5) {
-        throw new Error("AI returned fewer than five recipes");
+      if (!data?.recipes || data.recipes.length === 0) {
+        throw new Error("AI could not generate any recipes with your current ingredients and preferences");
       }
       setRecipes(data.recipes);
       persistRecipes(data.recipes);
@@ -472,7 +472,7 @@ export default function RecipeGeneratorScreen() {
               <View style={recipeGenStyles.generatingBox}>
                 <ActivityIndicator size="small" color="#128AFA" />
                 <Text style={recipeGenStyles.generatingText}>
-                  I'm whipping up 5 amazing recipes just for you!
+                  I'm whipping up amazing recipes just for you!
                 </Text>
               </View>
             )}
