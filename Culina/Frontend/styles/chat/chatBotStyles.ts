@@ -113,12 +113,13 @@ const chatBotStyles = StyleSheet.create({
   },
   collapsedMessageContainer: {
     position: "absolute",
-    bottom: 250, 
+    bottom: 250,
     left: 20,
     right: 20,
     zIndex: 0,
     maxWidth: "85%",
     alignSelf: "center",
+    maxHeight: 300,
   },
   collapsedBubble: {
     backgroundColor: "#0F172ACC",
@@ -127,6 +128,10 @@ const chatBotStyles = StyleSheet.create({
     alignSelf: "center", // Center the bubble
     maxWidth: "100%",
     marginBottom: 0,
+    maxHeight: 300,
+  },
+  collapsedScrollView: {
+    maxHeight: 268,
   },
   collapsedText: {
     fontSize: 18,

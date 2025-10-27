@@ -11,6 +11,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
 import chatBotStyles from "@/styles/chat/chatBotStyles";
 import type { ImageSourcePropType } from "react-native";
@@ -282,7 +283,13 @@ const ChatBotScreen = () => {
               {!expanded && displayedMessages.length > 0 && (
                 <View style={chatBotStyles.collapsedMessageContainer}>
                   <View style={chatBotStyles.collapsedBubble}>
-                    <Text style={chatBotStyles.collapsedText}>{displayedMessages[0].content}</Text>
+                    <ScrollView
+                      style={chatBotStyles.collapsedScrollView}
+                      showsVerticalScrollIndicator={true}
+                      nestedScrollEnabled={true}
+                    >
+                      <Text style={chatBotStyles.collapsedText}>{displayedMessages[0].content}</Text>
+                    </ScrollView>
                   </View>
                 </View>
               )}
