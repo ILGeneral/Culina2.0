@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -15,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import Background from "@/components/Background";
 import { SPOONACULAR_API_KEY } from "@/lib/secrets";
-import { ArrowLeft, Clock, Users, ChefHat, MapPin, Tag } from "lucide-react-native";
+import { ArrowLeft, Clock, Users, ChefHat, MapPin, Tag, Check, X } from "lucide-react-native";
 import { useInventory } from "@/hooks/useInventory";
 import { matchRecipeWithInventory } from "@/lib/ingredientMatcher";
 import { suggestIngredientSubstitutes, type SuggestIngredientSubstitutesResponse } from "@/lib/suggestIngredientSubstitutes";
@@ -157,8 +158,15 @@ export default function RecipeDatabaseDetailsScreen() {
   const provider: RecipeProvider = providerParam === "mealdb" ? "mealdb" : "spoonacular";
   const [recipe, setRecipe] = useState<DetailedRecipe | null>(null);
   const [loading, setLoading] = useState(false);
-  const { inventory, loading: inventoryLoading } = useInventory();
+  const { inventory, updateIngredient, deleteIngredient } = useInventory();
   const [suggestions, setSuggestions] = useState<Record<string, SuggestionState>>({});
+
+  // Cooking mode states
+  const [cookingMode, setCookingMode] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [isDeductingInventory, setIsDeductingInventory] = useState(false);
+  const [hasDeductedInventory, setHasDeductedInventory] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -343,6 +351,144 @@ export default function RecipeDatabaseDetailsScreen() {
     },
     [recipe, inventory]
   );
+
+  // Parse ingredient quantities from recipe
+  const parseIngredientQuantity = (ingredientStr: string): { name: string; quantity: number } => {
+    // Extract numbers from the beginning of the string
+    const match = ingredientStr.match(/^([\d./]+)\s*([a-zA-Z]*)\s+(.+)$/);
+    if (match) {
+      const [, numStr, , name] = match;
+
+      // Handle fractions like "1/2"
+      let quantity = 1;
+      if (numStr.includes('/')) {
+        const [numerator, denominator] = numStr.split('/').map(Number);
+        quantity = numerator / denominator;
+      } else {
+        quantity = parseFloat(numStr);
+      }
+
+      return { name: name.trim(), quantity: isNaN(quantity) ? 1 : quantity };
+    }
+    // If no quantity found, assume 1
+    return { name: ingredientStr.trim(), quantity: 1 };
+  };
+
+  // Deduct ingredients from inventory
+  const handleDeductFromPantry = useCallback(async () => {
+    if (!recipe || !inventory.length) {
+      Alert.alert("No Inventory", "You don't have any items in your pantry to deduct.");
+      return;
+    }
+
+    if (hasDeductedInventory) {
+      Alert.alert(
+        "Already Deducted!",
+        "You've already deducted ingredients for this recipe. Deduct again?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Deduct Again", onPress: () => performDeduction() },
+        ]
+      );
+      return;
+    }
+
+    performDeduction();
+  }, [recipe, inventory, hasDeductedInventory]);
+
+  const performDeduction = useCallback(async () => {
+    setIsDeductingInventory(true);
+    let deductedCount = 0;
+    let errors: string[] = [];
+
+    try {
+      for (const recipeIngredient of recipe!.ingredients) {
+        const { name: ingredientName, quantity: recipeQuantity } = parseIngredientQuantity(recipeIngredient);
+
+        // Find matching ingredient in inventory (fuzzy match)
+        const matchedInventoryItem = inventory.find((item) =>
+          item.name.toLowerCase().includes(ingredientName.toLowerCase()) ||
+          ingredientName.toLowerCase().includes(item.name.toLowerCase())
+        );
+
+        if (matchedInventoryItem && matchedInventoryItem.id) {
+          try {
+            const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
+
+            if (newQuantity === 0) {
+              // Delete the ingredient if quantity reaches 0
+              await deleteIngredient(matchedInventoryItem.id);
+            } else {
+              // Update the ingredient quantity
+              await updateIngredient(matchedInventoryItem.id, { quantity: newQuantity });
+            }
+            deductedCount++;
+          } catch (err) {
+            errors.push(`Failed to update ${matchedInventoryItem.name}`);
+            console.error(`Error updating ${matchedInventoryItem.name}:`, err);
+          }
+        }
+      }
+
+      setHasDeductedInventory(true);
+
+      if (deductedCount > 0) {
+        Alert.alert(
+          "Ingredients Deducted!",
+          `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.${
+            errors.length > 0 ? `\n\nSome ingredients couldn't be updated: ${errors.join(', ')}` : ''
+          }`,
+          [{ text: "Great!" }]
+        );
+      } else {
+        Alert.alert(
+          "No Matches Found",
+          "No matching ingredients found in your pantry to deduct.",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (err) {
+      console.error("Error deducting ingredients:", err);
+      Alert.alert(
+        "Error",
+        "Failed to update pantry. Your ingredients were not deducted.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsDeductingInventory(false);
+    }
+  }, [recipe, inventory, updateIngredient, deleteIngredient]);
+
+  // Start cooking mode
+  const handleStartCooking = useCallback(() => {
+    if (!recipe || recipe.instructions.length === 0) {
+      Alert.alert("No Instructions", "This recipe doesn't have cooking instructions.");
+      return;
+    }
+
+    setCookingMode(true);
+    setCurrentStep(0);
+    setCompletedSteps(new Set());
+    setHasDeductedInventory(false);
+  }, [recipe]);
+
+  // Mark step as complete and advance to next step
+  const handleStepComplete = useCallback((stepNumber: number) => {
+    setCompletedSteps((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(stepNumber)) {
+        newSet.delete(stepNumber);
+      } else {
+        newSet.add(stepNumber);
+        // Auto-advance to next step
+        const totalSteps = recipe?.instructions.length || 0;
+        if (stepNumber < totalSteps) {
+          setCurrentStep(stepNumber); // Move to next step (0-indexed)
+        }
+      }
+      return newSet;
+    });
+  }, [recipe]);
 
   if (!recipe) {
     return (
@@ -540,10 +686,132 @@ export default function RecipeDatabaseDetailsScreen() {
           )}
         </ScrollView>
 
-        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.9} onPress={handleStartCooking}>
           <ChefHat size={20} color="#ffffff" />
           <Text style={styles.ctaText}>Start Cooking</Text>
         </TouchableOpacity>
+
+        {/* Cooking Mode Modal */}
+        <Modal visible={cookingMode} animationType="slide" presentationStyle="pageSheet">
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => {
+                  Alert.alert(
+                    "Exit Cooking Mode?",
+                    "Your progress will be lost. Are you sure?",
+                    [
+                      { text: "Keep Cooking", style: "cancel" },
+                      { text: "Exit", style: "destructive", onPress: () => setCookingMode(false) },
+                    ]
+                  );
+                }}
+              >
+                <X size={24} color="#0f172a" />
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>{recipe?.title}</Text>
+              <View style={{ width: 40 }} />
+            </View>
+
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+              <View style={styles.progressSection}>
+                <Text style={styles.progressText}>
+                  Progress: {completedSteps.size} / {recipe?.instructions.length || 0} steps
+                </Text>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${
+                          ((completedSteps.size / (recipe?.instructions.length || 1)) * 100)
+                        }%`,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              {recipe?.instructions.map((step) => {
+                const isCompleted = completedSteps.has(step.number);
+                const isCurrentStep = currentStep === step.number - 1;
+                return (
+                  <Animated.View
+                    key={step.number}
+                    entering={FadeInUp.delay(step.number * 50).duration(300)}
+                    style={[
+                      styles.cookingStepCard,
+                      isCompleted && styles.cookingStepCardCompleted,
+                      isCurrentStep && !isCompleted && styles.cookingStepCardCurrent,
+                    ]}
+                  >
+                    <View style={styles.cookingStepHeader}>
+                      <View style={[styles.stepBadge, isCompleted && styles.stepBadgeCompleted]}>
+                        <Text style={[styles.stepBadgeText, isCompleted && styles.stepBadgeTextCompleted]}>
+                          {step.number}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.checkboxButton, isCompleted && styles.checkboxButtonCompleted]}
+                        onPress={() => handleStepComplete(step.number)}
+                      >
+                        {isCompleted && <Check size={20} color="#ffffff" />}
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.cookingStepText, isCompleted && styles.cookingStepTextCompleted]}>
+                      {step.step}
+                    </Text>
+
+                    {/* Mark as Complete Button - Only show for current/incomplete steps */}
+                    {!isCompleted && (
+                      <TouchableOpacity
+                        style={styles.markCompleteButton}
+                        onPress={() => handleStepComplete(step.number)}
+                      >
+                        <Check size={16} color="#ffffff" />
+                        <Text style={styles.markCompleteButtonText}>Mark as Complete</Text>
+                      </TouchableOpacity>
+                    )}
+                  </Animated.View>
+                );
+              })}
+
+              {/* Deduct from Pantry Section - Only show when all steps completed */}
+              {completedSteps.size === recipe?.instructions.length && (
+                <Animated.View entering={FadeIn.duration(500)} style={styles.deductSection}>
+                  <View style={styles.deductInfoCard}>
+                    <Text style={styles.deductInfoTitle}>All Steps Completed!</Text>
+                    <Text style={styles.deductInfoText}>
+                      Tap the button below to automatically deduct the ingredients used from your pantry inventory.
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.deductButton,
+                      isDeductingInventory && styles.deductButtonDisabled,
+                      hasDeductedInventory && styles.deductButtonSuccess,
+                    ]}
+                    onPress={handleDeductFromPantry}
+                    disabled={isDeductingInventory}
+                  >
+                    {isDeductingInventory ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Check size={20} color="#ffffff" />
+                        <Text style={styles.deductButtonText}>
+                          {hasDeductedInventory ? "Deducted ✓" : "Deduct from Pantry"}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </Background>
   );
@@ -868,5 +1136,183 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontStyle: "italic",
     textAlign: "center",
+  },
+  // Cooking Mode Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#fee2e2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalHeaderTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0f172a",
+    textAlign: "center",
+    marginHorizontal: 12,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  progressSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  progressText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 12,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#128AFA",
+    borderRadius: 4,
+  },
+  cookingStepCard: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#e2e8f0",
+  },
+  cookingStepCardCompleted: {
+    backgroundColor: "#f0fdf4",
+    borderColor: "#86efac",
+  },
+  cookingStepCardCurrent: {
+    borderColor: "#128AFA",
+    borderWidth: 2,
+  },
+  cookingStepHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  stepBadgeCompleted: {
+    backgroundColor: "#22c55e",
+  },
+  stepBadgeTextCompleted: {
+    color: "#ffffff",
+  },
+  checkboxButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#cbd5e1",
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxButtonCompleted: {
+    backgroundColor: "#22c55e",
+    borderColor: "#22c55e",
+  },
+  cookingStepText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#1e293b",
+  },
+  cookingStepTextCompleted: {
+    color: "#15803d",
+    textDecorationLine: "line-through",
+  },
+  markCompleteButton: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: "#128AFA",
+  },
+  markCompleteButtonText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  deductSection: {
+    marginTop: 32,
+    gap: 16,
+  },
+  deductInfoCard: {
+    padding: 16,
+    backgroundColor: "#eff6ff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  deductInfoTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e40af",
+    marginBottom: 8,
+  },
+  deductInfoText: {
+    fontSize: 14,
+    color: "#1e40af",
+    lineHeight: 20,
+  },
+  deductButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: "#128AFA",
+    shadowColor: "#128AFA",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  deductButtonDisabled: {
+    opacity: 0.6,
+  },
+  deductButtonSuccess: {
+    backgroundColor: "#22c55e",
+    shadowColor: "#22c55e",
+  },
+  deductButtonText: {
+    color: "#ffffff",
+    fontSize: 17,
+    fontWeight: "700",
   },
 });

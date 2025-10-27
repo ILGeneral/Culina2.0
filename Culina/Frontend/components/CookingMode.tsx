@@ -7,19 +7,25 @@ import {
   Dimensions,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 const { width, height } = Dimensions.get('window');
 
+type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
 type CookingModeProps = {
   instructions: string[];
   onClose: () => void;
   recipeTitle: string;
+  ingredients?: IngredientEntry[];
+  inventory?: Array<{ id?: string; name: string; quantity: number; unit: string }>;
+  onDeductIngredients?: (ingredients: IngredientEntry[]) => Promise<void>;
 };
 
 // Parse time from instruction text (e.g., "10 minutes", "1 hour", "30 seconds")
@@ -56,7 +62,14 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-export default function CookingMode({ instructions, onClose, recipeTitle }: CookingModeProps) {
+export default function CookingMode({
+  instructions,
+  onClose,
+  recipeTitle,
+  ingredients,
+  inventory,
+  onDeductIngredients
+}: CookingModeProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
@@ -66,7 +79,12 @@ export default function CookingMode({ instructions, onClose, recipeTitle }: Cook
   const [timerRunning, setTimerRunning] = useState(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Inventory deduction state
+  const [isDeducting, setIsDeducting] = useState(false);
+  const [hasDeducted, setHasDeducted] = useState(false);
+
   const progress = instructions.length > 0 ? (completedSteps.size / instructions.length) * 100 : 0;
+  const isFullyComplete = progress === 100;
 
   // Clean up timer on unmount or when step changes
   useEffect(() => {
@@ -164,6 +182,10 @@ export default function CookingMode({ instructions, onClose, recipeTitle }: Cook
     } else {
       newCompleted.add(currentStep);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Auto-advance to next step when marking as complete
+      if (currentStep < instructions.length - 1) {
+        setCurrentStep(currentStep + 1);
+      }
     }
     setCompletedSteps(newCompleted);
   };
@@ -171,6 +193,51 @@ export default function CookingMode({ instructions, onClose, recipeTitle }: Cook
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onClose();
+  };
+
+  const handleDeductIngredients = async () => {
+    if (!onDeductIngredients || !ingredients || ingredients.length === 0) {
+      Alert.alert('No Ingredients', 'No ingredients available to deduct.');
+      return;
+    }
+
+    if (hasDeducted) {
+      Alert.alert(
+        'Already Deducted',
+        'Ingredients have already been deducted. Would you like to deduct again?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Deduct Again',
+            onPress: async () => {
+              await performDeduction();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    await performDeduction();
+  };
+
+  const performDeduction = async () => {
+    setIsDeducting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      if (onDeductIngredients && ingredients) {
+        await onDeductIngredients(ingredients);
+        setHasDeducted(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.error('Error deducting ingredients:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Error', 'Failed to deduct ingredients from pantry.');
+    } finally {
+      setIsDeducting(false);
+    }
   };
 
   const isStepComplete = completedSteps.has(currentStep);
@@ -351,6 +418,36 @@ export default function CookingMode({ instructions, onClose, recipeTitle }: Cook
             entering={FadeInDown.duration(500).springify()}
           >
             <Text style={styles.completionText}>🎉 All steps completed!</Text>
+          </Animated.View>
+        )}
+
+        {/* Deduct Ingredients Button - Show when 100% complete and on last step */}
+        {isFullyComplete && isLastStep && onDeductIngredients && ingredients && (
+          <Animated.View
+            style={styles.deductButtonContainer}
+            entering={FadeInDown.delay(300).duration(500).springify()}
+          >
+            <TouchableOpacity
+              style={[
+                styles.deductButton,
+                hasDeducted && styles.deductButtonSuccess,
+                isDeducting && styles.deductButtonDisabled,
+              ]}
+              onPress={handleDeductIngredients}
+              disabled={isDeducting}
+              activeOpacity={0.8}
+            >
+              {isDeducting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Package size={22} color="#fff" />
+                  <Text style={styles.deductButtonText}>
+                    {hasDeducted ? '✓ Ingredients Deducted' : 'Deduct from Pantry'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           </Animated.View>
         )}
       </LinearGradient>
@@ -634,6 +731,39 @@ const styles = StyleSheet.create({
   },
   completionText: {
     fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  deductButtonContainer: {
+    position: 'absolute',
+    bottom: 180,
+    left: 20,
+    right: 20,
+  },
+  deductButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0284c7',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 10,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  deductButtonSuccess: {
+    backgroundColor: '#10b981',
+    shadowColor: '#10b981',
+  },
+  deductButtonDisabled: {
+    opacity: 0.6,
+  },
+  deductButtonText: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#fff',
   },

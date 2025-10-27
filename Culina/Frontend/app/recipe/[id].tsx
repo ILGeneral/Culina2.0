@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { useInventory } from "@/hooks/useInventory";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -118,6 +119,9 @@ export default function RecipeDetailsScreen() {
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
 
+  // Use inventory hook for deduction
+  const { inventory, updateIngredient, deleteIngredient } = useInventory();
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
@@ -194,6 +198,96 @@ export default function RecipeDetailsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setCookingMode(true);
   };
+
+  // Parse ingredient quantity from string
+  const parseIngredientQuantity = (ingredientEntry: IngredientEntry): { name: string; quantity: number } => {
+    let ingredientStr = '';
+
+    if (typeof ingredientEntry === 'string') {
+      ingredientStr = ingredientEntry;
+    } else {
+      // If it's an object, construct the string
+      const qty = ingredientEntry.qty || '';
+      const unit = ingredientEntry.unit || '';
+      const name = ingredientEntry.name || '';
+      ingredientStr = `${name} ${qty} ${unit}`.trim();
+    }
+
+    // Extract numbers from the beginning of the string
+    const match = ingredientStr.match(/^([\d./]+)\s*([a-zA-Z]*)\s+(.+)$/);
+    if (match) {
+      const [, numStr, , name] = match;
+
+      // Handle fractions like "1/2"
+      let quantity = 1;
+      if (numStr.includes('/')) {
+        const [numerator, denominator] = numStr.split('/').map(Number);
+        quantity = numerator / denominator;
+      } else {
+        quantity = parseFloat(numStr);
+      }
+
+      return { name: name.trim(), quantity: isNaN(quantity) ? 1 : quantity };
+    }
+
+    // If no quantity found, assume 1
+    return { name: ingredientStr.trim(), quantity: 1 };
+  };
+
+  // Handle ingredient deduction
+  const handleDeductIngredients = useCallback(async (ingredients: IngredientEntry[]) => {
+    let deductedCount = 0;
+    let errors: string[] = [];
+
+    try {
+      for (const recipeIngredient of ingredients) {
+        const { name: ingredientName, quantity: recipeQuantity } = parseIngredientQuantity(recipeIngredient);
+
+        // Find matching ingredient in inventory (fuzzy match)
+        const matchedInventoryItem = inventory.find((item) =>
+          item.name.toLowerCase().includes(ingredientName.toLowerCase()) ||
+          ingredientName.toLowerCase().includes(item.name.toLowerCase())
+        );
+
+        if (matchedInventoryItem && matchedInventoryItem.id) {
+          try {
+            const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
+
+            if (newQuantity === 0) {
+              // Delete the ingredient if quantity reaches 0
+              await deleteIngredient(matchedInventoryItem.id);
+            } else {
+              // Update the ingredient quantity
+              await updateIngredient(matchedInventoryItem.id, { quantity: newQuantity });
+            }
+            deductedCount++;
+          } catch (err) {
+            errors.push(`${matchedInventoryItem.name}`);
+            console.error(`Error updating ${matchedInventoryItem.name}:`, err);
+          }
+        }
+      }
+
+      if (deductedCount > 0) {
+        Alert.alert(
+          'Ingredients Deducted!',
+          `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.${
+            errors.length > 0 ? `\n\nSome ingredients couldn't be updated: ${errors.join(', ')}` : ''
+          }`,
+          [{ text: 'Great!' }]
+        );
+      } else {
+        Alert.alert(
+          'No Matches Found',
+          'No matching ingredients found in your pantry to deduct.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (err) {
+      console.error('Error deducting ingredients:', err);
+      throw err;
+    }
+  }, [inventory, updateIngredient, deleteIngredient]);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -482,6 +576,9 @@ export default function RecipeDetailsScreen() {
             instructions={recipe.instructions}
             recipeTitle={recipe.title}
             onClose={() => setCookingMode(false)}
+            ingredients={recipe.ingredients}
+            inventory={inventory}
+            onDeductIngredients={handleDeductIngredients}
           />
         )}
       </Modal>
