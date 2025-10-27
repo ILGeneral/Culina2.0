@@ -189,74 +189,65 @@ Your personality when creating recipes:
 
 Create as many different and varied recipes as possible using ONLY the ingredients available.
 
-CRITICAL INVENTORY CONSTRAINT:
-You can ONLY use these ingredients (nothing else):
-${availableIngredients.map(ing => `- ${ing}`).join('\n')}
+AVAILABLE INGREDIENTS:
+${availableIngredients.join(', ')}
 
-DO NOT include ANY ingredients not in this list above. Every ingredient in your recipes MUST come from this list.
-
-RECIPE VARIETY REQUIREMENTS:
-- Generate multiple unique recipes (aim for 5-10 if possible based on available ingredients)
-- Each recipe MUST be significantly different from the others - different cuisines, cooking methods, flavor profiles
-- DO NOT create duplicate or very similar recipes (e.g., don't make "Tomato Pasta" and "Pasta with Tomatoes")
-- Maximize variety in cooking techniques (stir-fry, roast, grill, sauté, bake, steam, etc.)
-- Vary the main ingredients across recipes
-
-DIETARY RESTRICTIONS:
+DIETARY REQUIREMENTS:
 ${dietInstructions}
 ${religiousInstructions}
-${caloriePlan !== 'none' ? `- Target calorie goal per day: ${caloriePlan} calories` : '- No specific calorie restrictions'}
-${allergies.length > 0 ? `- STRICTLY AVOID these allergens: ${allergyText} (do NOT include in any form)` : '- No known allergies'}
+- Allergies: ${allergyText}
+- Calorie Plan: ${caloriePlan}
 
-DESCRIPTION GUIDELINES (speak as Culina):
-- Write 1-2 sentences that make the dish sound delicious and approachable
-- Be enthusiastic but natural (e.g., "This cozy dish brings together...", "A quick and flavorful meal that...")
-- Mention what makes it special or when it's perfect to make
-- Keep it friendly and conversational, not overly formal
+CRITICAL RULES - MUST FOLLOW:
+1. Use ONLY ingredients from the available list - DO NOT add or suggest ANY ingredients not listed
+2. Each recipe MUST use different combinations of available ingredients
+3. Each recipe MUST have a unique cooking style, cuisine, or approach
+4. STRICTLY respect all dietary restrictions and allergies
+5. If dietary restriction forbids an ingredient, NEVER use it even if available
 
-INSTRUCTIONS GUIDELINES (speak as Culina):
-- Be PRECISE and INFORMATIVE - tell exactly what to do with each ingredient
-- Specify cooking techniques clearly (dice, mince, sauté, simmer, etc.)
-- Include temperatures, times, and visual cues when important
-- Be encouraging and supportive ("Don't worry if...", "This is where the magic happens!")
-- Use second person ("you") to make it personal and direct
-- Break down complex steps into clear actions
-- Include helpful tips naturally within steps
-- Make users feel confident they can do this!
-
-Example good instruction: "Heat 2 tablespoons of olive oil in a large skillet over medium heat. Add your diced onions and cook for 3-4 minutes until they're soft and fragrant. You'll know they're ready when they turn translucent! 🧅"
-
-Return ONLY valid JSON in this EXACT format (no additional text).
-Every ingredient must be an object with separate fields: name as a string, quantity as a number,
-and unit as a string or null if not applicable:
+REQUIRED JSON FORMAT (return ONLY valid JSON, no other text):
 {
   "recipes": [
     {
-      "title": "Recipe Name Here",
-      "description": "Brief, enthusiastic description as Culina (1-2 sentences)",
+      "title": "Recipe name with emoji",
+      "description": "One engaging sentence about the dish",
+      "prepTime": "X mins",
+      "cookTime": "X mins",
+      "servings": 4,
+      "difficulty": "Easy",
+      "calories": 250,
+      "tags": ["tag1", "tag2"],
       "ingredients": [
         {
-          "name": "Ingredient name",
-          "quantity": 1.5,
+          "name": "ingredient name exactly as listed in available ingredients",
+          "qty": "2",
           "unit": "cups"
         }
       ],
-      "instructions": ["Precise, informative, and encouraging step-by-step instructions"],
-      "servings": 2,
-      "estimatedCalories": 450
+      "instructions": [
+        "Step 1...",
+        "Step 2..."
+      ]
     }
   ]
 }
 
-REMINDER: Every single ingredient in your recipes must be from the available ingredients list shown above. Make me proud! 🍳
-`.trim();
+CRITICAL JSON FORMATTING RULES:
+- "qty" field must ALWAYS be a STRING in quotes (correct: "2", "1", "0.5" | wrong: 2, 1 cup)
+- "unit" field must ALWAYS be a STRING in quotes (correct: "cups", "tablespoons" | wrong: cups without quotes)
+- "servings" must be a NUMBER without quotes
+- "calories" must be a NUMBER without quotes
+- ALL other fields must be STRINGS in quotes
+- Never write unquoted text after numbers (wrong: 1 cup | correct: "qty": "1", "unit": "cup")
 
-    const fetch = (await import('node-fetch')).default;
+Generate 3-5 diverse recipes that showcase different cooking methods, flavors, and meal types (breakfast, lunch, dinner, snacks). Be creative but ONLY use available ingredients!`;
+
+    console.log('Calling Groq API...');
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY?.trim()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -271,7 +262,16 @@ REMINDER: Every single ingredient in your recipes must be from the available ing
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
       console.error('Groq API error:', errorText);
-      throw new Error('Groq request failed');
+      console.error('Groq response status:', groqResponse.status);
+      
+      // Try to parse the error to get more details
+      try {
+        const errorJson = JSON.parse(errorText);
+        const errorMessage = errorJson?.error?.message || errorText;
+        throw new Error(`Groq API error: ${errorMessage}`);
+      } catch (parseError) {
+        throw new Error(`Groq API error (${groqResponse.status}): ${errorText}`);
+      }
     }
 
     const json = await groqResponse.json();

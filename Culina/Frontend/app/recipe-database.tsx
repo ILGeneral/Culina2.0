@@ -352,44 +352,66 @@ export default function RecipeDatabaseScreen() {
       try {
         setError(null);
 
-        if (!SPOONACULAR_API_KEY) {
-          throw new Error("Missing Spoonacular API key");
+        let spoonacularRecipes: RawSpoonacularRecipe[] = [];
+        let mealDbMeals: RawMeal[] = [];
+        let spoonacularError: string | null = null;
+
+        // Try to fetch from both APIs, but don't fail if one fails
+        try {
+          if (SPOONACULAR_API_KEY) {
+            const params = new URLSearchParams({
+              number: "12",
+              apiKey: SPOONACULAR_API_KEY,
+            });
+
+            const spoonacularResponse = await fetch(`${SPOONACULAR_RANDOM_ENDPOINT}?${params.toString()}`);
+
+            if (spoonacularResponse.ok) {
+              const spoonacularPayload = await spoonacularResponse.json();
+              spoonacularRecipes = Array.isArray(spoonacularPayload?.recipes)
+                ? spoonacularPayload.recipes
+                : [];
+            } else if (spoonacularResponse.status === 402) {
+              spoonacularError = "Spoonacular API quota exceeded. Showing recipes from TheMealDB.";
+              console.warn("Spoonacular API quota exceeded (402)");
+            } else {
+              spoonacularError = `Spoonacular API error (${spoonacularResponse.status})`;
+              console.warn(`Spoonacular API failed with status ${spoonacularResponse.status}`);
+            }
+          }
+        } catch (err) {
+          console.warn("Spoonacular fetch failed:", err);
+          spoonacularError = "Spoonacular temporarily unavailable.";
         }
 
-        const params = new URLSearchParams({
-          number: "12",
-          apiKey: SPOONACULAR_API_KEY,
-        });
-
-        const [spoonacularResponse, mealDbResponse] = await Promise.all([
-          fetch(`${SPOONACULAR_RANDOM_ENDPOINT}?${params.toString()}`),
-          fetch(THEMEALDB_SEARCH_ENDPOINT),
-        ]);
-
-        if (!spoonacularResponse.ok) {
-          throw new Error(`Spoonacular request failed with status ${spoonacularResponse.status}`);
+        // Always try to fetch from TheMealDB
+        try {
+          const mealDbResponse = await fetch(THEMEALDB_SEARCH_ENDPOINT);
+          if (mealDbResponse.ok) {
+            const mealDbPayload = await mealDbResponse.json();
+            mealDbMeals = Array.isArray(mealDbPayload?.meals) ? mealDbPayload.meals : [];
+          } else {
+            console.warn(`TheMealDB API failed with status ${mealDbResponse.status}`);
+          }
+        } catch (err) {
+          console.warn("TheMealDB fetch failed:", err);
         }
-
-        if (!mealDbResponse.ok) {
-          throw new Error(`TheMealDB request failed with status ${mealDbResponse.status}`);
-        }
-
-        const [spoonacularPayload, mealDbPayload] = await Promise.all([
-          spoonacularResponse.json(),
-          mealDbResponse.json(),
-        ]);
-
-        const spoonacularRecipes: RawSpoonacularRecipe[] = Array.isArray(spoonacularPayload?.recipes)
-          ? spoonacularPayload.recipes
-          : [];
-        const mealDbMeals: RawMeal[] = Array.isArray(mealDbPayload?.meals) ? mealDbPayload.meals : [];
 
         const combined = [...spoonacularRecipes.map(mapRecipe), ...mealDbMeals.map(mapMeal)];
 
         if (!combined.length) {
           setRecipes([]);
-          setError("No recipes available right now. Please try again later.");
+          setError(
+            spoonacularError
+              ? `${spoonacularError} Unable to fetch recipes from TheMealDB as well.`
+              : "No recipes available right now. Please try again later."
+          );
           return;
+        }
+
+        // Show a warning if Spoonacular failed but we have TheMealDB recipes
+        if (spoonacularError && mealDbMeals.length > 0) {
+          console.info(spoonacularError);
         }
 
         const ranked = inventory.length > 0 ? rankRecipesByInventory(combined, inventory) : combined;

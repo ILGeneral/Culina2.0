@@ -454,7 +454,7 @@ export default function InventoryScreen() {
             "Content-Type": "image/jpeg",
             "Authorization": `Bearer ${await user.getIdToken()}`,
           },
-          body: binary,
+          body: new Blob([binary.buffer as ArrayBuffer], { type: 'image/jpeg' }),
           signal: controller.signal,
         });
 
@@ -467,7 +467,7 @@ export default function InventoryScreen() {
 
         const uploadResult = await uploadRes.json();
         const blobUrl = uploadResult.url;
-        console.log("✅ Uploaded to Vercel Blob:", blobUrl);
+        console.log("Uploaded to Vercel Blob:", blobUrl);
 
         // Step 4: Send blob URL to Clarifai
         try {
@@ -489,14 +489,14 @@ export default function InventoryScreen() {
         }
       } catch (uploadError) {
         clearTimeout(timeout);
-        if (uploadError.name === 'AbortError') {
+        if (uploadError instanceof Error && uploadError.name === 'AbortError') {
           throw new Error("Upload timed out after 30 seconds. Please check your connection and try again.");
         }
         throw uploadError;
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("❌ Upload error:", errorMessage);
+      console.error("Upload error:", errorMessage);
       Alert.alert("Upload failed", errorMessage);
     } finally {
       setUploading(false);
@@ -530,7 +530,7 @@ export default function InventoryScreen() {
       return Alert.alert("Invalid Quantity", "Please enter a valid positive number");
     }
 
-    if (!unit || unit === "") {
+    if (!unit) {
       return Alert.alert("Missing Unit", "Please select a unit of measurement");
     }
 

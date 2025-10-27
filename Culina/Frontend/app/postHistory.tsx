@@ -323,8 +323,8 @@ export default function PostHistoryScreen() {
           </Text>
           <Text style={styles.emptySecondary}>
             {activeTab === 'AI'
-              ? 'Share your AI-generated recipes with the community to see them here.'
-              : 'Share your human-made recipes with the community to see them here.'}
+              ? 'Share your AI-generated recipes with the community to see them here!'
+              : 'Share your own recipes with the community to see them here!'}
           </Text>
         </View>
       ) : (
