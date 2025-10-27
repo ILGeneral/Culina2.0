@@ -1,11 +1,12 @@
 import { put } from "@vercel/blob";
 import { verifyAuthToken } from '../lib/firebase-admin.js';
 import { uploadLimiter } from '../lib/rate-limiter.js';
+import busboy from 'busboy';
 
 export const config = {
   api: {
     bodyParser: false, // Disable default body parser
-    sizeLimit: "5mb", // Limit payload to 5MB
+    sizeLimit: "10mb", // Increased for FormData overhead
   },
 };
 
@@ -43,16 +44,43 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Read raw binary data from the request stream
-    const chunks = [];
-    
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
-    
-    const imageBuffer = Buffer.concat(chunks);
-    
-    if (!imageBuffer || imageBuffer.length === 0) {
+    // Parse FormData using busboy
+    const bb = busboy({ headers: req.headers });
+    let imageBuffer = null;
+    let imageReceived = false;
+
+    const parsePromise = new Promise((resolve, reject) => {
+      bb.on('file', (fieldname, file, info) => {
+        const { filename, encoding, mimeType } = info;
+        console.log(`📦 Receiving file: ${filename}, type: ${mimeType}`);
+
+        const chunks = [];
+
+        file.on('data', (data) => {
+          chunks.push(data);
+        });
+
+        file.on('end', () => {
+          imageBuffer = Buffer.concat(chunks);
+          imageReceived = true;
+          console.log(`📦 File ${filename} received: ${imageBuffer.length} bytes`);
+        });
+      });
+
+      bb.on('finish', () => {
+        resolve();
+      });
+
+      bb.on('error', (err) => {
+        reject(err);
+      });
+
+      req.pipe(bb);
+    });
+
+    await parsePromise;
+
+    if (!imageReceived || !imageBuffer || imageBuffer.length === 0) {
       return res.status(400).json({ error: "No image data provided" });
     }
 
@@ -61,7 +89,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Image too large. Maximum 5MB." });
     }
 
-    console.log(`📦 Received image buffer of ${imageBuffer.length} bytes from user ${userInfo.uid}`);
+    console.log(`📦 Processing image buffer of ${imageBuffer.length} bytes from user ${userInfo.uid}`);
 
     // ✅ SECURITY FIX: Include user ID in filename to prevent collisions and track ownership
     const filename = `ingredients/${userInfo.uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;

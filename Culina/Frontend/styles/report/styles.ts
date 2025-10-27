@@ -132,3 +132,5 @@ export const reportStyles = StyleSheet.create({
     color: "#334155",
   },
 });
+
+export default reportStyles;

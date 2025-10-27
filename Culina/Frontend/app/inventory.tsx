@@ -411,50 +411,35 @@ export default function InventoryScreen() {
 
       console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
 
-      // Step 1.5: Check file size BEFORE reading
+      // Step 1.5: Check file size
       const fileInfo = await FileSystem.getInfoAsync(manipResult.uri);
-      if (fileInfo.exists && fileInfo.size > 5 * 1024 * 1024) {
-        throw new Error("Image too large. Maximum 5MB allowed. Please try a smaller photo.");
+      if (fileInfo.exists && 'size' in fileInfo) {
+        if (fileInfo.size > 5 * 1024 * 1024) {
+          throw new Error("Image too large. Maximum 5MB allowed. Please try a smaller photo.");
+        }
+        const estimatedSizeKB = Math.round(fileInfo.size / 1024);
+        console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
       }
 
-      // Step 2: Read compressed image as binary
-      let fileData: string;
-      try {
-        fileData = await FileSystem.readAsStringAsync(manipResult.uri, {
-          encoding: "base64",
-        });
-      } catch (readErr) {
-        throw new Error("Failed to read image file. Please try again.");
-      }
-
-      if (!fileData) {
-        throw new Error("Failed to read image file");
-      }
-
-      // Check file size (base64 string length / 1.37 ≈ binary size in bytes)
-      const estimatedSizeKB = Math.round((fileData.length / 1.37) / 1024);
-      console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
-
-      // Safe base64 decoding with error handling
-      let binary: Uint8Array;
-      try {
-        binary = Uint8Array.from(atob(fileData), (c) => c.charCodeAt(0));
-      } catch (decodeErr) {
-        throw new Error("Image encoding failed. Please try a different photo.");
-      }
-
-      // Step 3: Upload to Vercel Blob via backend with timeout
+      // Step 2: Upload to Vercel Blob via backend with timeout
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
       try {
+        // Create FormData for React Native compatibility
+        const formData = new FormData();
+        formData.append('image', {
+          uri: manipResult.uri,
+          type: 'image/jpeg',
+          name: 'ingredient.jpg',
+        } as any);
+
         const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
           method: "POST",
           headers: {
-            "Content-Type": "image/jpeg",
             "Authorization": `Bearer ${await user.getIdToken()}`,
           },
-          body: new Blob([binary.buffer as ArrayBuffer], { type: 'image/jpeg' }),
+          body: formData,
           signal: controller.signal,
         });
 
