@@ -9,7 +9,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
   SafeAreaView,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -19,30 +18,7 @@ import { functions, auth } from "@/lib/firebaseConfig";
 import Constants from "expo-constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import AnimatedPageWrapper from "../components/AnimatedPageWrapper";
-import { reportStyles } from "@/styles/report/styles";
-
-const styles = StyleSheet.create({
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoContainer: {
-    backgroundColor: "#f1f5f9",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: "#475569",
-    marginBottom: 8,
-  },
-  infoLabelText: {
-    fontWeight: '600',
-    color: "#334155",
-  },
-});
+import { reportStyles as styles } from "@/styles/report/styles";
 
 export default function ReportIssueScreen() {
   const router = useRouter();

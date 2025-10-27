@@ -17,6 +17,7 @@ import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp } 
 import { db, auth } from "@/lib/firebaseConfig";
 import Background from "@/components/Background";
 import { ArrowLeft, Send } from "lucide-react-native";
+import { commentsStyles as styles } from "@/styles/recipe/commentsStyles";
 
 interface Comment {
   id: string;
@@ -172,104 +173,3 @@ export default function RecipeCommentsScreen() {
     </Background>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    paddingTop: 8,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(15,23,42,0.06)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 12,
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  headerSpacer: { width: 40 },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: { marginTop: 12, color: "#475569" },
-  listContent: { paddingHorizontal: 20, paddingBottom: 24 },
-  commentCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  commentAuthor: {
-    fontWeight: "700",
-    color: "#0f172a",
-    marginBottom: 4,
-  },
-  commentDate: {
-    fontSize: 12,
-    color: "#64748b",
-    marginBottom: 8,
-  },
-  commentText: {
-    fontSize: 15,
-    color: "#0f172a",
-    lineHeight: 20,
-  },
-  emptyState: { alignItems: "center", padding: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: "700", color: "#0f172a" },
-  emptySubtitle: { fontSize: 14, color: "#64748b", marginTop: 8 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    padding: 20,
-    gap: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(15,23,42,0.08)",
-    backgroundColor: "rgba(248,250,252,0.95)",
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-    color: "#0f172a",
-    fontSize: 15,
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  sendButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#128AFA",
-  },
-  sendDisabled: {
-    backgroundColor: "rgba(18,138,250,0.45)",
-  },
-});

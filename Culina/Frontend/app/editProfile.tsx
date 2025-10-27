@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Modal,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
@@ -15,8 +16,9 @@ import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { updateProfile, User } from "firebase/auth";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system";
-import { Camera } from "lucide-react-native";
+import { Camera, X, Check } from "lucide-react-native";
 import Background from "@/components/Background";
 import styles from "@/styles/editProfile/styles";
 
@@ -47,6 +49,8 @@ export default function EditProfileScreen() {
   const [showAllergyList, setShowAllergyList] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [showCropPreview, setShowCropPreview] = useState(false);
 
   const toggleAllergy = (value: string) => {
     setAllergies((prev) =>
@@ -101,18 +105,44 @@ export default function EditProfileScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        allowsEditing: false,
+        quality: 1,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Immediately upload after user confirms crop in native picker
-        await uploadProfilePicture(result.assets[0].uri);
+        setSelectedImageUri(result.assets[0].uri);
+        setShowCropPreview(true);
       }
     } catch (error) {
       console.error('Error picking image:', error);
       Alert.alert('Error', 'Failed to select image.');
+    }
+  };
+
+  const handleCancelCrop = () => {
+    setSelectedImageUri(null);
+    setShowCropPreview(false);
+  };
+
+  const handleConfirmCrop = async () => {
+    if (!selectedImageUri) return;
+
+    try {
+      setShowCropPreview(false);
+
+      // Crop the image to square aspect ratio
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        selectedImageUri,
+        [{ resize: { width: 800, height: 800 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      await uploadProfilePicture(manipulatedImage.uri);
+      setSelectedImageUri(null);
+    } catch (error) {
+      console.error('Error cropping image:', error);
+      Alert.alert('Error', 'Failed to crop image.');
+      setShowCropPreview(false);
     }
   };
 
@@ -364,6 +394,46 @@ export default function EditProfileScreen() {
           <Text style={styles.saveButtonText}>{saving ? "Saving..." : "Save Changes"}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Crop Preview Modal */}
+      <Modal
+        visible={showCropPreview}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCancelCrop}
+      >
+        <View style={styles.cropModalOverlay}>
+          <View style={styles.cropModalContent}>
+            <Text style={styles.cropModalTitle}>Save Image</Text>
+
+            {selectedImageUri && (
+              <Image
+                source={{ uri: selectedImageUri }}
+                style={styles.cropPreviewImage}
+                resizeMode="cover"
+              />
+            )}
+
+            <View style={styles.imageActionButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancelCrop}
+              >
+                <X size={20} color="#374151" />
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleConfirmCrop}
+              >
+                <Check size={20} color="#fff" />
+                <Text style={styles.confirmButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Background>
   );
 }

@@ -1,6 +1,11 @@
 import { StyleSheet } from "react-native";
 
 export const reportStyles = StyleSheet.create({
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
