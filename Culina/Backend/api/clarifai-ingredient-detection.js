@@ -36,7 +36,13 @@ async function callClarifai({ url, base64 }) {
     throw new Error("A valid image url or base64 string is required");
   }
 
-  const imagePayload = base64 ? { base64 } : { url };
+  // Build image payload - only include the field that has a value
+  const imagePayload = {};
+  if (base64) {
+    imagePayload.base64 = base64;
+  } else if (url) {
+    imagePayload.url = url;
+  }
 
   const model = getClarifaiModel();
 
@@ -45,9 +51,7 @@ async function callClarifai({ url, base64 }) {
     inputs: [
       {
         data: {
-          image: {
-            ...imagePayload,
-          },
+          image: imagePayload,
         },
       },
     ],
