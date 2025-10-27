@@ -49,7 +49,7 @@ export function useInventory() {
     const timer = setTimeout(() => {
       if (!isMounted) return;
 
-      const invRef = collection(db, "users", userId, "inventory");
+      const invRef = collection(db, "users", userId, "ingredients");
       const q = query(invRef, orderBy("name", "asc"));
 
       unsubscribe = onSnapshot(
@@ -90,7 +90,7 @@ export function useInventory() {
   const addIngredient = async (item: Omit<Ingredient, "id">) => {
     if (!userId) throw new Error("Not authenticated");
 
-    const ref = collection(db, "users", userId, "inventory");
+    const ref = collection(db, "users", userId, "ingredients");
     await addDoc(ref, {
       ...item,
       createdAt: new Date(),
@@ -103,7 +103,7 @@ export function useInventory() {
     if (!userId) throw new Error("Not authenticated");
 
     console.log(`[useInventory] Updating ingredient ${id} with:`, updates);
-    const ref = doc(db, "users", userId, "inventory", id);
+    const ref = doc(db, "users", userId, "ingredients", id);
     try {
       await updateDoc(ref, {
         ...updates,
@@ -121,7 +121,7 @@ export function useInventory() {
     if (!userId) throw new Error("Not authenticated");
 
     console.log(`[useInventory] Deleting ingredient ${id}`);
-    const ref = doc(db, "users", userId, "inventory", id);
+    const ref = doc(db, "users", userId, "ingredients", id);
     try {
       await deleteDoc(ref);
       console.log(`[useInventory] Successfully deleted ingredient ${id}`);

@@ -235,6 +235,8 @@ REQUIRED JSON FORMAT (return ONLY valid JSON, no other text):
 CRITICAL JSON FORMATTING RULES:
 - "qty" field must ALWAYS be a STRING in quotes (correct: "2", "1", "0.5" | wrong: 2, 1 cup)
 - "unit" field must ALWAYS be a STRING in quotes (correct: "cups", "tablespoons" | wrong: cups without quotes)
+- "unit" field must ONLY use these allowed values: "g", "kg", "cups", "tbsp", "tsp", "ml", "l", "oz", "lb", "pieces", "slices", "cloves", "bunches", "cans", "bottles"
+- DO NOT use any other units like "heads", "juice", "whole", "medium", "large", etc.
 - "servings" must be a NUMBER without quotes
 - "calories" must be a NUMBER without quotes
 - ALL other fields must be STRINGS in quotes
@@ -304,12 +306,18 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
       inventory.map(item => (item.name || item.ingredient || '').toLowerCase().trim())
     );
 
+    // Define allowed unit types
+    const allowedUnits = new Set([
+      'g', 'kg', 'cups', 'tbsp', 'tsp', 'ml', 'l', 'oz', 'lb',
+      'pieces', 'slices', 'cloves', 'bunches', 'cans', 'bottles', ''
+    ]);
+
     // Get forbidden ingredients for the user's diet and religion
     const forbiddenIngredients = dietRestriction ? dietRestriction.forbidden : [];
     const religiousForbidden = religiousRestriction ? religiousRestriction.forbidden : [];
     const allForbidden = [...forbiddenIngredients, ...religiousForbidden];
 
-    // Validate each recipe has required fields AND uses only available ingredients
+    // Validate and fix units in recipes
     const validRecipes = recipes.filter(recipe => {
       // Check basic structure
       const hasValidStructure = recipe.title &&
@@ -323,6 +331,63 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
         console.log(`Recipe "${recipe.title}" failed structure validation`);
         return false;
       }
+
+      // Fix/validate ingredient units
+      recipe.ingredients = recipe.ingredients.map(ing => {
+        const unit = (ing.unit || '').toLowerCase().trim();
+
+        // If unit is not in allowed list, try to map it or remove it
+        if (!allowedUnits.has(unit)) {
+          console.log(`Recipe "${recipe.title}": Invalid unit "${unit}" for ingredient "${ing.name}". Attempting to fix...`);
+
+          // Try to map common variations to allowed units
+          const unitMappings = {
+            'head': 'pieces',
+            'heads': 'pieces',
+            'whole': 'pieces',
+            'medium': 'pieces',
+            'large': 'pieces',
+            'small': 'pieces',
+            'tablespoons': 'tbsp',
+            'tablespoon': 'tbsp',
+            'teaspoons': 'tsp',
+            'teaspoon': 'tsp',
+            'cup': 'cups',
+            'grams': 'g',
+            'gram': 'g',
+            'kilograms': 'kg',
+            'kilogram': 'kg',
+            'ounces': 'oz',
+            'ounce': 'oz',
+            'pounds': 'lb',
+            'pound': 'lb',
+            'milliliters': 'ml',
+            'milliliter': 'ml',
+            'liters': 'l',
+            'liter': 'l',
+            'slice': 'slices',
+            'clove': 'cloves',
+            'bunch': 'bunches',
+            'can': 'cans',
+            'bottle': 'bottles',
+            'piece': 'pieces',
+            'juice': 'ml',
+            'zest': 'tsp',
+            'pinch': 'tsp',
+            'dash': 'tsp',
+          };
+
+          const mappedUnit = unitMappings[unit] || 'pieces';
+          console.log(`Mapped "${unit}" to "${mappedUnit}"`);
+
+          return {
+            ...ing,
+            unit: mappedUnit
+          };
+        }
+
+        return ing;
+      });
 
       // Check if all ingredients are in inventory
       const missingIngredients = recipe.ingredients.filter(ing => {

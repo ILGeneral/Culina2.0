@@ -202,25 +202,44 @@ export default function RecipeDetailsScreen() {
 
   // Parse ingredient quantity from string using the robust ingredientMatcher utility
   const parseIngredientQuantity = (ingredientEntry: IngredientEntry): { name: string; quantity: number } => {
-    let ingredientStr = '';
+    let ingredientName = '';
+    let quantity = 1;
 
     if (typeof ingredientEntry === 'string') {
-      ingredientStr = ingredientEntry;
+      // If it's a string, use parseIngredient to extract everything
+      const parsed = parseIngredient(ingredientEntry);
+      ingredientName = parsed.name.trim();
+      quantity = parsed.quantity || 1;
     } else {
-      // If it's an object with name-qty-unit structure
-      const name = ingredientEntry.name || '';
-      const qty = ingredientEntry.qty || '';
-      const unit = ingredientEntry.unit || '';
-      // Reconstruct the string in a format parseIngredient can handle
-      ingredientStr = qty ? `${qty} ${unit} ${name}`.trim() : name;
+      // If it's an object, the name field IS the ingredient name
+      // The qty and unit are separate fields
+      ingredientName = (ingredientEntry.name || '').trim();
+      const qtyStr = ingredientEntry.qty || '';
+
+      // Parse quantity from the qty string
+      if (qtyStr) {
+        // Handle fractions like "1/2" or "1 1/2"
+        const fractionMatch = qtyStr.match(/([\d.]+)?\s*\/\s*([\d.]+)/);
+        if (fractionMatch) {
+          const numerator = parseFloat(fractionMatch[1] || '1');
+          const denominator = parseFloat(fractionMatch[2]);
+          quantity = numerator / denominator;
+        } else {
+          // Handle regular numbers
+          const numbers = qtyStr.match(/[\d.]+/g);
+          if (numbers) {
+            quantity = numbers.reduce((sum, num) => sum + parseFloat(num), 0);
+          }
+        }
+      }
     }
 
-    // Use the robust parseIngredient function from ingredientMatcher
-    const parsed = parseIngredient(ingredientStr);
+    console.log(`[parseIngredientQuantity] Input:`, ingredientEntry);
+    console.log(`[parseIngredientQuantity] Extracted name: "${ingredientName}", quantity: ${quantity}`);
 
     return {
-      name: parsed.name.trim(),
-      quantity: parsed.quantity || 1
+      name: ingredientName,
+      quantity: quantity || 1
     };
   };
 
