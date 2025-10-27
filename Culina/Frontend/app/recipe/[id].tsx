@@ -39,6 +39,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useInventory } from "@/hooks/useInventory";
+import { parseIngredient } from "@/lib/ingredientMatcher";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -199,87 +200,139 @@ export default function RecipeDetailsScreen() {
     setCookingMode(true);
   };
 
-  // Parse ingredient quantity from string
+  // Parse ingredient quantity from string using the robust ingredientMatcher utility
   const parseIngredientQuantity = (ingredientEntry: IngredientEntry): { name: string; quantity: number } => {
     let ingredientStr = '';
 
     if (typeof ingredientEntry === 'string') {
       ingredientStr = ingredientEntry;
     } else {
-      // If it's an object, construct the string
+      // If it's an object with name-qty-unit structure
+      const name = ingredientEntry.name || '';
       const qty = ingredientEntry.qty || '';
       const unit = ingredientEntry.unit || '';
-      const name = ingredientEntry.name || '';
-      ingredientStr = `${name} ${qty} ${unit}`.trim();
+      // Reconstruct the string in a format parseIngredient can handle
+      ingredientStr = qty ? `${qty} ${unit} ${name}`.trim() : name;
     }
 
-    // Extract numbers from the beginning of the string
-    const match = ingredientStr.match(/^([\d./]+)\s*([a-zA-Z]*)\s+(.+)$/);
-    if (match) {
-      const [, numStr, , name] = match;
+    // Use the robust parseIngredient function from ingredientMatcher
+    const parsed = parseIngredient(ingredientStr);
 
-      // Handle fractions like "1/2"
-      let quantity = 1;
-      if (numStr.includes('/')) {
-        const [numerator, denominator] = numStr.split('/').map(Number);
-        quantity = numerator / denominator;
-      } else {
-        quantity = parseFloat(numStr);
-      }
+    return {
+      name: parsed.name.trim(),
+      quantity: parsed.quantity || 1
+    };
+  };
 
-      return { name: name.trim(), quantity: isNaN(quantity) ? 1 : quantity };
-    }
+  // Improved fuzzy matching function
+  const findMatchingInventoryItem = (ingredientName: string) => {
+    const searchName = ingredientName.toLowerCase().trim();
 
-    // If no quantity found, assume 1
-    return { name: ingredientStr.trim(), quantity: 1 };
+    // Try exact match first
+    let match = inventory.find(item => item.name.toLowerCase().trim() === searchName);
+    if (match) return match;
+
+    // Try substring match (inventory contains recipe ingredient)
+    match = inventory.find(item => item.name.toLowerCase().includes(searchName));
+    if (match) return match;
+
+    // Try reverse substring match (recipe ingredient contains inventory)
+    match = inventory.find(item => searchName.includes(item.name.toLowerCase()));
+    if (match) return match;
+
+    // Try word-based matching (split by spaces and match any word)
+    const searchWords = searchName.split(/\s+/).filter(w => w.length > 2);
+    match = inventory.find(item => {
+      const itemWords = item.name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      return searchWords.some(sw => itemWords.some(iw =>
+        sw.includes(iw) || iw.includes(sw)
+      ));
+    });
+    if (match) return match;
+
+    return null;
   };
 
   // Handle ingredient deduction
   const handleDeductIngredients = useCallback(async (ingredients: IngredientEntry[]) => {
     let deductedCount = 0;
     let errors: string[] = [];
+    const notFoundIngredients: string[] = [];
+
+    console.log('=== Starting Ingredient Deduction ===');
+    console.log('Recipe Ingredients:', ingredients);
+    console.log('Current Inventory Items:', inventory.map(i => `${i.name} (qty: ${i.quantity})`));
 
     try {
       for (const recipeIngredient of ingredients) {
         const { name: ingredientName, quantity: recipeQuantity } = parseIngredientQuantity(recipeIngredient);
 
-        // Find matching ingredient in inventory (fuzzy match)
-        const matchedInventoryItem = inventory.find((item) =>
-          item.name.toLowerCase().includes(ingredientName.toLowerCase()) ||
-          ingredientName.toLowerCase().includes(item.name.toLowerCase())
-        );
+        console.log(`\nTrying to match: "${ingredientName}" (qty: ${recipeQuantity})`);
+
+        // Find matching ingredient in inventory
+        const matchedInventoryItem = findMatchingInventoryItem(ingredientName);
 
         if (matchedInventoryItem && matchedInventoryItem.id) {
+          console.log(`  ✓ Matched with: "${matchedInventoryItem.name}" (available: ${matchedInventoryItem.quantity})`);
+
           try {
             const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
 
+            console.log(`  → Calculating: ${matchedInventoryItem.quantity} - ${recipeQuantity} = ${newQuantity}`);
+
             if (newQuantity === 0) {
               // Delete the ingredient if quantity reaches 0
+              console.log(`  → Attempting to delete ingredient ID: ${matchedInventoryItem.id}`);
               await deleteIngredient(matchedInventoryItem.id);
+              console.log(`  ✓ Successfully deleted (quantity reached 0)`);
             } else {
               // Update the ingredient quantity
+              console.log(`  → Attempting to update ingredient ID: ${matchedInventoryItem.id} to quantity: ${newQuantity}`);
               await updateIngredient(matchedInventoryItem.id, { quantity: newQuantity });
+              console.log(`  ✓ Successfully updated to quantity: ${newQuantity}`);
             }
             deductedCount++;
+
+            // Add a small delay to ensure Firebase processes the update
+            await new Promise(resolve => setTimeout(resolve, 100));
           } catch (err) {
             errors.push(`${matchedInventoryItem.name}`);
-            console.error(`Error updating ${matchedInventoryItem.name}:`, err);
+            console.error(`  ✗ Error updating ${matchedInventoryItem.name}:`, err);
+            console.error(`  ✗ Error details:`, JSON.stringify(err, null, 2));
           }
+        } else {
+          console.log(`  ✗ No match found in inventory`);
+          notFoundIngredients.push(ingredientName);
         }
       }
 
+      console.log('\n=== Deduction Summary ===');
+      console.log(`Deducted: ${deductedCount}`);
+      console.log(`Errors: ${errors.length}`);
+      console.log(`Not Found: ${notFoundIngredients.length}`);
+
+      // Wait a moment for Firebase to propagate changes
+      console.log('Waiting for Firebase to propagate changes...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('Updated Inventory Items:', inventory.map(i => `${i.name} (qty: ${i.quantity})`));
+
       if (deductedCount > 0) {
-        Alert.alert(
-          'Ingredients Deducted!',
-          `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.${
-            errors.length > 0 ? `\n\nSome ingredients couldn't be updated: ${errors.join(', ')}` : ''
-          }`,
-          [{ text: 'Great!' }]
-        );
+        let message = `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.`;
+
+        if (notFoundIngredients.length > 0) {
+          message += `\n\nNot found in pantry:\n${notFoundIngredients.map(i => `• ${i}`).join('\n')}`;
+        }
+
+        if (errors.length > 0) {
+          message += `\n\nFailed to update:\n${errors.map(i => `• ${i}`).join('\n')}`;
+        }
+
+        Alert.alert('Ingredients Deducted!', message, [{ text: 'Great!' }]);
       } else {
         Alert.alert(
           'No Matches Found',
-          'No matching ingredients found in your pantry to deduct.',
+          `None of the recipe ingredients were found in your pantry.\n\nRecipe needs:\n${notFoundIngredients.slice(0, 5).map(i => `• ${i}`).join('\n')}${notFoundIngredients.length > 5 ? '\n...and more' : ''}`,
           [{ text: 'OK' }]
         );
       }
