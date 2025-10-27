@@ -140,9 +140,29 @@ const formatIngredientLabel = (ingredient: IngredientEntry) => {
   const parts = [normalized.name?.trim()].filter(Boolean) as string[];
   const amount = normalized.qty?.trim();
   const unit = normalized.unit?.trim();
+
   if (amount || unit) {
-    const qtyUnit = [amount, unit].filter(Boolean).join(" ");
-    parts.push(qtyUnit);
+    // Check if the unit is already included in the amount string
+    const amountLower = (amount || '').toLowerCase();
+    const unitLower = (unit || '').toLowerCase();
+
+    // Helper to check if unit is in amount (handles plural/singular)
+    const unitInAmount = (amt: string, un: string): boolean => {
+      if (amt.includes(un)) return true;
+      // Check singular/plural variants
+      if (un.endsWith('s') && amt.includes(un.slice(0, -1))) return true;
+      if (!un.endsWith('s') && amt.includes(un + 's')) return true;
+      return false;
+    };
+
+    // If unit exists and is already in the amount, don't add it again
+    if (unit && amount && unitInAmount(amountLower, unitLower)) {
+      parts.push(amount);
+    } else {
+      // Otherwise, combine them
+      const qtyUnit = [amount, unit].filter(Boolean).join(" ");
+      parts.push(qtyUnit);
+    }
   }
   return parts.join(" — ");
 };

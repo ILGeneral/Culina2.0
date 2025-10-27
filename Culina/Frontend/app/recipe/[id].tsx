@@ -566,7 +566,27 @@ export default function RecipeDetailsScreen() {
                       const ingName = normalized.name;
                       const qty = normalized.qty;
                       const unit = normalized.unit;
-                      const suffix = [qty, unit].filter(Boolean).join(" ");
+
+                      // Helper to check if unit is in qty (handles plural/singular)
+                      const unitInQty = (q: string, u: string): boolean => {
+                        if (q.includes(u)) return true;
+                        // Check singular/plural variants
+                        if (u.endsWith('s') && q.includes(u.slice(0, -1))) return true;
+                        if (!u.endsWith('s') && q.includes(u + 's')) return true;
+                        return false;
+                      };
+
+                      // Check if unit is already in qty to avoid duplication
+                      let suffix = '';
+                      if (qty && unit) {
+                        const qtyLower = qty.toLowerCase();
+                        const unitLower = unit.toLowerCase();
+                        // If unit is already in qty, just use qty
+                        suffix = unitInQty(qtyLower, unitLower) ? qty : `${qty} ${unit}`;
+                      } else {
+                        suffix = [qty, unit].filter(Boolean).join(" ");
+                      }
+
                       return (
                         <Pressable key={idx} style={styles.ingredientRow} onPress={() => toggleIngredient(idx)}>
                           <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
