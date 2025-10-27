@@ -24,6 +24,8 @@ import {
   Leaf,
   Check,
   ChefHat,
+  Share2,
+  Pencil,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import CookingMode from "@/components/CookingMode";
@@ -40,6 +42,8 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { useInventory } from "@/hooks/useInventory";
 import { parseIngredient } from "@/lib/ingredientMatcher";
+import { shareRecipe, unshareRecipe, isRecipeShared } from "@/lib/utils/shareRecipe";
+import { normalizeRecipeSource, isAISource } from "@/lib/utils/recipeSource";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -116,9 +120,11 @@ export default function RecipeDetailsScreen() {
   const [openInstructions, setOpenInstructions] = useState(true);
   const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
   const [cookingMode, setCookingMode] = useState(false);
+  const [isShared, setIsShared] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
+  const shareButtonScale = useSharedValue(1);
 
   // Use inventory hook for deduction
   const { inventory, updateIngredient, deleteIngredient } = useInventory();
@@ -147,6 +153,10 @@ export default function RecipeDetailsScreen() {
 
   const animatedSaveButtonStyle = useAnimatedStyle(() => {
     return { transform: [{ scale: saveButtonScale.value }] };
+  });
+
+  const animatedShareButtonStyle = useAnimatedStyle(() => {
+    return { transform: [{ scale: shareButtonScale.value }] };
   });
 
   const handleSavePress = async () => {
@@ -361,6 +371,20 @@ export default function RecipeDetailsScreen() {
     }
   }, [inventory, updateIngredient, deleteIngredient]);
 
+  // Check if recipe is shared
+  useEffect(() => {
+    const checkSharedStatus = async () => {
+      if (!id || !auth.currentUser?.uid || !saved) return;
+      try {
+        const shared = await isRecipeShared(String(id), auth.currentUser.uid);
+        setIsShared(shared);
+      } catch (err) {
+        console.error('Error checking shared status:', err);
+      }
+    };
+    checkSharedStatus();
+  }, [id, saved]);
+
   useEffect(() => {
     const fetchRecipe = async () => {
       console.log("1. Starting fetchRecipe...");
@@ -468,6 +492,83 @@ export default function RecipeDetailsScreen() {
     setCheckedIngredients((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
   };
 
+  const handleSharePress = async () => {
+    if (!recipe || !auth.currentUser || !saved) {
+      Alert.alert('Cannot Share', 'Only saved recipes can be shared with the community.');
+      return;
+    }
+
+    try {
+      shareButtonScale.value = withSpring(0.8, {}, () => {
+        shareButtonScale.value = withSpring(1);
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      if (isShared) {
+        // Unshare the recipe
+        Alert.alert(
+          'Unshare Recipe',
+          'Remove this recipe from the community?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Unshare',
+              style: 'destructive',
+              onPress: async () => {
+                const result = await unshareRecipe(String(id), auth.currentUser!.uid);
+                if (result.success) {
+                  setIsShared(false);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Alert.alert('Success', 'Recipe removed from community.');
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to unshare recipe.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        // Share the recipe
+        Alert.alert(
+          'Share Recipe',
+          'Share this recipe with the Culina community?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Share',
+              onPress: async () => {
+                const result = await shareRecipe(recipe, auth.currentUser!.uid);
+                if (result.success) {
+                  setIsShared(true);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  Alert.alert('Success', 'Recipe shared with the community!');
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to share recipe.');
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
+  const handleEditPress = () => {
+    if (!recipe || !saved) return;
+
+    const canEdit = isAISource(recipe.source);
+    if (!canEdit) {
+      Alert.alert('Cannot Edit', 'Only AI-generated recipes can be edited.');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push({ pathname: "/recipe/maker", params: { recipeId: String(id) } });
+  };
+
   const chips = useMemo(() => {
     if (!recipe) return [];
     return [
@@ -511,13 +612,31 @@ export default function RecipeDetailsScreen() {
         <Animated.Text numberOfLines={1} style={[styles.headerTitle, animatedCompactTitleStyle]}>
           {recipe.title}
         </Animated.Text>
-        <TouchableOpacity onPress={handleSavePress}>
-          <Animated.View style={animatedSaveButtonStyle}>
-            <View style={styles.headerButton}>
-              <BookmarkPlus color={saved ? "#10b981" : "#0F172A"} size={22} fill={saved ? "#10b981" : "none"} />
-            </View>
-          </Animated.View>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {saved && isAISource(recipe.source) && (
+            <TouchableOpacity onPress={handleEditPress}>
+              <View style={styles.headerButton}>
+                <Pencil color="#0284c7" size={20} />
+              </View>
+            </TouchableOpacity>
+          )}
+          {saved && (
+            <TouchableOpacity onPress={handleSharePress}>
+              <Animated.View style={animatedShareButtonStyle}>
+                <View style={[styles.headerButton, isShared && styles.headerButtonActive]}>
+                  <Share2 color={isShared ? "#0ea5e9" : "#64748b"} size={20} />
+                </View>
+              </Animated.View>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={handleSavePress}>
+            <Animated.View style={animatedSaveButtonStyle}>
+              <View style={styles.headerButton}>
+                <BookmarkPlus color={saved ? "#10b981" : "#0F172A"} size={22} fill={saved ? "#10b981" : "none"} />
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Animated.ScrollView
@@ -714,6 +833,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+  },
+  headerButtonActive: {
+    backgroundColor: "#e0f2fe",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   headerTitle: { fontSize: 17, fontWeight: "600", color: "#0F172A", maxWidth: "60%", textAlign: "center" },
   scrollContainer: { paddingBottom: 140 },
