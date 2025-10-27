@@ -532,12 +532,15 @@ const styles = StyleSheet.create({
   swipeActionsContainer: {
     flexDirection: 'row',
     alignItems: 'stretch',
+    gap: 8,
+    paddingRight: 8,
   },
   swipeAction: {
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
-    paddingVertical: 20,
+    borderRadius: 16,
+    marginVertical: 8,
   },
   viewAction: {
     backgroundColor: '#0ea5e9',

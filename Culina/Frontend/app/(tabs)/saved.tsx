@@ -815,12 +815,15 @@ const styles = StyleSheet.create({
   swipeActionsContainer: {
     flexDirection: 'row',
     alignItems: 'stretch',
+    gap: 8,
+    paddingRight: 8,
   },
   swipeAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
-    paddingVertical: 20,
+    width: 100,
+    borderRadius: 16,
+    marginVertical: 20,
   },
   shareAction: {
     backgroundColor: '#0ea5e9',
@@ -830,7 +833,7 @@ const styles = StyleSheet.create({
   },
   swipeActionText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
   },
