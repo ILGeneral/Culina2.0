@@ -4,18 +4,16 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   ScrollView,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-
-const { width, height } = Dimensions.get('window');
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -70,6 +68,9 @@ export default function CookingMode({
   inventory,
   onDeductIngredients
 }: CookingModeProps) {
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
@@ -279,12 +280,14 @@ export default function CookingMode({
           </View>
         </View>
 
-        {/* Current Step */}
-        <ScrollView
-          style={styles.stepContainer}
-          contentContainerStyle={styles.stepContent}
-          showsVerticalScrollIndicator={false}
-        >
+        {/* Main Content Area */}
+        <View style={[styles.mainContent, isLandscape && styles.mainContentLandscape]}>
+          {/* Current Step */}
+          <ScrollView
+            style={[styles.stepContainer, isLandscape && styles.stepContainerLandscape]}
+            contentContainerStyle={[styles.stepContent, isLandscape && styles.stepContentLandscape]}
+            showsVerticalScrollIndicator={false}
+          >
           <Animated.View
             key={currentStep}
             entering={FadeInDown.duration(300).springify()}
@@ -294,7 +297,7 @@ export default function CookingMode({
               <Text style={styles.stepNumberText}>Step {currentStep + 1}</Text>
             </View>
 
-            <Text style={styles.instructionText}>
+            <Text style={[styles.instructionText, isLandscape && styles.instructionTextLandscape]}>
               {instructions[currentStep]}
             </Text>
 
@@ -382,34 +385,66 @@ export default function CookingMode({
               </View>
             </Animated.View>
           )}
-        </ScrollView>
+          </ScrollView>
 
-        {/* Navigation Controls */}
-        <View style={styles.navigation}>
-          <TouchableOpacity
-            style={[styles.navButton, styles.prevButton, isFirstStep && styles.navButtonDisabled]}
-            onPress={handlePrevious}
-            disabled={isFirstStep}
-            activeOpacity={0.8}
-          >
-            <ChevronLeft size={24} color={isFirstStep ? '#94a3b8' : '#0f172a'} />
-            <Text style={[styles.navButtonText, isFirstStep && styles.navButtonTextDisabled]}>
-              Previous
-            </Text>
-          </TouchableOpacity>
+          {/* Navigation Controls - Move inside main content for landscape */}
+          {isLandscape && (
+            <View style={[styles.navigation, styles.navigationLandscape]}>
+              <TouchableOpacity
+                style={[styles.navButton, styles.prevButton, isFirstStep && styles.navButtonDisabled]}
+                onPress={handlePrevious}
+                disabled={isFirstStep}
+                activeOpacity={0.8}
+              >
+                <ChevronLeft size={24} color={isFirstStep ? '#94a3b8' : '#0f172a'} />
+                <Text style={[styles.navButtonText, isFirstStep && styles.navButtonTextDisabled]}>
+                  Previous
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.navButton, styles.nextButton, isLastStep && styles.navButtonDisabled]}
-            onPress={handleNext}
-            disabled={isLastStep}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.navButtonText, isLastStep && styles.navButtonTextDisabled]}>
-              Next
-            </Text>
-            <ChevronRight size={24} color={isLastStep ? '#94a3b8' : '#0f172a'} />
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.navButton, styles.nextButton, isLastStep && styles.navButtonDisabled]}
+                onPress={handleNext}
+                disabled={isLastStep}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.navButtonText, isLastStep && styles.navButtonTextDisabled]}>
+                  Next
+                </Text>
+                <ChevronRight size={24} color={isLastStep ? '#94a3b8' : '#0f172a'} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
+
+        {/* Navigation Controls - Portrait Mode */}
+        {!isLandscape && (
+          <View style={styles.navigation}>
+            <TouchableOpacity
+              style={[styles.navButton, styles.prevButton, isFirstStep && styles.navButtonDisabled]}
+              onPress={handlePrevious}
+              disabled={isFirstStep}
+              activeOpacity={0.8}
+            >
+              <ChevronLeft size={24} color={isFirstStep ? '#94a3b8' : '#0f172a'} />
+              <Text style={[styles.navButtonText, isFirstStep && styles.navButtonTextDisabled]}>
+                Previous
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.navButton, styles.nextButton, isLastStep && styles.navButtonDisabled]}
+              onPress={handleNext}
+              disabled={isLastStep}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.navButtonText, isLastStep && styles.navButtonTextDisabled]}>
+                Next
+              </Text>
+              <ChevronRight size={24} color={isLastStep ? '#94a3b8' : '#0f172a'} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Completion Message */}
         {completedSteps.size === instructions.length && (
@@ -524,12 +559,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#0284c7',
     borderRadius: 999,
   },
+  mainContent: {
+    flex: 1,
+  },
+  mainContentLandscape: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 16,
+  },
   stepContainer: {
     flex: 1,
+  },
+  stepContainerLandscape: {
+    flex: 2,
   },
   stepContent: {
     padding: 24,
     paddingBottom: 40,
+  },
+  stepContentLandscape: {
+    padding: 16,
   },
   stepNumberBadge: {
     alignSelf: 'flex-start',
@@ -552,6 +601,11 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontWeight: '500',
     marginBottom: 32,
+  },
+  instructionTextLandscape: {
+    fontSize: 20,
+    lineHeight: 30,
+    marginBottom: 24,
   },
   completeButton: {
     flexDirection: 'row',
@@ -689,6 +743,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     gap: 12,
+  },
+  navigationLandscape: {
+    flex: 1,
+    flexDirection: 'column',
+    borderTopWidth: 0,
+    borderLeftWidth: 1,
+    borderLeftColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    justifyContent: 'center',
   },
   navButton: {
     flex: 1,

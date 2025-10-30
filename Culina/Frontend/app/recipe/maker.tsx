@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -121,6 +122,9 @@ export default function RecipeMakerScreen() {
   const params = useLocalSearchParams();
   const recipeId = typeof params.recipeId === "string" ? params.recipeId : undefined;
   const isEditing = !!recipeId;
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ingredients, setIngredients] = useState<IngredientForm[]>([
@@ -441,146 +445,296 @@ export default function RecipeMakerScreen() {
             </View>
 
             <ScrollView
-              contentContainerStyle={styles.scrollContent}
+              contentContainerStyle={[
+                styles.scrollContent,
+                isLandscape && styles.scrollContentLandscape,
+              ]}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
             >
-              <View style={styles.section}>
-                <Text style={styles.label}>Title *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Grandma's Apple Pie"
-                  placeholderTextColor="#94a3b8"
-                  value={title}
-                  onChangeText={setTitle}
-                />
-              </View>
+              {isLandscape ? (
+                // Landscape: Two-column layout
+                <View style={styles.landscapeContainer}>
+                  <View style={styles.landscapeColumn}>
+                    <View style={styles.section}>
+                      <Text style={styles.label}>Title *</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="e.g., Grandma's Apple Pie"
+                        placeholderTextColor="#94a3b8"
+                        value={title}
+                        onChangeText={setTitle}
+                      />
+                    </View>
 
-              <View style={styles.section}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput
-                  style={[styles.input, styles.multilineInput]}
-                  placeholder="Add a brief description of your recipe"
-                  placeholderTextColor="#94a3b8"
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
+                    <View style={styles.section}>
+                      <Text style={styles.label}>Description</Text>
+                      <TextInput
+                        style={[styles.input, styles.multilineInput]}
+                        placeholder="Add a brief description of your recipe"
+                        placeholderTextColor="#94a3b8"
+                        value={description}
+                        onChangeText={setDescription}
+                        multiline
+                        numberOfLines={4}
+                        textAlignVertical="top"
+                      />
+                    </View>
 
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Ingredients *</Text>
-                  <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
-                    <Plus color="#128AFAFF" size={18} />
-                    <Text style={styles.addButtonText}>Add Ingredient</Text>
-                  </TouchableOpacity>
-                </View>
+                            <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Ingredients *</Text>
+                        <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
+                          <Plus color="#128AFAFF" size={18} />
+                          <Text style={styles.addButtonText}>Add Ingredient</Text>
+                        </TouchableOpacity>
+                      </View>
 
-                {ingredients.map((item, index) => (
-                  <View key={`ingredient-${index}`} style={styles.ingredientRow}>
-                    <TextInput
-                      style={[styles.input, styles.ingredientName]}
-                      placeholder="Ingredient name"
-                      placeholderTextColor="#94a3b8"
-                      value={item.name}
-                      onChangeText={(text) => updateIngredient(index, "name", text)}
-                    />
-                    <TextInput
-                      style={[styles.input, styles.ingredientQty]}
-                      placeholder="Qty"
-                      placeholderTextColor="#94a3b8"
-                      value={item.qty}
-                      onChangeText={(text) => handleQuantityChange(index, text)}
-                      keyboardType="numeric"
-                      inputMode="decimal"
-                    />
-                    <View style={[styles.input, styles.unitPickerContainer]}>
-                      <Picker
-                        selectedValue={item.unit}
-                        onValueChange={(value) => updateIngredient(index, "unit", value)}
-                        mode="dropdown"
-                        dropdownIconColor="#128AFAFF"
-                        style={styles.unitPicker}
-                      >
-                        {UNIT_OPTIONS.map((option) => (
-                          <Picker.Item
-                            key={option || "none"}
-                            label={option === "" ? "Select unit" : option}
-                            value={option}
+                      {ingredients.map((item, index) => (
+                        <View key={`ingredient-${index}`} style={styles.ingredientRow}>
+                          <TextInput
+                            style={[styles.input, styles.ingredientName]}
+                            placeholder="Ingredient name"
+                            placeholderTextColor="#94a3b8"
+                            value={item.name}
+                            onChangeText={(text) => updateIngredient(index, "name", text)}
                           />
-                        ))}
-                      </Picker>
-                    </View>
+                          <TextInput
+                            style={[styles.input, styles.ingredientQty]}
+                            placeholder="Qty"
+                            placeholderTextColor="#94a3b8"
+                            value={item.qty}
+                            onChangeText={(text) => handleQuantityChange(index, text)}
+                            keyboardType="numeric"
+                            inputMode="decimal"
+                          />
+                          <View style={[styles.input, styles.unitPickerContainer]}>
+                            <Picker
+                              selectedValue={item.unit}
+                              onValueChange={(value) => updateIngredient(index, "unit", value)}
+                              mode="dropdown"
+                              dropdownIconColor="#128AFAFF"
+                              style={styles.unitPicker}
+                            >
+                              {UNIT_OPTIONS.map((option) => (
+                                <Picker.Item
+                                  key={option || "none"}
+                                  label={option === "" ? "Select unit" : option}
+                                  value={option}
+                                />
+                              ))}
+                            </Picker>
+                          </View>
 
-                    {ingredients.length > 1 && (
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => removeIngredient(index)}
-                      >
-                        <Trash2 color="#ef4444" size={18} />
-                      </TouchableOpacity>
-                    )}
+                          {ingredients.length > 1 && (
+                            <TouchableOpacity
+                              style={styles.removeButton}
+                              onPress={() => removeIngredient(index)}
+                            >
+                              <Trash2 color="#ef4444" size={18} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
                   </View>
-                ))}
-              </View>
 
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Instructions *</Text>
-                  <TouchableOpacity style={styles.addButton} onPress={addStep}>
-                    <Plus color="#128AFAFF" size={18} />
-                    <Text style={styles.addButtonText}>Add Step</Text>
-                  </TouchableOpacity>
-                </View>
+                  <View style={styles.landscapeColumn}>
+                    <View style={styles.section}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Instructions *</Text>
+                        <TouchableOpacity style={styles.addButton} onPress={addStep}>
+                          <Plus color="#128AFAFF" size={18} />
+                          <Text style={styles.addButtonText}>Add Step</Text>
+                        </TouchableOpacity>
+                      </View>
 
-                {steps.map((step, index) => (
-                  <View key={`step-${index}`} style={styles.stepRow}>
-                    <View style={styles.stepNumberContainer}>
-                      <Text style={styles.stepNumber}>{index + 1}.</Text>
+                      {steps.map((step, index) => (
+                        <View key={`step-${index}`} style={styles.stepRow}>
+                          <View style={styles.stepNumberContainer}>
+                            <Text style={styles.stepNumber}>{index + 1}.</Text>
+                          </View>
+                          <TextInput
+                            style={[styles.input, styles.stepInput]}
+                            placeholder="Describe this step"
+                            placeholderTextColor="#94a3b8"
+                            value={step}
+                            onChangeText={(text) => updateStep(index, text)}
+                            multiline
+                            textAlignVertical="top"
+                          />
+                          {steps.length > 1 && (
+                            <TouchableOpacity style={styles.removeButton} onPress={() => removeStep(index)}>
+                              <Trash2 color="#ef4444" size={18} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
                     </View>
+
+                    <View style={styles.buttonGroup}>
+                      <TouchableOpacity
+                        style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(false)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.primaryButtonText}>
+                          {saving ? "Saving..." : "Save Recipe"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(true)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.secondaryButtonText}>
+                          {sharing ? "Sharing..." : "Save & Share"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                // Portrait: Single-column layout (original)
+                <>
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Title *</Text>
                     <TextInput
-                      style={[styles.input, styles.stepInput]}
-                      placeholder="Describe this step"
+                      style={styles.input}
+                      placeholder="e.g., Grandma's Apple Pie"
                       placeholderTextColor="#94a3b8"
-                      value={step}
-                      onChangeText={(text) => updateStep(index, text)}
+                      value={title}
+                      onChangeText={setTitle}
+                    />
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.label}>Description</Text>
+                    <TextInput
+                      style={[styles.input, styles.multilineInput]}
+                      placeholder="Add a brief description of your recipe"
+                      placeholderTextColor="#94a3b8"
+                      value={description}
+                      onChangeText={setDescription}
                       multiline
+                      numberOfLines={4}
                       textAlignVertical="top"
                     />
-                    {steps.length > 1 && (
-                      <TouchableOpacity style={styles.removeButton} onPress={() => removeStep(index)}>
-                        <Trash2 color="#ef4444" size={18} />
-                      </TouchableOpacity>
-                    )}
                   </View>
-                ))}
-              </View>
 
-              <View style={styles.buttonGroup}>
-                <TouchableOpacity
-                  style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
-                  onPress={() => handleSave(false)}
-                  disabled={saving || sharing}
-                >
-                  <Text style={styles.primaryButtonText}>
-                    {saving ? "Saving..." : "Save Recipe"}
-                  </Text>
-                </TouchableOpacity>
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Ingredients *</Text>
+                      <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
+                        <Plus color="#128AFAFF" size={18} />
+                        <Text style={styles.addButtonText}>Add Ingredient</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                <TouchableOpacity
-                  style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
-                  onPress={() => handleSave(true)}
-                  disabled={saving || sharing}
-                >
-                  <Text style={styles.secondaryButtonText}>
-                    {sharing ? "Sharing..." : "Save & Share"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                    {ingredients.map((item, index) => (
+                      <View key={`ingredient-${index}`} style={styles.ingredientRow}>
+                        <TextInput
+                          style={[styles.input, styles.ingredientName]}
+                          placeholder="Ingredient name"
+                          placeholderTextColor="#94a3b8"
+                          value={item.name}
+                          onChangeText={(text) => updateIngredient(index, "name", text)}
+                        />
+                        <TextInput
+                          style={[styles.input, styles.ingredientQty]}
+                          placeholder="Qty"
+                          placeholderTextColor="#94a3b8"
+                          value={item.qty}
+                          onChangeText={(text) => handleQuantityChange(index, text)}
+                          keyboardType="numeric"
+                          inputMode="decimal"
+                        />
+                        <View style={[styles.input, styles.unitPickerContainer]}>
+                          <Picker
+                            selectedValue={item.unit}
+                            onValueChange={(value) => updateIngredient(index, "unit", value)}
+                            mode="dropdown"
+                            dropdownIconColor="#128AFAFF"
+                            style={styles.unitPicker}
+                          >
+                            {UNIT_OPTIONS.map((option) => (
+                              <Picker.Item
+                                key={option || "none"}
+                                label={option === "" ? "Select unit" : option}
+                                value={option}
+                              />
+                            ))}
+                          </Picker>
+                        </View>
+
+                        {ingredients.length > 1 && (
+                          <TouchableOpacity
+                            style={styles.removeButton}
+                            onPress={() => removeIngredient(index)}
+                          >
+                            <Trash2 color="#ef4444" size={18} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>Instructions *</Text>
+                      <TouchableOpacity style={styles.addButton} onPress={addStep}>
+                        <Plus color="#128AFAFF" size={18} />
+                        <Text style={styles.addButtonText}>Add Step</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {steps.map((step, index) => (
+                      <View key={`step-${index}`} style={styles.stepRow}>
+                        <View style={styles.stepNumberContainer}>
+                          <Text style={styles.stepNumber}>{index + 1}.</Text>
+                        </View>
+                        <TextInput
+                          style={[styles.input, styles.stepInput]}
+                          placeholder="Describe this step"
+                          placeholderTextColor="#94a3b8"
+                          value={step}
+                          onChangeText={(text) => updateStep(index, text)}
+                          multiline
+                          textAlignVertical="top"
+                        />
+                        {steps.length > 1 && (
+                          <TouchableOpacity style={styles.removeButton} onPress={() => removeStep(index)}>
+                            <Trash2 color="#ef4444" size={18} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={styles.buttonGroup}>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
+                      onPress={() => handleSave(false)}
+                      disabled={saving || sharing}
+                    >
+                      <Text style={styles.primaryButtonText}>
+                        {saving ? "Saving..." : "Save Recipe"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
+                      onPress={() => handleSave(true)}
+                      disabled={saving || sharing}
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        {sharing ? "Sharing..." : "Save & Share"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
