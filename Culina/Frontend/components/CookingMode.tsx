@@ -95,7 +95,7 @@ export default function CookingMode({
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
   const [timerRemaining, setTimerRemaining] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
 
   // Step notes state
   const [stepNotes, setStepNotes] = useState<{ [stepIndex: number]: string }>({});
