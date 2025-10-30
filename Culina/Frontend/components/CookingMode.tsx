@@ -8,14 +8,25 @@ import {
   Alert,
   ActivityIndicator,
   useWindowDimensions,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package } from 'lucide-react-native';
-import Animated, { FadeInDown, FadeOutUp, FadeIn } from 'react-native-reanimated';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Trash2, StickyNote, Scale } from 'lucide-react-native';
+import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
+
+type CustomTimer = {
+  id: string;
+  label: string;
+  totalSeconds: number;
+  remainingSeconds: number;
+  isRunning: boolean;
+  stepNumber: number;
+};
 
 type CookingModeProps = {
   instructions: string[];
@@ -74,11 +85,26 @@ export default function CookingMode({
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
-  // Timer state
+  // Multiple timers state
+  const [customTimers, setCustomTimers] = useState<CustomTimer[]>([]);
+  const [showAddTimerModal, setShowAddTimerModal] = useState(false);
+  const [newTimerMinutes, setNewTimerMinutes] = useState('');
+  const [newTimerLabel, setNewTimerLabel] = useState('');
+
+  // Legacy single timer state (for backward compatibility with auto-detected timers)
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
   const [timerRemaining, setTimerRemaining] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Step notes state
+  const [stepNotes, setStepNotes] = useState<{ [stepIndex: number]: string }>({});
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [currentNoteText, setCurrentNoteText] = useState('');
+
+  // Recipe scaling state
+  const [servingMultiplier, setServingMultiplier] = useState(1);
+  const [showScalingModal, setShowScalingModal] = useState(false);
 
   // Inventory deduction state
   const [isDeducting, setIsDeducting] = useState(false);
@@ -196,6 +222,107 @@ export default function CookingMode({
     onClose();
   };
 
+  // ========== MULTIPLE TIMERS MANAGEMENT ==========
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCustomTimers((prevTimers) =>
+        prevTimers.map((timer) => {
+          if (!timer.isRunning || timer.remainingSeconds <= 0) return timer;
+
+          const newRemaining = timer.remainingSeconds - 1;
+
+          if (newRemaining === 0) {
+            // Timer finished
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Timer Complete!', `${timer.label} has finished!`, [
+              { text: 'OK', onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }
+            ]);
+            return { ...timer, remainingSeconds: 0, isRunning: false };
+          }
+
+          return { ...timer, remainingSeconds: newRemaining };
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAddCustomTimer = () => {
+    const minutes = parseInt(newTimerMinutes);
+    if (isNaN(minutes) || minutes <= 0) {
+      Alert.alert('Invalid Time', 'Please enter a valid number of minutes.');
+      return;
+    }
+
+    const newTimer: CustomTimer = {
+      id: Date.now().toString(),
+      label: newTimerLabel.trim() || `Timer ${customTimers.length + 1}`,
+      totalSeconds: minutes * 60,
+      remainingSeconds: minutes * 60,
+      isRunning: false,
+      stepNumber: currentStep + 1,
+    };
+
+    setCustomTimers([...customTimers, newTimer]);
+    setNewTimerMinutes('');
+    setNewTimerLabel('');
+    setShowAddTimerModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleToggleTimer = (timerId: string) => {
+    setCustomTimers((prevTimers) =>
+      prevTimers.map((timer) =>
+        timer.id === timerId ? { ...timer, isRunning: !timer.isRunning } : timer
+      )
+    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const handleResetCustomTimer = (timerId: string) => {
+    setCustomTimers((prevTimers) =>
+      prevTimers.map((timer) =>
+        timer.id === timerId
+          ? { ...timer, remainingSeconds: timer.totalSeconds, isRunning: false }
+          : timer
+      )
+    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const handleDeleteTimer = (timerId: string) => {
+    setCustomTimers((prevTimers) => prevTimers.filter((timer) => timer.id !== timerId));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // ========== STEP NOTES MANAGEMENT ==========
+  const handleOpenNotes = () => {
+    setCurrentNoteText(stepNotes[currentStep] || '');
+    setShowNotesModal(true);
+  };
+
+  const handleSaveNote = () => {
+    setStepNotes({ ...stepNotes, [currentStep]: currentNoteText });
+    setShowNotesModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  // ========== RECIPE SCALING MANAGEMENT ==========
+  const scaleQuantity = (originalQty: string | undefined): string => {
+    if (!originalQty) return '';
+    const num = parseFloat(originalQty);
+    if (isNaN(num)) return originalQty;
+    const scaled = num * servingMultiplier;
+    return scaled % 1 === 0 ? scaled.toString() : scaled.toFixed(1);
+  };
+
+  const handleScaleRecipe = (multiplier: number) => {
+    setServingMultiplier(multiplier);
+    setShowScalingModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   const handleDeductIngredients = async () => {
     if (!onDeductIngredients || !ingredients || ingredients.length === 0) {
       Alert.alert('No Ingredients', 'No ingredients available to deduct.');
@@ -280,6 +407,91 @@ export default function CookingMode({
           </View>
         </View>
 
+        {/* Quick Action Buttons */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={[styles.quickActionButton, styles.timerActionButton]}
+            onPress={() => setShowAddTimerModal(true)}
+          >
+            <Plus size={18} color="#f97316" />
+            <Text style={styles.quickActionText}>Timer</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickActionButton, styles.noteActionButton]}
+            onPress={handleOpenNotes}
+          >
+            <StickyNote size={18} color="#10b981" />
+            <Text style={styles.quickActionText}>
+              {stepNotes[currentStep] ? 'Edit Note' : 'Add Note'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickActionButton, styles.scaleActionButton]}
+            onPress={() => setShowScalingModal(true)}
+          >
+            <Scale size={18} color="#0284c7" />
+            <Text style={styles.quickActionText}>
+              {servingMultiplier === 1 ? 'Scale' : `${servingMultiplier}x`}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Active Custom Timers */}
+        {customTimers.length > 0 && (
+          <ScrollView
+            horizontal
+            style={styles.timersScrollView}
+            contentContainerStyle={styles.timersContainer}
+            showsHorizontalScrollIndicator={false}
+          >
+            {customTimers.map((timer) => (
+              <Animated.View
+                key={timer.id}
+                entering={ZoomIn.duration(300)}
+                style={[
+                  styles.customTimerCard,
+                  timer.remainingSeconds === 0 && styles.customTimerCardComplete,
+                  timer.isRunning && styles.customTimerCardRunning,
+                ]}
+              >
+                <View style={styles.customTimerHeader}>
+                  <Text style={styles.customTimerLabel} numberOfLines={1}>
+                    {timer.label}
+                  </Text>
+                  <TouchableOpacity onPress={() => handleDeleteTimer(timer.id)}>
+                    <Trash2 size={16} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.customTimerTime}>
+                  {formatTime(timer.remainingSeconds)}
+                </Text>
+                <View style={styles.customTimerControls}>
+                  <TouchableOpacity
+                    style={styles.customTimerButton}
+                    onPress={() => handleToggleTimer(timer.id)}
+                  >
+                    {timer.isRunning ? (
+                      <Pause size={16} color="#fff" fill="#fff" />
+                    ) : (
+                      <Play size={16} color="#fff" fill="#fff" />
+                    )}
+                  </TouchableOpacity>
+                  {!timer.isRunning && timer.remainingSeconds !== timer.totalSeconds && (
+                    <TouchableOpacity
+                      style={[styles.customTimerButton, styles.customTimerButtonSecondary]}
+                      onPress={() => handleResetCustomTimer(timer.id)}
+                    >
+                      <RotateCcw size={14} color="#64748b" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </Animated.View>
+            ))}
+          </ScrollView>
+        )}
+
         {/* Main Content Area */}
         <View style={[styles.mainContent, isLandscape && styles.mainContentLandscape]}>
           {/* Current Step */}
@@ -300,6 +512,20 @@ export default function CookingMode({
             <Text style={[styles.instructionText, isLandscape && styles.instructionTextLandscape]}>
               {instructions[currentStep]}
             </Text>
+
+            {/* Step Notes Display */}
+            {stepNotes[currentStep] && (
+              <Animated.View
+                style={styles.stepNoteDisplay}
+                entering={FadeIn.duration(400)}
+              >
+                <View style={styles.stepNoteHeader}>
+                  <StickyNote size={16} color="#10b981" />
+                  <Text style={styles.stepNoteTitle}>Your Note</Text>
+                </View>
+                <Text style={styles.stepNoteText}>{stepNotes[currentStep]}</Text>
+              </Animated.View>
+            )}
 
             <TouchableOpacity
               style={[
@@ -485,6 +711,145 @@ export default function CookingMode({
             </TouchableOpacity>
           </Animated.View>
         )}
+
+        {/* Add Timer Modal */}
+        <Modal
+          visible={showAddTimerModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowAddTimerModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={styles.modalContent}
+            >
+              <Text style={styles.modalTitle}>Add Custom Timer</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Timer label (optional)"
+                placeholderTextColor="#94a3b8"
+                value={newTimerLabel}
+                onChangeText={setNewTimerLabel}
+              />
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Minutes"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                value={newTimerMinutes}
+                onChangeText={setNewTimerMinutes}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowAddTimerModal(false)}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={handleAddCustomTimer}
+                >
+                  <Text style={styles.modalButtonTextConfirm}>Add Timer</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Notes Modal */}
+        <Modal
+          visible={showNotesModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowNotesModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={styles.modalContent}
+            >
+              <Text style={styles.modalTitle}>Step {currentStep + 1} Note</Text>
+
+              <TextInput
+                style={[styles.modalInput, styles.modalInputMultiline]}
+                placeholder="Add your notes here..."
+                placeholderTextColor="#94a3b8"
+                value={currentNoteText}
+                onChangeText={setCurrentNoteText}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowNotesModal(false)}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={handleSaveNote}
+                >
+                  <Text style={styles.modalButtonTextConfirm}>Save Note</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Scaling Modal */}
+        <Modal
+          visible={showScalingModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowScalingModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={styles.modalContent}
+            >
+              <Text style={styles.modalTitle}>Scale Recipe</Text>
+              <Text style={styles.modalSubtitle}>Adjust serving size</Text>
+
+              <View style={styles.scaleOptions}>
+                {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
+                  <TouchableOpacity
+                    key={multiplier}
+                    style={[
+                      styles.scaleOption,
+                      servingMultiplier === multiplier && styles.scaleOptionActive,
+                    ]}
+                    onPress={() => handleScaleRecipe(multiplier)}
+                  >
+                    <Text
+                      style={[
+                        styles.scaleOptionText,
+                        servingMultiplier === multiplier && styles.scaleOptionTextActive,
+                      ]}
+                    >
+                      {multiplier}x
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel, { width: '100%' }]}
+                onPress={() => setShowScalingModal(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Close</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -830,5 +1195,244 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#fff',
+  },
+  // Quick Actions Styles
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 2,
+  },
+  timerActionButton: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
+  },
+  noteActionButton: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  scaleActionButton: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  // Custom Timers Styles
+  timersScrollView: {
+    maxHeight: 140,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  timersContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  customTimerCard: {
+    width: 140,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  customTimerCardRunning: {
+    borderColor: '#f97316',
+    backgroundColor: '#fff7ed',
+  },
+  customTimerCardComplete: {
+    borderColor: '#10b981',
+    backgroundColor: '#f0fdf4',
+  },
+  customTimerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  customTimerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    flex: 1,
+  },
+  customTimerTime: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0f172a',
+    textAlign: 'center',
+    marginBottom: 8,
+    fontVariant: ['tabular-nums'],
+  },
+  customTimerControls: {
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  customTimerButton: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customTimerButtonSecondary: {
+    backgroundColor: '#f1f5f9',
+  },
+  // Step Notes Styles
+  stepNoteDisplay: {
+    backgroundColor: '#f0fdf4',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#10b981',
+  },
+  stepNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  stepNoteTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  stepNoteText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#334155',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 15,
+    color: '#64748b',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+    marginBottom: 16,
+  },
+  modalInputMultiline: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#0284c7',
+  },
+  modalButtonTextCancel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  modalButtonTextConfirm: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Scaling Styles
+  scaleOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+    justifyContent: 'center',
+  },
+  scaleOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  scaleOptionActive: {
+    borderColor: '#0284c7',
+    backgroundColor: '#eff6ff',
+  },
+  scaleOptionText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  scaleOptionTextActive: {
+    color: '#0284c7',
   },
 });
