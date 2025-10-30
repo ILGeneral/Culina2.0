@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     const parsePromise = new Promise((resolve, reject) => {
       bb.on('file', (fieldname, file, info) => {
         const { filename, encoding, mimeType } = info;
-        console.log(`📦 Receiving file: ${filename}, type: ${mimeType}`);
+        console.log(`Receiving file: ${filename}, type: ${mimeType}`);
 
         const chunks = [];
 
@@ -84,14 +84,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "No image data provided" });
     }
 
-    // ✅ SECURITY FIX: Validate file size
+    // SECURITY FIX: Validate file size
     if (imageBuffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ error: "Image too large. Maximum 5MB." });
     }
 
     console.log(`📦 Processing image buffer of ${imageBuffer.length} bytes from user ${userInfo.uid}`);
 
-    // ✅ SECURITY FIX: Include user ID in filename to prevent collisions and track ownership
+    // SECURITY FIX: Include user ID in filename to prevent collisions and track ownership
     const filename = `ingredients/${userInfo.uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
     // Upload to Vercel Blob
@@ -100,13 +100,13 @@ export default async function handler(req, res) {
       contentType: "image/jpeg",
     });
 
-    console.log(`✅ Uploaded to Vercel Blob: ${blob.url}`);
+    console.log(`Uploaded to Vercel Blob: ${blob.url}`);
 
     return res.status(200).json({ 
       url: blob.url,
     });
   } catch (err) {
-    console.error("❌ Failed to upload image:", err);
+    console.error("Failed to upload image:", err);
     return res.status(500).json({
       error: err.message || "Internal Server Error",
     });

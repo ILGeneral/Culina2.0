@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // ✅ STEP 1: Apply rate limiting
+  // STEP 1: Apply rate limiting
   try {
     await new Promise((resolve, reject) => {
       recipeGenLimiter(req, res, (result) => {
