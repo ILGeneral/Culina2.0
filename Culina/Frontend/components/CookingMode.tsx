@@ -1618,7 +1618,7 @@ export default function CookingMode({
               style={styles.timerEditModalContent}
             >
               {/* Header */}
-              <Text style={styles.timerEditTitle}>Set a Timer</Text>
+              <Text style={styles.timerEditTitle}>Adjust Timer</Text>
 
               {/* Labels Row */}
               <View style={styles.pickerLabelsRow}>
@@ -1737,16 +1737,16 @@ export default function CookingMode({
               {/* Action Buttons */}
               <View style={styles.timerEditButtons}>
                 <TouchableOpacity
-                  style={styles.timerEditButtonStart}
-                  onPress={handleSaveEditedTimer}
-                >
-                  <Text style={styles.timerEditButtonStartText}>Start</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={styles.timerEditButtonStop}
                   onPress={() => setShowEditTimerModal(false)}
                 >
                   <Text style={styles.timerEditButtonStopText}>Stop</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.timerEditButtonStart}
+                  onPress={handleSaveEditedTimer}
+                >
+                  <Text style={styles.timerEditButtonStartText}>Start</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
@@ -2556,11 +2556,11 @@ const styles = StyleSheet.create({
   timerEditModalContent: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 20,
-    paddingBottom: 24,
-    width: '90%',
-    maxWidth: 350,
-    maxHeight: '85%',
+    padding: 18,
+    paddingBottom: 0,
+    width: '95%',
+    maxWidth: 400,
+    maxHeight: '98%',
     shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -2568,28 +2568,28 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   timerEditTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '400',
     color: '#9ca3af',
-    marginBottom: 24,
+    marginBottom: 16,
     textAlign: 'center',
   },
   pickerLabelsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 16,
+    marginBottom: 10,
     paddingHorizontal: 20,
   },
   pickerLabelText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '400',
     color: '#9ca3af',
-    width: 80,
+    width: 70,
     textAlign: 'center',
   },
   pickerContainer: {
-    height: 180,
-    marginBottom: 28,
+    height: 150,
+    marginBottom: 16,
     position: 'relative',
     flexDirection: 'row',
     justifyContent: 'center',
@@ -2601,11 +2601,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   pickerScroll: {
-    width: 70,
-    height: 180,
+    width: 65,
+    height: 150,
   },
   pickerScrollContent: {
-    paddingVertical: 60,
+    paddingVertical: 45,
   },
   pickerItem: {
     height: 60,
@@ -2613,33 +2613,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerItemText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '300',
     color: '#d1d5db',
   },
   pickerItemTextSelected: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: '300',
     color: '#0ea5e9',
   },
   colonSeparator: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: '300',
     color: '#0ea5e9',
-    marginHorizontal: 8,
+    marginHorizontal: 6,
   },
   pickerBorderTop: {
     position: 'absolute',
     width: '100%',
     height: 1,
-    top: 60,
+    top: 45,
     backgroundColor: '#e5e7eb',
   },
   pickerBorderBottom: {
     position: 'absolute',
     width: '100%',
     height: 1,
-    top: 120,
+    top: 105,
     backgroundColor: '#e5e7eb',
   },
   timerEditButtons: {
@@ -2647,7 +2647,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
   },
-  timerEditButtonStart: {
+  timerEditButtonStop: {
     flex: 1,
     paddingVertical: 16,
     alignItems: 'center',
@@ -2655,19 +2655,19 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: '#e5e7eb',
   },
-  timerEditButtonStop: {
+  timerEditButtonStart: {
     flex: 1,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timerEditButtonStartText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '400',
     color: '#0ea5e9',
   },
   timerEditButtonStopText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '400',
     color: '#9ca3af',
   },
