@@ -26,6 +26,7 @@ import {
 } from "firebase/firestore";
 import { shareRecipe } from "@/lib/utils/shareRecipe";
 import { makerStyles as styles } from "@/styles/recipe/makerStyles";
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 type IngredientForm = {
   name: string;
@@ -136,6 +137,15 @@ export default function RecipeMakerScreen() {
   const [initializing, setInitializing] = useState(isEditing);
   const [originalSource, setOriginalSource] = useState<string | undefined>();
   const [currentRecipe, setCurrentRecipe] = useState<Record<string, any> | null>(null);
+
+  // Lock screen to landscape when component mounts
+  useEffect(() => {
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+
+    return () => {
+      ScreenOrientation.unlockAsync();
+    };
+  }, []);
 
   useEffect(() => {
     if (!isEditing) return;

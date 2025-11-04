@@ -23,14 +23,14 @@ export const makerStyles = StyleSheet.create({
     color: "#0f172a",
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    gap: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    gap: 16,
   },
   section: {
     backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -43,9 +43,9 @@ export const makerStyles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: "#d1d5db",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
     color: "#0f172a",
     backgroundColor: "#f8fafc",
@@ -57,7 +57,7 @@ export const makerStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
@@ -81,8 +81,8 @@ export const makerStyles = StyleSheet.create({
   ingredientRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 10,
   },
   ingredientName: {
     flex: 2,

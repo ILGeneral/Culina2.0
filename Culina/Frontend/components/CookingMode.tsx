@@ -12,11 +12,12 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, Clock } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -132,6 +133,13 @@ export default function CookingMode({
 
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [currentOrientation, setCurrentOrientation] = useState<ScreenOrientation.Orientation>();
+
+  // Automatic Next Step mode state
+  const [autoModeActive, setAutoModeActive] = useState(false);
+  const [autoModeTimer, setAutoModeTimer] = useState(10);
+  const [autoModePaused, setAutoModePaused] = useState(false);
+  const autoModeIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Multiple timers state
   const [customTimers, setCustomTimers] = useState<CustomTimer[]>([]);
@@ -144,6 +152,13 @@ export default function CookingMode({
   const [timerRemaining, setTimerRemaining] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
   const timerIntervalRef = useRef<number | null>(null);
+  const [showEditTimerModal, setShowEditTimerModal] = useState(false);
+  const [editTimerHours, setEditTimerHours] = useState('0');
+  const [editTimerMinutes, setEditTimerMinutes] = useState('0');
+  const [editTimerSeconds, setEditTimerSeconds] = useState('0');
+  const hoursScrollRef = useRef<ScrollView>(null);
+  const minutesScrollRef = useRef<ScrollView>(null);
+  const secondsScrollRef = useRef<ScrollView>(null);
 
   // Step notes state
   const [stepNotes, setStepNotes] = useState<{ [stepIndex: number]: string }>({});
@@ -233,6 +248,9 @@ export default function CookingMode({
 
   // ========== AUTO-FADE COMPLETION ALERT ==========
   useEffect(() => {
+    // Skip completion alert in auto mode
+    if (autoModeActive) return;
+
     if (isFullyComplete && !showCompletionAlert) {
       // Show the alert
       setShowCompletionAlert(true);
@@ -244,7 +262,98 @@ export default function CookingMode({
 
       return () => clearTimeout(fadeTimeout);
     }
-  }, [isFullyComplete]);
+  }, [isFullyComplete, autoModeActive]);
+
+  // ========== SCREEN ORIENTATION MANAGEMENT ==========
+  useEffect(() => {
+    // Force portrait mode on mount
+    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+
+    // Get initial orientation
+    ScreenOrientation.getOrientationAsync().then(orientation => {
+      setCurrentOrientation(orientation);
+    });
+
+    // Listen for orientation changes
+    const subscription = ScreenOrientation.addOrientationChangeListener(event => {
+      setCurrentOrientation(event.orientationInfo.orientation);
+    });
+
+    return () => {
+      ScreenOrientation.removeOrientationChangeListener(subscription);
+      // Unlock orientation when leaving Cooking Mode
+      ScreenOrientation.unlockAsync();
+    };
+  }, []);
+
+  const handleRotateScreen = async () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Toggle between portrait and landscape
+      if (isLandscape) {
+        // Switch to portrait
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        // Disable auto mode when returning to portrait
+        setAutoModeActive(false);
+      } else {
+        // Switch to landscape and enable auto mode
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        setAutoModeActive(true);
+        setAutoModeTimer(10); // Reset timer
+        setAutoModePaused(false);
+      }
+    } catch (error) {
+      console.error('Error rotating screen:', error);
+      Alert.alert('Rotation Error', 'Could not rotate screen. Please check your device rotation settings.');
+    }
+  };
+
+  // ========== AUTOMATIC NEXT STEP MODE ==========
+  useEffect(() => {
+    // Enable auto mode when landscape is detected
+    if (isLandscape && !autoModeActive) {
+      setAutoModeActive(true);
+      setAutoModeTimer(10);
+      setAutoModePaused(false);
+    } else if (!isLandscape && autoModeActive) {
+      // Disable auto mode when returning to portrait
+      setAutoModeActive(false);
+    }
+  }, [isLandscape]);
+
+  // Auto-mode timer countdown
+  useEffect(() => {
+    // Pause auto-mode if there's a detected timer in the current step
+    if (!autoModeActive || autoModePaused || currentStep >= instructions.length - 1 || timerSeconds !== null) {
+      return;
+    }
+
+    if (autoModeTimer > 0) {
+      autoModeIntervalRef.current = setTimeout(() => {
+        setAutoModeTimer(prev => prev - 1);
+      }, 1000);
+    } else {
+      // Timer reached 0, move to next step
+      handleNext();
+      setAutoModeTimer(10); // Reset for next step
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    return () => {
+      if (autoModeIntervalRef.current) {
+        clearTimeout(autoModeIntervalRef.current);
+      }
+    };
+  }, [autoModeActive, autoModePaused, autoModeTimer, currentStep, instructions.length, timerSeconds]);
+
+  // Handle tap to pause/resume auto mode
+  const handleAutoModeTap = () => {
+    if (!autoModeActive) return;
+
+    setAutoModePaused(!autoModePaused);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   // Clean up timer on unmount or when step changes
   useEffect(() => {
@@ -320,6 +429,44 @@ export default function CookingMode({
     setTimerRemaining(timerSeconds);
   };
 
+  const handleOpenEditTimer = () => {
+    if (timerSeconds !== null) {
+      const hours = Math.floor(timerSeconds / 3600);
+      const minutes = Math.floor((timerSeconds % 3600) / 60);
+      const seconds = timerSeconds % 60;
+      setEditTimerHours(hours.toString());
+      setEditTimerMinutes(minutes.toString());
+      setEditTimerSeconds(seconds.toString());
+      setShowEditTimerModal(true);
+
+      // Scroll to the correct positions after modal opens
+      setTimeout(() => {
+        hoursScrollRef.current?.scrollTo({ y: hours * 60, animated: false });
+        minutesScrollRef.current?.scrollTo({ y: minutes * 60, animated: false });
+        secondsScrollRef.current?.scrollTo({ y: seconds * 60, animated: false });
+      }, 100);
+    }
+  };
+
+  const handleSaveEditedTimer = () => {
+    const hours = parseInt(editTimerHours) || 0;
+    const minutes = parseInt(editTimerMinutes) || 0;
+    const seconds = parseInt(editTimerSeconds) || 0;
+
+    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+    if (totalSeconds <= 0) {
+      Alert.alert('Invalid Time', 'Please set a time greater than 0.');
+      return;
+    }
+
+    setTimerSeconds(totalSeconds);
+    setTimerRemaining(totalSeconds);
+    setTimerRunning(false);
+    setShowEditTimerModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   const handleNext = () => {
     if (currentStep < instructions.length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -345,6 +492,11 @@ export default function CookingMode({
 
       // Check for achievements
       checkAchievements(newCompleted);
+
+      // Reset auto-mode timer when manually marking as complete
+      if (autoModeActive) {
+        setAutoModeTimer(10);
+      }
 
       // Auto-advance to next step when marking as complete
       if (currentStep < instructions.length - 1) {
@@ -400,6 +552,9 @@ export default function CookingMode({
   };
 
   const showAchievementNotification = (achievement: { title: string; message: string; icon: string }) => {
+    // Skip notifications in auto mode
+    if (autoModeActive) return;
+
     setCurrentAchievement(achievement);
     setShowAchievement(true);
 
@@ -409,8 +564,14 @@ export default function CookingMode({
     }, 3000);
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Always revert to portrait mode before closing
+    if (isLandscape) {
+      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    }
+
     onClose();
   };
 
@@ -805,26 +966,32 @@ export default function CookingMode({
               {recipeTitle}
             </Text>
           </View>
+          <TouchableOpacity style={styles.rotateButton} onPress={handleRotateScreen}>
+            <PlayCircle size={24} color="#0f172a" />
+          </TouchableOpacity>
         </View>
 
-        {/* Progress Bar */}
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressText}>{Math.round(progress)}% Complete</Text>
-            <Text style={styles.stepCounter}>
-              Step {currentStep + 1} of {instructions.length}
-            </Text>
+        {/* Progress Bar - Only show in portrait */}
+        {!isLandscape && (
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressText}>{Math.round(progress)}% Complete</Text>
+              <Text style={styles.stepCounter}>
+                Step {currentStep + 1} of {instructions.length}
+              </Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <Animated.View
+                style={[styles.progressBar, { width: `${progress}%` }]}
+                entering={FadeIn.duration(500)}
+              />
+            </View>
           </View>
-          <View style={styles.progressBarContainer}>
-            <Animated.View
-              style={[styles.progressBar, { width: `${progress}%` }]}
-              entering={FadeIn.duration(500)}
-            />
-          </View>
-        </View>
+        )}
 
-        {/* Voice Control Bar */}
-        <View style={styles.voiceControlBar}>
+        {/* Voice Control Bar - Only show in portrait */}
+        {!isLandscape && (
+          <View style={styles.voiceControlBar}>
           <TouchableOpacity
             style={[styles.voiceButton, voiceEnabled && styles.voiceButtonActive]}
             onPress={toggleVoice}
@@ -860,10 +1027,12 @@ export default function CookingMode({
               </TouchableOpacity>
             </>
           )}
-        </View>
+          </View>
+        )}
 
-        {/* Quick Action Buttons */}
-        <View style={styles.quickActions}>
+        {/* Quick Action Buttons - Only show in portrait */}
+        {!isLandscape && (
+          <View style={styles.quickActions}>
           <TouchableOpacity
             style={[styles.quickActionButton, styles.timerActionButton]}
             onPress={() => setShowAddTimerModal(true)}
@@ -914,10 +1083,11 @@ export default function CookingMode({
               Alerts
             </Text>
           </TouchableOpacity>
-        </View>
+          </View>
+        )}
 
-        {/* Active Custom Timers */}
-        {customTimers.length > 0 && (
+        {/* Active Custom Timers - Only show in portrait */}
+        {!isLandscape && customTimers.length > 0 && (
           <ScrollView
             horizontal
             style={styles.timersScrollView}
@@ -972,7 +1142,7 @@ export default function CookingMode({
 
         {/* Main Content Area */}
         <View style={[styles.mainContent, isLandscape && styles.mainContentLandscape]}>
-          {/* Current Step */}
+          {/* Left Column: Current Step Instructions */}
           <ScrollView
             style={[styles.stepContainer, isLandscape && styles.stepContainerLandscape]}
             contentContainerStyle={[styles.stepContent, isLandscape && styles.stepContentLandscape]}
@@ -1041,8 +1211,16 @@ export default function CookingMode({
               entering={FadeIn.delay(300).duration(500)}
             >
               <View style={styles.timerHeader}>
-                <Timer size={20} color="#f97316" />
-                <Text style={styles.timerHeaderText}>Timer Detected</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Timer size={20} color="#f97316" />
+                  <Text style={styles.timerHeaderText}>Timer Detected</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleOpenEditTimer}
+                  style={{ padding: 4 }}
+                >
+                  <Edit3 size={18} color="#f97316" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.timerDisplay}>
@@ -1096,33 +1274,218 @@ export default function CookingMode({
           )}
           </ScrollView>
 
-          {/* Navigation Controls - Move inside main content for landscape */}
-          {isLandscape && (
-            <View style={[styles.navigation, styles.navigationLandscape]}>
-              <TouchableOpacity
-                style={[styles.navButton, styles.prevButton, isFirstStep && styles.navButtonDisabled]}
-                onPress={handlePrevious}
-                disabled={isFirstStep}
-                activeOpacity={0.8}
+          {/* Automatic Mode Overlay - Tap to Pause/Resume */}
+          {isLandscape && autoModeActive && (
+            <TouchableOpacity
+              style={styles.autoModeOverlay}
+              onPress={handleAutoModeTap}
+              activeOpacity={1}
+            >
+              <Animated.View
+                entering={FadeIn.duration(300)}
               >
-                <ChevronLeft size={24} color={isFirstStep ? '#94a3b8' : '#0f172a'} />
-                <Text style={[styles.navButtonText, isFirstStep && styles.navButtonTextDisabled]}>
-                  Previous
-                </Text>
-              </TouchableOpacity>
+                {autoModePaused ? (
+                  <View style={styles.autoModeTimerCircle}>
+                    <Pause size={24} color="#fff" fill="#fff" />
+                  </View>
+                ) : (
+                  <View style={styles.autoModeTimerCircle}>
+                    <Text style={styles.autoModeTimerText}>{autoModeTimer}</Text>
+                  </View>
+                )}
+              </Animated.View>
+            </TouchableOpacity>
+          )}
 
-              <TouchableOpacity
-                style={[styles.navButton, styles.nextButton, isLastStep && styles.navButtonDisabled]}
-                onPress={handleNext}
-                disabled={isLastStep}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.navButtonText, isLastStep && styles.navButtonTextDisabled]}>
-                  Next
-                </Text>
-                <ChevronRight size={24} color={isLastStep ? '#94a3b8' : '#0f172a'} />
-              </TouchableOpacity>
-            </View>
+          {/* Old Sidebar - Removed for Auto Mode */}
+          {false && isLandscape && (
+            <ScrollView
+              style={styles.landscapeControlsSidebar}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Progress Section */}
+              <View style={styles.sidebarSection}>
+                <Text style={styles.sidebarSectionTitle}>Progress</Text>
+                <View style={styles.sidebarProgressInfo}>
+                  <Text style={styles.sidebarProgressText}>{Math.round(progress)}%</Text>
+                  <Text style={styles.sidebarStepText}>
+                    Step {currentStep + 1}/{instructions.length}
+                  </Text>
+                </View>
+                <View style={styles.progressBarContainer}>
+                  <Animated.View
+                    style={[styles.progressBar, { width: `${progress}%` }]}
+                  />
+                </View>
+              </View>
+
+              {/* Navigation Controls */}
+              <View style={styles.sidebarSection}>
+                <TouchableOpacity
+                  style={[styles.sidebarNavButton, isFirstStep && styles.navButtonDisabled]}
+                  onPress={handlePrevious}
+                  disabled={isFirstStep}
+                  activeOpacity={0.8}
+                >
+                  <ChevronLeft size={20} color={isFirstStep ? '#94a3b8' : '#0f172a'} />
+                  <Text style={[styles.sidebarNavButtonText, isFirstStep && styles.navButtonTextDisabled]}>
+                    Previous Step
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.sidebarNavButton, isLastStep && styles.navButtonDisabled]}
+                  onPress={handleNext}
+                  disabled={isLastStep}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.sidebarNavButtonText, isLastStep && styles.navButtonTextDisabled]}>
+                    Next Step
+                  </Text>
+                  <ChevronRight size={20} color={isLastStep ? '#94a3b8' : '#0f172a'} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Actions */}
+              <View style={styles.sidebarSection}>
+                <Text style={styles.sidebarSectionTitle}>Quick Actions</Text>
+                <View style={styles.sidebarQuickActions}>
+                  <TouchableOpacity
+                    style={styles.sidebarActionButton}
+                    onPress={() => setShowAddTimerModal(true)}
+                  >
+                    <Plus size={16} color="#f97316" />
+                    <Text style={styles.sidebarActionText}>Timer</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.sidebarActionButton}
+                    onPress={handleOpenNotes}
+                  >
+                    <StickyNote size={16} color="#10b981" />
+                    <Text style={styles.sidebarActionText}>
+                      {stepNotes[currentStep] ? 'Edit Note' : 'Note'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.sidebarActionButton}
+                    onPress={() => setShowScalingModal(true)}
+                  >
+                    <Scale size={16} color="#0284c7" />
+                    <Text style={styles.sidebarActionText}>Scale</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.sidebarActionButton,
+                      remindersEnabled && styles.sidebarActionButtonActive
+                    ]}
+                    onPress={() => {
+                      setRemindersEnabled(!remindersEnabled);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    {remindersEnabled ? (
+                      <Bell size={16} color="#8b5cf6" />
+                    ) : (
+                      <BellOff size={16} color="#94a3b8" />
+                    )}
+                    <Text style={styles.sidebarActionText}>Alerts</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Voice Control */}
+              <View style={styles.sidebarSection}>
+                <Text style={styles.sidebarSectionTitle}>Voice Control</Text>
+                <TouchableOpacity
+                  style={[styles.sidebarVoiceToggle, voiceEnabled && styles.sidebarVoiceToggleActive]}
+                  onPress={toggleVoice}
+                >
+                  {voiceEnabled ? (
+                    <Mic size={18} color="#fff" />
+                  ) : (
+                    <MicOff size={18} color="#64748b" />
+                  )}
+                  <Text style={[styles.sidebarVoiceText, voiceEnabled && styles.sidebarVoiceTextActive]}>
+                    {voiceEnabled ? 'Voice On' : 'Voice Off'}
+                  </Text>
+                </TouchableOpacity>
+
+                {voiceEnabled && (
+                  <View style={styles.sidebarVoiceControls}>
+                    <TouchableOpacity
+                      style={[styles.sidebarVoiceButton, isListening && styles.sidebarVoiceButtonActive]}
+                      onPress={startVoiceRecognition}
+                      disabled={isListening}
+                    >
+                      <Mic size={20} color={isListening ? '#ef4444' : '#fff'} />
+                      <Text style={styles.sidebarVoiceButtonText}>
+                        {isListening ? 'Listening...' : 'Speak'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.sidebarVoiceFeedbackButton}
+                      onPress={toggleVoiceFeedback}
+                    >
+                      <Volume2 size={16} color={voiceFeedbackEnabled ? '#10b981' : '#94a3b8'} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Active Custom Timers */}
+              {customTimers.length > 0 && (
+                <View style={styles.sidebarSection}>
+                  <Text style={styles.sidebarSectionTitle}>Active Timers</Text>
+                  {customTimers.map((timer) => (
+                    <Animated.View
+                      key={timer.id}
+                      entering={ZoomIn.duration(300)}
+                      style={[
+                        styles.sidebarTimerCard,
+                        timer.remainingSeconds === 0 && styles.sidebarTimerCardComplete,
+                        timer.isRunning && styles.sidebarTimerCardRunning,
+                      ]}
+                    >
+                      <View style={styles.sidebarTimerHeader}>
+                        <Text style={styles.sidebarTimerLabel} numberOfLines={1}>
+                          {timer.label}
+                        </Text>
+                        <TouchableOpacity onPress={() => handleDeleteTimer(timer.id)}>
+                          <Trash2 size={14} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.sidebarTimerTime}>
+                        {formatTime(timer.remainingSeconds)}
+                      </Text>
+                      <View style={styles.sidebarTimerControls}>
+                        <TouchableOpacity
+                          style={styles.sidebarTimerButton}
+                          onPress={() => handleToggleTimer(timer.id)}
+                        >
+                          {timer.isRunning ? (
+                            <Pause size={14} color="#fff" fill="#fff" />
+                          ) : (
+                            <Play size={14} color="#fff" fill="#fff" />
+                          )}
+                        </TouchableOpacity>
+                        {!timer.isRunning && timer.remainingSeconds !== timer.totalSeconds && (
+                          <TouchableOpacity
+                            style={styles.sidebarTimerButton}
+                            onPress={() => handleResetCustomTimer(timer.id)}
+                          >
+                            <RotateCcw size={12} color="#fff" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </Animated.View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
           )}
         </View>
 
@@ -1236,6 +1599,154 @@ export default function CookingMode({
                   onPress={handleAddCustomTimer}
                 >
                   <Text style={styles.modalButtonTextConfirm}>Add Timer</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Edit Detected Timer Modal */}
+        <Modal
+          visible={showEditTimerModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowEditTimerModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={styles.timerEditModalContent}
+            >
+              {/* Header */}
+              <Text style={styles.timerEditTitle}>Set a Timer</Text>
+
+              {/* Labels Row */}
+              <View style={styles.pickerLabelsRow}>
+                <Text style={styles.pickerLabelText}>Hours</Text>
+                <Text style={styles.pickerLabelText}>Minutes</Text>
+                <Text style={styles.pickerLabelText}>Seconds</Text>
+              </View>
+
+              {/* Three-Column Picker */}
+              <View style={styles.pickerContainer}>
+                {/* Hours Column */}
+                <View style={styles.pickerColumn}>
+                  <ScrollView
+                    ref={hoursScrollRef}
+                    style={styles.pickerScroll}
+                    contentContainerStyle={styles.pickerScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={60}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerHours(index.toString());
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    {Array.from({ length: 100 }, (_, i) => (
+                      <View key={i} style={styles.pickerItem}>
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            editTimerHours === i.toString() && styles.pickerItemTextSelected
+                          ]}
+                        >
+                          {i.toString().padStart(2, '0')}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Colon Separator */}
+                <Text style={styles.colonSeparator}>:</Text>
+
+                {/* Minutes Column */}
+                <View style={styles.pickerColumn}>
+                  <ScrollView
+                    ref={minutesScrollRef}
+                    style={styles.pickerScroll}
+                    contentContainerStyle={styles.pickerScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={60}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerMinutes(index.toString());
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => (
+                      <View key={i} style={styles.pickerItem}>
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            editTimerMinutes === i.toString() && styles.pickerItemTextSelected
+                          ]}
+                        >
+                          {i.toString().padStart(2, '0')}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Colon Separator */}
+                <Text style={styles.colonSeparator}>:</Text>
+
+                {/* Seconds Column */}
+                <View style={styles.pickerColumn}>
+                  <ScrollView
+                    ref={secondsScrollRef}
+                    style={styles.pickerScroll}
+                    contentContainerStyle={styles.pickerScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={60}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerSeconds(index.toString());
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => (
+                      <View key={i} style={styles.pickerItem}>
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            editTimerSeconds === i.toString() && styles.pickerItemTextSelected
+                          ]}
+                        >
+                          {i.toString().padStart(2, '0')}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Top Border Line */}
+                <View style={styles.pickerBorderTop} />
+                {/* Bottom Border Line */}
+                <View style={styles.pickerBorderBottom} />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.timerEditButtons}>
+                <TouchableOpacity
+                  style={styles.timerEditButtonStart}
+                  onPress={handleSaveEditedTimer}
+                >
+                  <Text style={styles.timerEditButtonStartText}>Start</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.timerEditButtonStop}
+                  onPress={() => setShowEditTimerModal(false)}
+                >
+                  <Text style={styles.timerEditButtonStopText}>Stop</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
@@ -1479,6 +1990,10 @@ const styles = StyleSheet.create({
     padding: 8,
     marginRight: 12,
   },
+  rotateButton: {
+    padding: 8,
+    marginLeft: 12,
+  },
   headerContent: {
     flex: 1,
   },
@@ -1531,22 +2046,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mainContentLandscape: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 16,
+    // No longer using two-column layout, just full-width for auto mode
   },
   stepContainer: {
     flex: 1,
   },
   stepContainerLandscape: {
-    flex: 2,
+    flex: 1,
   },
   stepContent: {
     padding: 24,
     paddingBottom: 40,
   },
   stepContentLandscape: {
-    padding: 16,
+    padding: 28,
+    paddingBottom: 32,
   },
   stepNumberBadge: {
     flexDirection: 'row',
@@ -1589,9 +2103,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   instructionTextLandscape: {
-    fontSize: 20,
-    lineHeight: 30,
-    marginBottom: 24,
+    fontSize: 28,
+    lineHeight: 42,
+    marginBottom: 28,
+    fontWeight: '600',
   },
   completeButton: {
     flexDirection: 'row',
@@ -1633,7 +2148,7 @@ const styles = StyleSheet.create({
   timerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
   timerHeaderText: {
@@ -2037,6 +2552,125 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  // Timer Edit Modal Styles
+  timerEditModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    paddingBottom: 24,
+    width: '90%',
+    maxWidth: 350,
+    maxHeight: '85%',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  timerEditTitle: {
+    fontSize: 24,
+    fontWeight: '400',
+    color: '#9ca3af',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  pickerLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  pickerLabelText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#9ca3af',
+    width: 80,
+    textAlign: 'center',
+  },
+  pickerContainer: {
+    height: 180,
+    marginBottom: 28,
+    position: 'relative',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 0,
+  },
+  pickerColumn: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  pickerScroll: {
+    width: 70,
+    height: 180,
+  },
+  pickerScrollContent: {
+    paddingVertical: 60,
+  },
+  pickerItem: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerItemText: {
+    fontSize: 20,
+    fontWeight: '300',
+    color: '#d1d5db',
+  },
+  pickerItemTextSelected: {
+    fontSize: 42,
+    fontWeight: '300',
+    color: '#0ea5e9',
+  },
+  colonSeparator: {
+    fontSize: 42,
+    fontWeight: '300',
+    color: '#0ea5e9',
+    marginHorizontal: 8,
+  },
+  pickerBorderTop: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    top: 60,
+    backgroundColor: '#e5e7eb',
+  },
+  pickerBorderBottom: {
+    position: 'absolute',
+    width: '100%',
+    height: 1,
+    top: 120,
+    backgroundColor: '#e5e7eb',
+  },
+  timerEditButtons: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  timerEditButtonStart: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+  },
+  timerEditButtonStop: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerEditButtonStartText: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#0ea5e9',
+  },
+  timerEditButtonStopText: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#9ca3af',
+  },
   // Scaling Styles
   scaleOptions: {
     flexDirection: 'row',
@@ -2229,5 +2863,205 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#d1fae5',
+  },
+  // Landscape Sidebar Styles
+  landscapeControlsSidebar: {
+    width: 240,
+    backgroundColor: '#fff',
+    borderLeftWidth: 1,
+    borderLeftColor: '#e2e8f0',
+    paddingVertical: 12,
+  },
+  sidebarSection: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  sidebarSectionTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  sidebarProgressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sidebarProgressText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0284c7',
+  },
+  sidebarStepText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  sidebarNavButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginVertical: 3,
+    gap: 6,
+  },
+  sidebarNavButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  sidebarQuickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sidebarActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    gap: 5,
+    flex: 1,
+    minWidth: '45%',
+  },
+  sidebarActionButtonActive: {
+    backgroundColor: '#ede9fe',
+  },
+  sidebarActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  sidebarVoiceToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 6,
+    marginBottom: 6,
+  },
+  sidebarVoiceToggleActive: {
+    backgroundColor: '#0ea5e9',
+  },
+  sidebarVoiceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  sidebarVoiceTextActive: {
+    color: '#fff',
+  },
+  sidebarVoiceControls: {
+    gap: 6,
+  },
+  sidebarVoiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 6,
+  },
+  sidebarVoiceButtonActive: {
+    backgroundColor: '#ef4444',
+  },
+  sidebarVoiceButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  sidebarVoiceFeedbackButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  sidebarTimerCard: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 6,
+    padding: 10,
+    marginVertical: 4,
+    borderWidth: 2,
+    borderColor: '#fde047',
+  },
+  sidebarTimerCardRunning: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#60a5fa',
+  },
+  sidebarTimerCardComplete: {
+    backgroundColor: '#d1fae5',
+    borderColor: '#34d399',
+  },
+  sidebarTimerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  sidebarTimerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#78350f',
+    flex: 1,
+  },
+  sidebarTimerTime: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  sidebarTimerControls: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sidebarTimerButton: {
+    backgroundColor: '#0f172a',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Automatic Mode Styles
+  autoModeOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  autoModeTimerCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#38bdf8',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  autoModeTimerText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
