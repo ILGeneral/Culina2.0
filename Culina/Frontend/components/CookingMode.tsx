@@ -12,10 +12,11 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Trash2, StickyNote, Scale } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -71,6 +72,53 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+// Detect if a step is critical based on keywords
+function isCriticalStep(instruction: string): boolean {
+  const criticalKeywords = [
+    'don\'t', 'do not', 'must', 'important', 'critical', 'careful', 'watch',
+    'constantly', 'continuously', 'immediately', 'quickly', 'careful not to',
+    'make sure', 'ensure', 'be careful', 'attention', 'warning', 'caution',
+    'stir frequently', 'stir constantly', 'keep stirring', 'never', 'avoid',
+    'do not overcook', 'do not burn', 'watch closely', 'monitor'
+  ];
+
+  const lowerInstruction = instruction.toLowerCase();
+  return criticalKeywords.some(keyword => lowerInstruction.includes(keyword));
+}
+
+// Get reminder type and message for a step
+function getStepReminder(instruction: string): { type: 'warning' | 'info' | 'timer', message: string } | null {
+  const lowerInstruction = instruction.toLowerCase();
+
+  // Temperature warnings
+  if (lowerInstruction.includes('preheat') || lowerInstruction.includes('heat oven')) {
+    return { type: 'warning', message: 'Remember to preheat your oven before starting!' };
+  }
+
+  // Timing reminders
+  if (lowerInstruction.includes('rest') || lowerInstruction.includes('cool')) {
+    return { type: 'info', message: 'This step requires resting time. Use the timer!' };
+  }
+
+  // Continuous attention needed
+  if (lowerInstruction.includes('stir frequently') || lowerInstruction.includes('stir constantly')) {
+    return { type: 'warning', message: 'This step needs continuous attention. Stay nearby!' };
+  }
+
+  // Critical temperature steps
+  if (lowerInstruction.includes('boil') || lowerInstruction.includes('simmer')) {
+    return { type: 'warning', message: 'Watch the temperature carefully to avoid burning!' };
+  }
+
+  // Time-sensitive steps
+  const hasTime = parseTimeFromText(instruction);
+  if (hasTime && hasTime > 0) {
+    return { type: 'timer', message: 'Timer detected! Start the timer to track this step.' };
+  }
+
+  return null;
+}
+
 export default function CookingMode({
   instructions,
   onClose,
@@ -106,12 +154,97 @@ export default function CookingMode({
   const [servingMultiplier, setServingMultiplier] = useState(1);
   const [showScalingModal, setShowScalingModal] = useState(false);
 
+  // Voice command state
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(true);
+  const recognitionRef = useRef<any>(null);
+
+  // Smart reminders state
+  const [remindersEnabled, setRemindersEnabled] = useState(true);
+  const [criticalSteps, setCriticalSteps] = useState<Set<number>>(new Set());
+  const [shownReminders, setShownReminders] = useState<Set<number>>(new Set());
+
+  // Measurement converter state
+  const [showConverter, setShowConverter] = useState(false);
+  const [converterInput, setConverterInput] = useState('');
+  const [converterFromUnit, setConverterFromUnit] = useState('cup');
+  const [converterToUnit, setConverterToUnit] = useState('ml');
+
+  // Gamification state
+  const [showAchievement, setShowAchievement] = useState(false);
+  const [currentAchievement, setCurrentAchievement] = useState<{ title: string; message: string; icon: string } | null>(null);
+
+  // Completion alert state
+  const [showCompletionAlert, setShowCompletionAlert] = useState(false);
+
   // Inventory deduction state
   const [isDeducting, setIsDeducting] = useState(false);
   const [hasDeducted, setHasDeducted] = useState(false);
 
   const progress = instructions.length > 0 ? (completedSteps.size / instructions.length) * 100 : 0;
   const isFullyComplete = progress === 100;
+
+  // ========== DETECT CRITICAL STEPS ON MOUNT ==========
+  useEffect(() => {
+    const critical = new Set<number>();
+    instructions.forEach((instruction, index) => {
+      if (isCriticalStep(instruction)) {
+        critical.add(index);
+      }
+    });
+    setCriticalSteps(critical);
+  }, [instructions]);
+
+  // ========== SHOW REMINDERS FOR CURRENT STEP ==========
+  useEffect(() => {
+    if (!remindersEnabled) return;
+    if (shownReminders.has(currentStep)) return;
+
+    const reminder = getStepReminder(instructions[currentStep]);
+    if (reminder) {
+      // Small delay to allow step transition animation
+      const timeoutId = setTimeout(() => {
+        Haptics.notificationAsync(
+          reminder.type === 'warning'
+            ? Haptics.NotificationFeedbackType.Warning
+            : Haptics.NotificationFeedbackType.Success
+        );
+
+        const icon = reminder.type === 'warning' ? '⚠️' : reminder.type === 'timer' ? '⏱️' : 'ℹ️';
+        Alert.alert(
+          `${icon} Step ${currentStep + 1} Reminder`,
+          reminder.message,
+          [
+            {
+              text: 'Got it',
+              onPress: () => {
+                setShownReminders(prev => new Set(prev).add(currentStep));
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+            }
+          ]
+        );
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentStep, remindersEnabled, shownReminders, instructions]);
+
+  // ========== AUTO-FADE COMPLETION ALERT ==========
+  useEffect(() => {
+    if (isFullyComplete && !showCompletionAlert) {
+      // Show the alert
+      setShowCompletionAlert(true);
+
+      // Auto-hide after 2 seconds
+      const fadeTimeout = setTimeout(() => {
+        setShowCompletionAlert(false);
+      }, 2000);
+
+      return () => clearTimeout(fadeTimeout);
+    }
+  }, [isFullyComplete]);
 
   // Clean up timer on unmount or when step changes
   useEffect(() => {
@@ -209,12 +342,71 @@ export default function CookingMode({
     } else {
       newCompleted.add(currentStep);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Check for achievements
+      checkAchievements(newCompleted);
+
       // Auto-advance to next step when marking as complete
       if (currentStep < instructions.length - 1) {
         setCurrentStep(currentStep + 1);
       }
     }
     setCompletedSteps(newCompleted);
+  };
+
+  // ========== GAMIFICATION SYSTEM ==========
+  const checkAchievements = (completed: Set<number>) => {
+    const completedCount = completed.size;
+    const totalSteps = instructions.length;
+    const progressPercent = (completedCount / totalSteps) * 100;
+
+    // First step achievement
+    if (completedCount === 1) {
+      showAchievementNotification({
+        title: 'First Step!',
+        message: 'Great start! Keep the momentum going!',
+        icon: '🌟'
+      });
+    }
+    // Halfway achievement
+    else if (completedCount === Math.floor(totalSteps / 2) && completedCount > 1) {
+      showAchievementNotification({
+        title: 'Halfway There! 🔥',
+        message: 'You\'re doing amazing! Keep it up!',
+        icon: '⭐'
+      });
+    }
+    // Almost done achievement
+    else if (progressPercent >= 75 && progressPercent < 100) {
+      showAchievementNotification({
+        title: 'Almost Done! 💪',
+        message: 'The finish line is in sight!',
+        icon: '🏆'
+      });
+    }
+    // Perfect completion - Skip showing achievement banner, the completion banner will show instead
+    else if (completedCount === totalSteps) {
+      // Don't show achievement notification, let the static completion banner handle it
+      return;
+    }
+    // Streak achievements (every 3 steps)
+    else if (completedCount % 3 === 0 && completedCount > 0) {
+      showAchievementNotification({
+        title: `${completedCount} Steps! 🚀`,
+        message: 'You\'re on fire! Keep cooking!',
+        icon: '🔥'
+      });
+    }
+  };
+
+  const showAchievementNotification = (achievement: { title: string; message: string; icon: string }) => {
+    setCurrentAchievement(achievement);
+    setShowAchievement(true);
+
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowAchievement(false);
+    }, 3000);
   };
 
   const handleClose = () => {
@@ -323,6 +515,230 @@ export default function CookingMode({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  // ========== VOICE COMMAND MANAGEMENT ==========
+  const speakFeedback = async (text: string) => {
+    if (!voiceFeedbackEnabled) return;
+    try {
+      await Speech.speak(text, {
+        language: 'en-US',
+        pitch: 1.0,
+        rate: 0.9,
+      });
+    } catch (error) {
+      console.error('Speech error:', error);
+    }
+  };
+
+  const processVoiceCommand = (command: string) => {
+    const lowerCommand = command.toLowerCase().trim();
+
+    // Navigation commands
+    if (lowerCommand.includes('next') || lowerCommand.includes('forward')) {
+      if (currentStep < instructions.length - 1) {
+        handleNext();
+        speakFeedback(`Moving to step ${currentStep + 2}`);
+      } else {
+        speakFeedback('You are on the last step');
+      }
+      return true;
+    }
+
+    if (lowerCommand.includes('previous') || lowerCommand.includes('back') || lowerCommand.includes('go back')) {
+      if (currentStep > 0) {
+        handlePrevious();
+        speakFeedback(`Moving to step ${currentStep}`);
+      } else {
+        speakFeedback('You are on the first step');
+      }
+      return true;
+    }
+
+    // Step completion commands
+    if (lowerCommand.includes('complete') || lowerCommand.includes('done') || lowerCommand.includes('finished')) {
+      handleToggleComplete();
+      speakFeedback('Step marked as complete');
+      return true;
+    }
+
+    // Timer commands
+    if (lowerCommand.includes('start timer') || lowerCommand.includes('begin timer')) {
+      if (timerSeconds !== null) {
+        handleStartTimer();
+        speakFeedback('Timer started');
+      } else {
+        speakFeedback('No timer detected for this step');
+      }
+      return true;
+    }
+
+    if (lowerCommand.includes('pause timer') || lowerCommand.includes('stop timer')) {
+      handlePauseTimer();
+      speakFeedback('Timer paused');
+      return true;
+    }
+
+    if (lowerCommand.includes('reset timer')) {
+      handleResetTimer();
+      speakFeedback('Timer reset');
+      return true;
+    }
+
+    // Read current step
+    if (lowerCommand.includes('read') || lowerCommand.includes('repeat') || lowerCommand.includes('what')) {
+      speakFeedback(`Step ${currentStep + 1}: ${instructions[currentStep]}`);
+      return true;
+    }
+
+    // Jump to specific step
+    const stepMatch = lowerCommand.match(/(?:go to|jump to|step)\s*(\d+)/);
+    if (stepMatch) {
+      const targetStep = parseInt(stepMatch[1]) - 1;
+      if (targetStep >= 0 && targetStep < instructions.length) {
+        setCurrentStep(targetStep);
+        speakFeedback(`Moving to step ${targetStep + 1}`);
+      } else {
+        speakFeedback('Invalid step number');
+      }
+      return true;
+    }
+
+    // Help command
+    if (lowerCommand.includes('help') || lowerCommand.includes('commands')) {
+      speakFeedback('Say next, previous, complete, start timer, pause timer, reset timer, or read step');
+      return true;
+    }
+
+    return false;
+  };
+
+  const startVoiceRecognition = async () => {
+    try {
+      setIsListening(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      speakFeedback('Listening');
+
+      // Note: Web Speech API for voice recognition
+      // This is a placeholder - React Native doesn't have built-in speech recognition
+      // In a real implementation, you'd use expo-speech-recognition or similar
+      Alert.alert(
+        'Voice Command',
+        'Say a command:\n\n' +
+        '• "Next" - Next step\n' +
+        '• "Previous" - Previous step\n' +
+        '• "Complete" - Mark step done\n' +
+        '• "Start timer" - Start timer\n' +
+        '• "Pause timer" - Pause timer\n' +
+        '• "Read step" - Repeat current step\n' +
+        '• "Help" - List commands',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => setIsListening(false) },
+          {
+            text: 'Test: Next',
+            onPress: () => {
+              processVoiceCommand('next');
+              setIsListening(false);
+            }
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Voice recognition error:', error);
+      setIsListening(false);
+      Alert.alert('Error', 'Voice recognition not available');
+    }
+  };
+
+  const toggleVoice = () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (newState) {
+      speakFeedback('Voice commands enabled. Say help for available commands.');
+    } else {
+      Speech.stop();
+    }
+  };
+
+  const toggleVoiceFeedback = () => {
+    setVoiceFeedbackEnabled(!voiceFeedbackEnabled);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  // ========== MEASUREMENT CONVERTER ==========
+  const conversionTable: { [key: string]: number } = {
+    // Volume conversions (all to ml)
+    'ml': 1,
+    'l': 1000,
+    'cup': 236.588,
+    'tbsp': 14.787,
+    'tsp': 4.929,
+    'fl oz': 29.574,
+    'pint': 473.176,
+    'quart': 946.353,
+    'gallon': 3785.41,
+    // Weight conversions (all to grams)
+    'g': 1,
+    'kg': 1000,
+    'oz': 28.3495,
+    'lb': 453.592,
+    // Temperature (handled separately)
+  };
+
+  const convertMeasurement = (value: number, fromUnit: string, toUnit: string): number => {
+    // Handle temperature separately
+    if (fromUnit === '°F' && toUnit === '°C') {
+      return (value - 32) * 5 / 9;
+    }
+    if (fromUnit === '°C' && toUnit === '°F') {
+      return (value * 9 / 5) + 32;
+    }
+
+    // Check if units are compatible (both volume or both weight)
+    const volumeUnits = ['ml', 'l', 'cup', 'tbsp', 'tsp', 'fl oz', 'pint', 'quart', 'gallon'];
+    const weightUnits = ['g', 'kg', 'oz', 'lb'];
+
+    const fromIsVolume = volumeUnits.includes(fromUnit);
+    const toIsVolume = volumeUnits.includes(toUnit);
+    const fromIsWeight = weightUnits.includes(fromUnit);
+    const toIsWeight = weightUnits.includes(toUnit);
+
+    if ((fromIsVolume && !toIsVolume) || (fromIsWeight && !toIsWeight)) {
+      return 0; // Incompatible units
+    }
+
+    // Convert to base unit then to target unit
+    const baseValue = value * conversionTable[fromUnit];
+    return baseValue / conversionTable[toUnit];
+  };
+
+  const handleConvert = () => {
+    const inputValue = parseFloat(converterInput);
+    if (isNaN(inputValue)) {
+      Alert.alert('Invalid Input', 'Please enter a valid number');
+      return;
+    }
+
+    const result = convertMeasurement(inputValue, converterFromUnit, converterToUnit);
+    if (result === 0 && inputValue !== 0) {
+      Alert.alert('Conversion Error', 'These units cannot be converted to each other');
+      return;
+    }
+
+    Alert.alert(
+      'Conversion Result',
+      `${inputValue} ${converterFromUnit} = ${result.toFixed(2)} ${converterToUnit}`,
+      [{ text: 'OK', onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }]
+    );
+  };
+
   const handleDeductIngredients = async () => {
     if (!onDeductIngredients || !ingredients || ingredients.length === 0) {
       Alert.alert('No Ingredients', 'No ingredients available to deduct.');
@@ -407,6 +823,45 @@ export default function CookingMode({
           </View>
         </View>
 
+        {/* Voice Control Bar */}
+        <View style={styles.voiceControlBar}>
+          <TouchableOpacity
+            style={[styles.voiceButton, voiceEnabled && styles.voiceButtonActive]}
+            onPress={toggleVoice}
+          >
+            {voiceEnabled ? (
+              <Mic size={20} color="#fff" />
+            ) : (
+              <MicOff size={20} color="#64748b" />
+            )}
+            <Text style={[styles.voiceButtonText, voiceEnabled && styles.voiceButtonTextActive]}>
+              {voiceEnabled ? 'Voice On' : 'Voice Off'}
+            </Text>
+          </TouchableOpacity>
+
+          {voiceEnabled && (
+            <>
+              <TouchableOpacity
+                style={[styles.voiceListenButton, isListening && styles.voiceListenButtonActive]}
+                onPress={startVoiceRecognition}
+                disabled={isListening}
+              >
+                <Mic size={24} color={isListening ? '#ef4444' : '#fff'} />
+                <Text style={styles.voiceListenButtonText}>
+                  {isListening ? 'Listening...' : 'Press to Speak'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.voiceFeedbackButton}
+                onPress={toggleVoiceFeedback}
+              >
+                <Volume2 size={18} color={voiceFeedbackEnabled ? '#10b981' : '#94a3b8'} />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
         {/* Quick Action Buttons */}
         <View style={styles.quickActions}>
           <TouchableOpacity
@@ -434,6 +889,29 @@ export default function CookingMode({
             <Scale size={18} color="#0284c7" />
             <Text style={styles.quickActionText}>
               {servingMultiplier === 1 ? 'Scale' : `${servingMultiplier}x`}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.quickActionButton,
+              remindersEnabled ? styles.reminderActionButtonActive : styles.reminderActionButton
+            ]}
+            onPress={() => {
+              setRemindersEnabled(!remindersEnabled);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            {remindersEnabled ? (
+              <Bell size={18} color="#8b5cf6" />
+            ) : (
+              <BellOff size={18} color="#94a3b8" />
+            )}
+            <Text style={[
+              styles.quickActionText,
+              remindersEnabled && styles.quickActionTextActive
+            ]}>
+              Alerts
             </Text>
           </TouchableOpacity>
         </View>
@@ -507,6 +985,11 @@ export default function CookingMode({
           >
             <View style={styles.stepNumberBadge}>
               <Text style={styles.stepNumberText}>Step {currentStep + 1}</Text>
+              {criticalSteps.has(currentStep) && (
+                <View style={styles.criticalBadge}>
+                  <Text style={styles.criticalBadgeText}>⚠️ Critical</Text>
+                </View>
+              )}
             </View>
 
             <Text style={[styles.instructionText, isLandscape && styles.instructionTextLandscape]}>
@@ -673,12 +1156,13 @@ export default function CookingMode({
         )}
 
         {/* Completion Message */}
-        {completedSteps.size === instructions.length && (
+        {showCompletionAlert && (
           <Animated.View
             style={styles.completionBanner}
-            entering={FadeInDown.duration(500).springify()}
+            entering={FadeInDown.duration(300)}
+            exiting={FadeOutUp.duration(300)}
           >
-            <Text style={styles.completionText}>🎉 All steps completed!</Text>
+            <Text style={styles.completionText}>All steps completed!</Text>
           </Animated.View>
         )}
 
@@ -701,12 +1185,9 @@ export default function CookingMode({
               {isDeducting ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <>
-                  <Package size={22} color="#fff" />
-                  <Text style={styles.deductButtonText}>
-                    {hasDeducted ? '✓ Ingredients Deducted' : 'Deduct from Pantry'}
-                  </Text>
-                </>
+                <Text style={styles.deductButtonText}>
+                  {hasDeducted ? 'Ingredients Deducted' : 'Deduct from Pantry'}
+                </Text>
               )}
             </TouchableOpacity>
           </Animated.View>
@@ -850,6 +1331,128 @@ export default function CookingMode({
             </Animated.View>
           </View>
         </Modal>
+
+        {/* Measurement Converter Modal */}
+        <Modal
+          visible={showConverter}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowConverter(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={styles.modalContent}
+            >
+              <Text style={styles.modalTitle}>Measurement Converter</Text>
+              <Text style={styles.modalSubtitle}>Convert between units</Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter value"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                value={converterInput}
+                onChangeText={setConverterInput}
+              />
+
+              <View style={styles.converterRow}>
+                <View style={styles.converterUnitContainer}>
+                  <Text style={styles.converterLabel}>From:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+                    {['cup', 'ml', 'l', 'tbsp', 'tsp', 'fl oz', 'g', 'kg', 'oz', 'lb', '°F', '°C'].map((unit) => (
+                      <TouchableOpacity
+                        key={unit}
+                        style={[
+                          styles.unitButton,
+                          converterFromUnit === unit && styles.unitButtonActive
+                        ]}
+                        onPress={() => setConverterFromUnit(unit)}
+                      >
+                        <Text style={[
+                          styles.unitButtonText,
+                          converterFromUnit === unit && styles.unitButtonTextActive
+                        ]}>
+                          {unit}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.converterArrow}>
+                <ArrowRightLeft size={24} color="#64748b" />
+              </View>
+
+              <View style={styles.converterRow}>
+                <View style={styles.converterUnitContainer}>
+                  <Text style={styles.converterLabel}>To:</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+                    {['cup', 'ml', 'l', 'tbsp', 'tsp', 'fl oz', 'g', 'kg', 'oz', 'lb', '°F', '°C'].map((unit) => (
+                      <TouchableOpacity
+                        key={unit}
+                        style={[
+                          styles.unitButton,
+                          converterToUnit === unit && styles.unitButtonActive
+                        ]}
+                        onPress={() => setConverterToUnit(unit)}
+                      >
+                        <Text style={[
+                          styles.unitButtonText,
+                          converterToUnit === unit && styles.unitButtonTextActive
+                        ]}>
+                          {unit}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setShowConverter(false)}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Close</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={handleConvert}
+                >
+                  <Text style={styles.modalButtonTextConfirm}>Convert</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        {/* Floating Converter Button */}
+        <TouchableOpacity
+          style={styles.floatingConverterButton}
+          onPress={() => {
+            setShowConverter(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+        >
+          <Calculator size={24} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Achievement Notification */}
+        {showAchievement && currentAchievement && (
+          <Animated.View
+            style={styles.achievementBanner}
+            entering={ZoomIn.duration(400).springify()}
+            exiting={FadeOutUp.duration(300)}
+          >
+            <Text style={styles.achievementIcon}>{currentAchievement.icon}</Text>
+            <View style={styles.achievementTextContainer}>
+              <Text style={styles.achievementTitle}>{currentAchievement.title}</Text>
+              <Text style={styles.achievementMessage}>{currentAchievement.message}</Text>
+            </View>
+          </Animated.View>
+        )}
       </LinearGradient>
     </SafeAreaView>
   );
@@ -946,16 +1549,34 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   stepNumberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: '#0ea5e9',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 999,
     marginBottom: 20,
+    gap: 8,
   },
   stepNumberText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  criticalBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+  },
+  criticalBadgeText: {
+    color: '#92400e',
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1145,27 +1766,26 @@ const styles = StyleSheet.create({
   },
   completionBanner: {
     position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    backgroundColor: '#10b981',
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
+    top: 80,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   completionText: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#fff',
   },
   deductButtonContainer: {
     position: 'absolute',
-    bottom: 180,
+    bottom: 20,
     left: 20,
     right: 20,
   },
@@ -1229,10 +1849,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
   },
+  reminderActionButton: {
+    backgroundColor: '#f5f3ff',
+    borderColor: '#e9d5ff',
+  },
+  reminderActionButtonActive: {
+    backgroundColor: '#f5f3ff',
+    borderColor: '#c084fc',
+  },
   quickActionText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#334155',
+  },
+  quickActionTextActive: {
+    color: '#8b5cf6',
+    fontWeight: '700',
   },
   // Custom Timers Styles
   timersScrollView: {
@@ -1434,5 +2066,168 @@ const styles = StyleSheet.create({
   },
   scaleOptionTextActive: {
     color: '#0284c7',
+  },
+  // Voice Control Styles
+  voiceControlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  voiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+  },
+  voiceButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  voiceButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  voiceButtonTextActive: {
+    color: '#fff',
+  },
+  voiceListenButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#8b5cf6',
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  voiceListenButtonActive: {
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+  },
+  voiceListenButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  voiceFeedbackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Measurement Converter Styles
+  floatingConverterButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  converterRow: {
+    marginBottom: 16,
+  },
+  converterUnitContainer: {
+    gap: 8,
+  },
+  converterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  unitScroll: {
+    maxHeight: 50,
+  },
+  unitButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    marginRight: 8,
+  },
+  unitButtonActive: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#0ea5e9',
+  },
+  unitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  unitButtonTextActive: {
+    color: '#0ea5e9',
+    fontWeight: '700',
+  },
+  converterArrow: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  // Gamification Styles
+  achievementBanner: {
+    position: 'absolute',
+    top: 100,
+    left: 40,
+    right: 40,
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  achievementIcon: {
+    fontSize: 36,
+  },
+  achievementTextContainer: {
+    flex: 1,
+  },
+  achievementTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 3,
+  },
+  achievementMessage: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#d1fae5',
   },
 });

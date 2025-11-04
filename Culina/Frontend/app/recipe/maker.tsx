@@ -482,7 +482,8 @@ export default function RecipeMakerScreen() {
                       />
                     </View>
 
-                            <View style={styles.sectionHeader}>
+                    <View style={styles.section}>
+                      <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Ingredients *</Text>
                         <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
                           <Plus color="#128AFAFF" size={18} />
