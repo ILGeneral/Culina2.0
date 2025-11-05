@@ -1638,6 +1638,12 @@ export default function CookingMode({
                     showsVerticalScrollIndicator={false}
                     snapToInterval={60}
                     decelerationRate="fast"
+                    onScroll={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerHours(index.toString());
+                    }}
+                    scrollEventThrottle={16}
                     onMomentumScrollEnd={(event) => {
                       const yOffset = event.nativeEvent.contentOffset.y;
                       const index = Math.round(yOffset / 60);
@@ -1672,6 +1678,12 @@ export default function CookingMode({
                     showsVerticalScrollIndicator={false}
                     snapToInterval={60}
                     decelerationRate="fast"
+                    onScroll={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerMinutes(index.toString());
+                    }}
+                    scrollEventThrottle={16}
                     onMomentumScrollEnd={(event) => {
                       const yOffset = event.nativeEvent.contentOffset.y;
                       const index = Math.round(yOffset / 60);
@@ -1706,6 +1718,12 @@ export default function CookingMode({
                     showsVerticalScrollIndicator={false}
                     snapToInterval={60}
                     decelerationRate="fast"
+                    onScroll={(event) => {
+                      const yOffset = event.nativeEvent.contentOffset.y;
+                      const index = Math.round(yOffset / 60);
+                      setEditTimerSeconds(index.toString());
+                    }}
+                    scrollEventThrottle={16}
                     onMomentumScrollEnd={(event) => {
                       const yOffset = event.nativeEvent.contentOffset.y;
                       const index = Math.round(yOffset / 60);
