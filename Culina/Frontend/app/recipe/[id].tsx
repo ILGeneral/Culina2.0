@@ -27,6 +27,7 @@ import {
   ChefHat,
   Share2,
   Pencil,
+  Star,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import CookingMode from "@/components/CookingMode";
@@ -45,6 +46,10 @@ import { useInventory } from "@/hooks/useInventory";
 import { parseIngredient } from "@/lib/ingredientMatcher";
 import { shareRecipe, unshareRecipe, isRecipeShared } from "@/lib/utils/shareRecipe";
 import { normalizeRecipeSource, isAISource } from "@/lib/utils/recipeSource";
+import { StarRating } from "@/components/ratings/StarRating";
+import { RatingModal } from "@/components/ratings/RatingModal";
+import { getUserRating } from "@/lib/utils/rateRecipe";
+import type { Rating } from "@/types/rating";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -61,6 +66,18 @@ type RecipeDoc = Recipe & {
   servings?: number;
   authorUsername?: string;
   authorProfilePicture?: string;
+  ratings?: {
+    averageRating: number;
+    totalRatings: number;
+    ratingDistribution: {
+      1: number;
+      2: number;
+      3: number;
+      4: number;
+      5: number;
+    };
+    lastRatedAt: any;
+  };
 };
 
 const HERO_HEIGHT = 320;
@@ -122,6 +139,8 @@ export default function RecipeDetailsScreen() {
   const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
   const [cookingMode, setCookingMode] = useState(false);
   const [isShared, setIsShared] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [userRating, setUserRating] = useState<Rating | null>(null);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -385,6 +404,29 @@ export default function RecipeDetailsScreen() {
     };
     checkSharedStatus();
   }, [id, saved]);
+
+  // Fetch user's rating for this recipe
+  useEffect(() => {
+    const fetchUserRating = async () => {
+      if (!id || !auth.currentUser?.uid || source !== 'shared') return;
+      try {
+        const rating = await getUserRating(String(id), auth.currentUser.uid);
+        setUserRating(rating);
+      } catch (err) {
+        console.error('Error fetching user rating:', err);
+      }
+    };
+    fetchUserRating();
+  }, [id, source]);
+
+  // Refetch user rating when modal closes
+  const handleRatingModalClose = async () => {
+    setShowRatingModal(false);
+    if (id && auth.currentUser?.uid && source === 'shared') {
+      const rating = await getUserRating(String(id), auth.currentUser.uid);
+      setUserRating(rating);
+    }
+  };
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -690,6 +732,99 @@ export default function RecipeDetailsScreen() {
             </View>
           </Animated.View>
 
+          {/* Rating Section - Only show for shared recipes */}
+          {source === 'shared' && (
+            <Animated.View entering={FadeInUp.delay(150).duration(500).springify()}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.ratingHeader}>
+                  <Text style={styles.cardTitle}>Community Ratings</Text>
+                </View>
+
+                <View style={styles.ratingContent}>
+                  {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
+                    <>
+                      <View style={styles.ratingOverview}>
+                        <View style={styles.ratingMainDisplay}>
+                          <Text style={styles.ratingAverageNumber}>
+                            {recipe.ratings.averageRating.toFixed(1)}
+                          </Text>
+                          <StarRating rating={recipe.ratings.averageRating} size={24} />
+                          <Text style={styles.ratingCountText}>
+                            Based on {recipe.ratings.totalRatings} rating{recipe.ratings.totalRatings !== 1 ? 's' : ''}
+                          </Text>
+                        </View>
+
+                        {/* Rating Distribution */}
+                        <View style={styles.ratingDistribution}>
+                          {[5, 4, 3, 2, 1].map((star) => {
+                            const count = recipe.ratings?.ratingDistribution[star as keyof typeof recipe.ratings.ratingDistribution] || 0;
+                            const percentage = recipe.ratings && recipe.ratings.totalRatings > 0
+                              ? (count / recipe.ratings.totalRatings) * 100
+                              : 0;
+                            return (
+                              <View key={star} style={styles.ratingRow}>
+                                <Text style={styles.starLabel}>{star}★</Text>
+                                <View style={styles.ratingBar}>
+                                  <View style={[styles.ratingBarFill, { width: `${percentage}%` }]} />
+                                </View>
+                                <Text style={styles.ratingRowCount}>{count}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      {/* User's Rating or Rate Button */}
+                      <View style={styles.ratingActions}>
+                        {userRating ? (
+                          <TouchableOpacity
+                            style={styles.editRatingButton}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setShowRatingModal(true);
+                            }}
+                          >
+                            <Star size={18} color="#0ea5e9" fill="#0ea5e9" />
+                            <Text style={styles.editRatingButtonText}>
+                              Your rating: {userRating.rating}★ (Tap to edit)
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity
+                            style={styles.rateButton}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setShowRatingModal(true);
+                            }}
+                          >
+                            <Star size={20} color="#fff" />
+                            <Text style={styles.rateButtonText}>Rate This Recipe</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.noRatingsContainer}>
+                      <Star size={48} color="#cbd5e1" />
+                      <Text style={styles.noRatingsTitle}>No Ratings Yet</Text>
+                      <Text style={styles.noRatingsSubtitle}>Be the first to rate this recipe!</Text>
+                      <TouchableOpacity
+                        style={styles.rateButton}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setShowRatingModal(true);
+                        }}
+                      >
+                        <Star size={20} color="#fff" />
+                        <Text style={styles.rateButtonText}>Rate This Recipe</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </Animated.View>
+          )}
+
           {!!recipe.ingredients?.length && (
             <Animated.View entering={FadeInUp.delay(200).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20 }]}>
@@ -794,6 +929,19 @@ export default function RecipeDetailsScreen() {
           />
         )}
       </Modal>
+
+      {/* Rating Modal */}
+      {source === 'shared' && recipe && (
+        <RatingModal
+          visible={showRatingModal}
+          onClose={handleRatingModalClose}
+          sharedRecipeId={String(id)}
+          recipeName={recipe.title}
+          existingRating={userRating?.rating || 0}
+          existingReview={userRating?.review}
+          existingVerified={userRating?.verified}
+        />
+      )}
     </AnimatedPageWrapper>
   );
 }

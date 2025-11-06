@@ -173,4 +173,73 @@ export const homeStyles = StyleSheet.create({
     gap: 20,
     paddingBottom: 20,
   },
+
+  // Filter/Sort Styles
+  filterContainer: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  filterToggleText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#128AFAFF',
+  },
+  filterOptions: {
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    gap: 16,
+  },
+  filterSection: {
+    gap: 10,
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#f8fafc',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterButtonActive: {
+    backgroundColor: '#128AFAFF',
+    borderColor: '#128AFAFF',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#128AFAFF',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
 });

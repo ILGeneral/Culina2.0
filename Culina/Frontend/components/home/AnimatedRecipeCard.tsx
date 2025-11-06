@@ -4,6 +4,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { Users, Flame, MessageCircle } from "lucide-react-native";
 import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
+import { StarRating } from "../ratings/StarRating";
 
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
@@ -108,6 +109,10 @@ type AnimatedRecipeCardProps = {
     ingredients?: IngredientEntry[];
     source?: string;
     isShared?: boolean;
+    ratings?: {
+      averageRating: number;
+      totalRatings: number;
+    };
   };
   index: number;
 };
@@ -211,6 +216,19 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
 
           {recipe.isShared && (
             <View style={styles.footerRow}>
+              {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
+                <View style={styles.ratingContainer}>
+                  <StarRating
+                    rating={recipe.ratings.averageRating}
+                    size={16}
+                    showLabel
+                    showCount
+                    count={recipe.ratings.totalRatings}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.noRatingText}>No ratings yet</Text>
+              )}
               <TouchableOpacity style={styles.commentButton} onPress={handleCommentPress} activeOpacity={0.8}>
                 <MessageCircle size={16} color="#0f172a" />
                 <Text style={styles.commentText}>
@@ -309,9 +327,18 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
     alignItems: "center",
     marginTop: 16,
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  noRatingText: {
+    fontSize: 13,
+    color: "#94a3af",
+    fontStyle: "italic",
   },
   commentButton: {
     flexDirection: "row",

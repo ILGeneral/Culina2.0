@@ -231,4 +231,119 @@ export const styles = StyleSheet.create({
     elevation: 4,
   },
   primaryButtonText: { textAlign: "center", color: "white", fontSize: 18, fontWeight: "bold" },
+
+  // Rating Section Styles
+  ratingHeader: {
+    marginBottom: 20,
+  },
+  ratingContent: {
+    gap: 20,
+  },
+  ratingOverview: {
+    gap: 16,
+  },
+  ratingMainDisplay: {
+    alignItems: "center",
+    gap: 8,
+  },
+  ratingAverageNumber: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  ratingCountText: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 4,
+  },
+  ratingDistribution: {
+    gap: 8,
+    marginTop: 12,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  starLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+    width: 30,
+  },
+  ratingBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  ratingBarFill: {
+    height: "100%",
+    backgroundColor: "#FFD700",
+    borderRadius: 4,
+  },
+  ratingRowCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
+    width: 30,
+    textAlign: "right",
+  },
+  ratingActions: {
+    marginTop: 12,
+  },
+  rateButton: {
+    backgroundColor: "#0ea5e9",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    shadowColor: "#0ea5e9",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  rateButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  editRatingButton: {
+    backgroundColor: "#e0f2fe",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#0ea5e9",
+  },
+  editRatingButtonText: {
+    color: "#0ea5e9",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  noRatingsContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 12,
+  },
+  noRatingsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginTop: 8,
+  },
+  noRatingsSubtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 16,
+  },
 });
