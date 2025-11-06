@@ -1,12 +1,21 @@
-import React, { useState, useMemo } from "react";
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import React, { useState, useMemo, useEffect } from "react";
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AnimatedRecipeCard from "@/components/home/AnimatedRecipeCard";
-import { Package, User, Globe, BookMarked, BookOpen, SlidersHorizontal, Star, TrendingUp, Clock } from "lucide-react-native";
+import { Package, User, Globe, BookMarked, BookOpen, SlidersHorizontal, Star, TrendingUp, Clock, ChevronDown } from "lucide-react-native";
 import Background from "@/components/Background";
 import { useSharedRecipes, SharedRecipe } from "@/hooks/useSharedRecipe";
 import { homeStyles as styles } from "@/styles/tabs/homeStyles";
+import { auth, db } from "@/lib/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 type SortOption = 'recent' | 'rating' | 'ratingCount';
 type FilterOption = 'all' | '4plus' | '3plus';
@@ -17,7 +26,56 @@ export default function HomeScreen() {
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [filterRating, setFilterRating] = useState<FilterOption>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showNavigation, setShowNavigation] = useState(true);
+  const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const router = useRouter();
+
+  // Animated values for navigation container (initialize with showNavigation state)
+  const navigationHeight = useSharedValue(showNavigation ? 1 : 0);
+  const chevronRotation = useSharedValue(showNavigation ? 180 : 0);
+
+  // Update animated values when showNavigation changes
+  useEffect(() => {
+    navigationHeight.value = withTiming(showNavigation ? 1 : 0, {
+      duration: 300,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+    chevronRotation.value = withSpring(showNavigation ? 180 : 0, {
+      damping: 15,
+      stiffness: 150,
+    });
+  }, [showNavigation]);
+
+  // Animated styles
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    maxHeight: navigationHeight.value * 500, // Approximate max height
+    opacity: navigationHeight.value,
+    overflow: 'hidden',
+  }));
+
+  const animatedChevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+
+  // Fetch user profile picture
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        if (userData?.profilePicture) {
+          setUserProfilePicture(userData.profilePicture);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   // Filter and sort recipes
   const displayedRecipes = useMemo(() => {
@@ -94,80 +152,104 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push("/profile")}
-              style={styles.iconButton}
+              style={styles.profileButton}
             >
-              <User color="#128AFAFF" size={24} />
+              {userProfilePicture ? (
+                <Image
+                  source={{ uri: userProfilePicture }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <User color="#128AFAFF" size={24} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.createButton}
-          activeOpacity={0.85}
-          onPress={() => router.push('/recipe/maker' as any)}
-        >
-          <Text style={styles.createButtonText}>Create Your Recipe</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.databaseButton}
-          activeOpacity={0.85}
-          onPress={() => router.push('/recipe-database' as any)}
-        >
-          <BookOpen color="#128AFAFF" size={22} />
-          <Text style={styles.databaseButtonText}>Explore Recipe Database</Text>
-        </TouchableOpacity>
-
-        {/* Tab Selector */}
-        <View style={styles.tabContainer}>
+        {/* Collapsible Navigation Container */}
+        <View style={styles.navigationContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'my' && styles.tabActive]}
-            onPress={() => setActiveTab('my')}
+            style={styles.navigationHeader}
+            onPress={() => setShowNavigation(!showNavigation)}
+            activeOpacity={0.7}
           >
-            <BookMarked 
-              size={20} 
-              color={activeTab === 'my' ? '#128AFAFF' : '#64748b'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
-              My Shared
-            </Text>
-            {mySharedRecipes.length > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{mySharedRecipes.length}</Text>
+            <Text style={styles.navigationHeaderText}>Navigation</Text>
+            <Animated.View style={animatedChevronStyle}>
+              <ChevronDown
+                size={20}
+                color="#128AFAFF"
+              />
+            </Animated.View>
+          </TouchableOpacity>
+
+          <Animated.View style={[styles.navigationContent, animatedContentStyle]}>
+              <TouchableOpacity
+                style={styles.createButton}
+                activeOpacity={0.85}
+                onPress={() => router.push('/recipe/maker' as any)}
+              >
+                <Text style={styles.createButtonText}>Create Your Recipe</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.databaseButton}
+                activeOpacity={0.85}
+                onPress={() => router.push('/recipe-database' as any)}
+              >
+                <BookOpen color="#128AFAFF" size={22} />
+                <Text style={styles.databaseButtonText}>Explore Recipe Database</Text>
+              </TouchableOpacity>
+
+              {/* Tab Selector */}
+              <View style={styles.tabContainer}>
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'my' && styles.tabActive]}
+                  onPress={() => setActiveTab('my')}
+                >
+                  <BookMarked
+                    size={20}
+                    color={activeTab === 'my' ? '#128AFAFF' : '#64748b'}
+                  />
+                  <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
+                    My Shared
+                  </Text>
+                  {mySharedRecipes.length > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{mySharedRecipes.length}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.tab, activeTab === 'community' && styles.tabActive]}
+                  onPress={() => setActiveTab('community')}
+                >
+                  <Globe
+                    size={20}
+                    color={activeTab === 'community' ? '#128AFAFF' : '#64748b'}
+                  />
+                  <Text style={[styles.tabText, activeTab === 'community' && styles.tabTextActive]}>
+                    Community
+                  </Text>
+                  {communityRecipes.length > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{communityRecipes.length}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               </View>
-            )}
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'community' && styles.tabActive]}
-            onPress={() => setActiveTab('community')}
-          >
-            <Globe 
-              size={20} 
-              color={activeTab === 'community' ? '#128AFAFF' : '#64748b'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'community' && styles.tabTextActive]}>
-              Community
-            </Text>
-            {communityRecipes.length > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{communityRecipes.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter/Sort Controls */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={styles.filterToggle}
-            onPress={() => setShowFilters(!showFilters)}
-          >
-            <SlidersHorizontal size={18} color="#128AFAFF" />
-            <Text style={styles.filterToggleText}>
-              {showFilters ? 'Hide' : 'Show'} Filters
-            </Text>
-          </TouchableOpacity>
+              {/* Filter/Sort Controls */}
+              <View style={styles.filterContainer}>
+                <TouchableOpacity
+                  style={styles.filterToggle}
+                  onPress={() => setShowFilters(!showFilters)}
+                >
+                  <SlidersHorizontal size={18} color="#128AFAFF" />
+                  <Text style={styles.filterToggleText}>
+                    {showFilters ? 'Hide' : 'Show'} Filters
+                  </Text>
+                </TouchableOpacity>
 
           {showFilters && (
             <View style={styles.filterOptions}>
@@ -243,6 +325,8 @@ export default function HomeScreen() {
               </View>
             </View>
           )}
+              </View>
+          </Animated.View>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>

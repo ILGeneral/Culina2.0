@@ -242,4 +242,49 @@ export const homeStyles = StyleSheet.create({
   filterButtonTextActive: {
     color: '#fff',
   },
+
+  // Navigation Container Styles
+  navigationContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  navigationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#f8fafc',
+  },
+  navigationHeaderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  navigationContent: {
+    paddingBottom: 12,
+  },
+
+  // Profile Image Styles
+  profileButton: {
+    backgroundColor: '#DCF3FCFF',
+    borderRadius: 20,
+    padding: 8,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
 });
