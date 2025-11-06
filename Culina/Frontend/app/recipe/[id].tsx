@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { styles } from "@/styles/recipe/recipeDetailStyles";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { db, auth } from "@/lib/firebaseConfig";
 import { saveRecipeToCollection, isRecipeSaved } from "@/lib/utils/saveRecipe";
 import {
@@ -405,10 +405,11 @@ export default function RecipeDetailsScreen() {
     checkSharedStatus();
   }, [id, saved]);
 
-  // Fetch user's rating for this recipe
+  // Fetch user's rating for this recipe and listen for real-time updates
   useEffect(() => {
+    if (!id || !auth.currentUser?.uid || source !== 'shared') return;
+
     const fetchUserRating = async () => {
-      if (!id || !auth.currentUser?.uid || source !== 'shared') return;
       try {
         const rating = await getUserRating(String(id), auth.currentUser.uid);
         setUserRating(rating);
@@ -416,7 +417,32 @@ export default function RecipeDetailsScreen() {
         console.error('Error fetching user rating:', err);
       }
     };
+
+    // Initial fetch
     fetchUserRating();
+
+    // Set up real-time listener for recipe updates (to get updated ratings)
+    const recipeRef = doc(db, 'sharedRecipes', String(id));
+    const unsubscribe = onSnapshot(
+      recipeRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          // Update recipe with new ratings data
+          if (data?.ratings) {
+            setRecipe((prev) => prev ? { ...prev, ratings: data.ratings } : prev);
+          }
+          // Also refresh user's own rating
+          fetchUserRating();
+        }
+      },
+      (error) => {
+        console.error('Error listening to recipe updates:', error);
+      }
+    );
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, [id, source]);
 
   // Refetch user rating when modal closes
@@ -732,96 +758,49 @@ export default function RecipeDetailsScreen() {
             </View>
           </Animated.View>
 
-          {/* Rating Section - Only show for shared recipes */}
+          {/* Rating Section - Collapsed - Only show for shared recipes */}
           {source === 'shared' && (
             <Animated.View entering={FadeInUp.delay(150).duration(500).springify()}>
-              <View style={[styles.card, { marginTop: 20 }]}>
-                <View style={styles.ratingHeader}>
-                  <Text style={styles.cardTitle}>Community Ratings</Text>
-                </View>
-
-                <View style={styles.ratingContent}>
-                  {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
-                    <>
-                      <View style={styles.ratingOverview}>
-                        <View style={styles.ratingMainDisplay}>
-                          <Text style={styles.ratingAverageNumber}>
-                            {recipe.ratings.averageRating.toFixed(1)}
-                          </Text>
-                          <StarRating rating={recipe.ratings.averageRating} size={24} />
-                          <Text style={styles.ratingCountText}>
-                            Based on {recipe.ratings.totalRatings} rating{recipe.ratings.totalRatings !== 1 ? 's' : ''}
-                          </Text>
-                        </View>
-
-                        {/* Rating Distribution */}
-                        <View style={styles.ratingDistribution}>
-                          {[5, 4, 3, 2, 1].map((star) => {
-                            const count = recipe.ratings?.ratingDistribution[star as keyof typeof recipe.ratings.ratingDistribution] || 0;
-                            const percentage = recipe.ratings && recipe.ratings.totalRatings > 0
-                              ? (count / recipe.ratings.totalRatings) * 100
-                              : 0;
-                            return (
-                              <View key={star} style={styles.ratingRow}>
-                                <Text style={styles.starLabel}>{star}★</Text>
-                                <View style={styles.ratingBar}>
-                                  <View style={[styles.ratingBarFill, { width: `${percentage}%` }]} />
-                                </View>
-                                <Text style={styles.ratingRowCount}>{count}</Text>
-                              </View>
-                            );
-                          })}
-                        </View>
+              <TouchableOpacity
+                style={styles.collapsedRatingCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: `/recipe/[id]/ratings` as any,
+                    params: {
+                      id: String(id),
+                      title: recipe.title,
+                      averageRating: recipe.ratings?.averageRating || 0,
+                      totalRatings: recipe.ratings?.totalRatings || 0,
+                      ratingDistribution: JSON.stringify(recipe.ratings?.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }),
+                    },
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.collapsedRatingContent}>
+                  <View style={styles.collapsedRatingLeft}>
+                    <Text style={styles.collapsedRatingTitle}>Community Ratings</Text>
+                    {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
+                      <View style={styles.collapsedRatingInfo}>
+                        <StarRating
+                          rating={recipe.ratings.averageRating}
+                          size={18}
+                          showLabel
+                        />
+                        <Text style={styles.collapsedRatingCount}>
+                          ({recipe.ratings.totalRatings})
+                        </Text>
                       </View>
-
-                      {/* User's Rating or Rate Button */}
-                      <View style={styles.ratingActions}>
-                        {userRating ? (
-                          <TouchableOpacity
-                            style={styles.editRatingButton}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setShowRatingModal(true);
-                            }}
-                          >
-                            <Star size={18} color="#0ea5e9" fill="#0ea5e9" />
-                            <Text style={styles.editRatingButtonText}>
-                              Your rating: {userRating.rating}★ (Tap to edit)
-                            </Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <TouchableOpacity
-                            style={styles.rateButton}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setShowRatingModal(true);
-                            }}
-                          >
-                            <Star size={20} color="#fff" />
-                            <Text style={styles.rateButtonText}>Rate This Recipe</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </>
-                  ) : (
-                    <View style={styles.noRatingsContainer}>
-                      <Star size={48} color="#cbd5e1" />
-                      <Text style={styles.noRatingsTitle}>No Ratings Yet</Text>
-                      <Text style={styles.noRatingsSubtitle}>Be the first to rate this recipe!</Text>
-                      <TouchableOpacity
-                        style={styles.rateButton}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setShowRatingModal(true);
-                        }}
-                      >
-                        <Star size={20} color="#fff" />
-                        <Text style={styles.rateButtonText}>Rate This Recipe</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                    ) : (
+                      <Text style={styles.noRatingsText}>No ratings yet</Text>
+                    )}
+                  </View>
+                  <View style={styles.collapsedRatingButton}>
+                    <Text style={styles.collapsedRatingButtonText}>See Ratings</Text>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             </Animated.View>
           )}
 

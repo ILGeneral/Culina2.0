@@ -1,10 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { Users, Flame, MessageCircle } from "lucide-react-native";
+import { Users, Flame, MessageCircle, Star } from "lucide-react-native";
 import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 import { StarRating } from "../ratings/StarRating";
+import { RatingModal } from "../ratings/RatingModal";
+import * as Haptics from "expo-haptics";
 
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
@@ -119,10 +121,12 @@ type AnimatedRecipeCardProps = {
 
 export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCardProps) {
   const router = useRouter();
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
   const previewIngredients = useMemo(() => toPreviewList(recipe.ingredients), [recipe.ingredients]);
   const sharedDate = useMemo(() => formatTimestamp(recipe.sharedAt) || formatTimestamp((recipe as any)?.createdAt), [recipe.sharedAt, (recipe as any)?.createdAt]);
   const commentCount = useMemo(() => (recipe as any)?.commentCount ?? 0, [recipe]);
+
   const handlePress = () => {
     if (recipe.isShared) {
       router.push({
@@ -215,30 +219,56 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
           </Animated.View>
 
           {recipe.isShared && (
-            <View style={styles.footerRow}>
-              {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
-                <View style={styles.ratingContainer}>
-                  <StarRating
-                    rating={recipe.ratings.averageRating}
-                    size={16}
-                    showLabel
-                    showCount
-                    count={recipe.ratings.totalRatings}
-                  />
-                </View>
-              ) : (
-                <Text style={styles.noRatingText}>No ratings yet</Text>
-              )}
-              <TouchableOpacity style={styles.commentButton} onPress={handleCommentPress} activeOpacity={0.8}>
-                <MessageCircle size={16} color="#0f172a" />
-                <Text style={styles.commentText}>
-                  {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? "" : "s"}` : "View Comments"}
-                </Text>
+            <>
+              <View style={styles.footerRow}>
+                {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
+                  <View style={styles.ratingContainer}>
+                    <StarRating
+                      rating={recipe.ratings.averageRating}
+                      size={16}
+                      showLabel
+                      showCount
+                      count={recipe.ratings.totalRatings}
+                    />
+                  </View>
+                ) : (
+                  <Text style={styles.noRatingText}>No ratings yet</Text>
+                )}
+                <TouchableOpacity style={styles.commentButton} onPress={handleCommentPress} activeOpacity={0.8}>
+                  <MessageCircle size={16} color="#0f172a" />
+                  <Text style={styles.commentText}>
+                    {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? "" : "s"}` : "View Comments"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick Rate Button */}
+              <TouchableOpacity
+                style={styles.quickRateButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowRatingModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Star size={16} color="#0ea5e9" />
+                <Text style={styles.quickRateText}>Rate Recipe</Text>
               </TouchableOpacity>
-            </View>
+            </>
           )}
         </View>
       </TouchableOpacity>
+
+      {/* Rating Modal */}
+      {recipe.isShared && (
+        <RatingModal
+          visible={showRatingModal}
+          onClose={() => setShowRatingModal(false)}
+          sharedRecipeId={recipe.id}
+          recipeName={recipe.title}
+        />
+      )}
     </Animated.View>
   );
 }
@@ -353,5 +383,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#0f172a",
+  },
+  quickRateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#e0f2fe",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#0ea5e9",
+  },
+  quickRateText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0ea5e9",
   },
 });

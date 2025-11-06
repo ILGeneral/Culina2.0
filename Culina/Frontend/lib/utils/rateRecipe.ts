@@ -149,6 +149,41 @@ export async function getUserRating(
 }
 
 /**
+ * Get all ratings for a recipe
+ */
+export async function getAllRatings(
+  sharedRecipeId: string
+): Promise<Rating[]> {
+  try {
+    const ratingsRef = collection(db, 'ratings');
+    const q = query(
+      ratingsRef,
+      where('sharedRecipeId', '==', sharedRecipeId)
+    );
+
+    const snapshot = await getDocs(q);
+
+    // Filter out deleted ratings and map to Rating objects
+    const ratings = snapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .filter((rating: any) => !rating.deleted) as Rating[];
+
+    // Sort by most recent first
+    return ratings.sort((a, b) => {
+      const aTime = a.createdAt?.seconds || 0;
+      const bTime = b.createdAt?.seconds || 0;
+      return bTime - aTime;
+    });
+  } catch (error) {
+    console.error('Error fetching all ratings:', error);
+    return [];
+  }
+}
+
+/**
  * Delete a user's rating for a recipe
  */
 export async function deleteRating(

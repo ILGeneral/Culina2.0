@@ -346,4 +346,58 @@ export const styles = StyleSheet.create({
     color: "#64748b",
     marginBottom: 16,
   },
+
+  // Collapsed Rating Card Styles
+  collapsedRatingCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    marginTop: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  collapsedRatingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  collapsedRatingLeft: {
+    flex: 1,
+    gap: 8,
+  },
+  collapsedRatingTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  collapsedRatingInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  collapsedRatingCount: {
+    fontSize: 14,
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  noRatingsText: {
+    fontSize: 13,
+    color: "#94a3b8",
+  },
+  collapsedRatingButton: {
+    backgroundColor: "#0ea5e9",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  collapsedRatingButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
