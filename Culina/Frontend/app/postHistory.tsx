@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { styles } from '@/styles/postHistoryStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc, getDoc } from 'firebase/firestore';
 import {
   ArrowLeft,
   ChefHat,
@@ -57,9 +58,10 @@ type RecipeCardProps = {
   index: number;
   onPress: () => void;
   onDelete: (id: string) => void;
+  showDeleteAction?: boolean;
 };
 
-const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, index, onPress, onDelete, showDeleteAction = true }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.sharedAt);
   const sourceLabel = normalizeRecipeSource(recipe.source);
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
@@ -83,13 +85,15 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
         <Eye size={24} color="#fff" />
         <Text style={styles.swipeActionText}>View</Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.swipeAction, styles.deleteAction]}
-        onPress={handleDelete}
-      >
-        <Trash2 size={24} color="#fff" />
-        <Text style={styles.swipeActionText}>Unshare</Text>
-      </TouchableOpacity>
+      {showDeleteAction && (
+        <TouchableOpacity
+          style={[styles.swipeAction, styles.deleteAction]}
+          onPress={handleDelete}
+        >
+          <Trash2 size={24} color="#fff" />
+          <Text style={styles.swipeActionText}>Unshare</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -98,13 +102,13 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
       entering={FadeInUp.delay(index * 100).duration(400).springify()}
     >
       <Swipeable
-        renderRightActions={renderRightActions}
+        renderRightActions={showDeleteAction ? renderRightActions : undefined}
         overshootRight={false}
         friction={2}
       >
         <TouchableOpacity
           onPress={handlePress}
-          onLongPress={handleDelete}
+          onLongPress={showDeleteAction ? handleDelete : undefined}
           delayLongPress={500}
           style={styles.recipeCard}
           activeOpacity={0.8}
@@ -167,10 +171,19 @@ const RecipeCard = ({ recipe, index, onPress, onDelete }: RecipeCardProps) => {
 };
 
 export default function PostHistoryScreen() {
+  const params = useLocalSearchParams();
   const [sharedRecipes, setSharedRecipes] = useState<SharedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'AI' | 'Human'>('AI');
+  const [viewingUser, setViewingUser] = useState<{
+    username: string;
+    profilePicture?: string;
+  } | null>(null);
   const router = useRouter();
+
+  // Check if viewing another user's recipes or own recipes
+  const viewingUserId = params.userId ? String(params.userId) : auth.currentUser?.uid;
+  const isViewingOtherUser = params.userId && String(params.userId) !== auth.currentUser?.uid;
 
   // Filter recipes based on active tab
   const filteredRecipes = sharedRecipes.filter((recipe) => {
@@ -184,48 +197,77 @@ export default function PostHistoryScreen() {
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
+    if (!viewingUserId) {
       setSharedRecipes([]);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const fetchData = async () => {
+      setLoading(true);
 
-    const sharedRecipesRef = collection(db, 'sharedRecipes');
-    const sharedQuery = query(
-      sharedRecipesRef,
-      where('userId', '==', uid),
-      orderBy('sharedAt', 'desc')
-    );
+      // If viewing another user, fetch their profile info
+      if (isViewingOtherUser) {
+        try {
+          const userDocRef = doc(db, 'users', viewingUserId);
+          const userDocSnap = await getDoc(userDocRef);
 
-    unsubscribe = onSnapshot(
-      sharedQuery,
-      (snapshot) => {
-        const fetched = snapshot.docs.map((d) => {
-          const data = d.data() as Omit<SharedRecipe, 'id'>;
-          const source = normalizeRecipeSource(data?.source);
-          return {
-            id: d.id,
-            ...data,
-            source,
-          };
-        });
-        setSharedRecipes(fetched);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Shared recipes snapshot error:', error);
-        Alert.alert('Error', 'Failed to fetch shared recipes.');
-        setLoading(false);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setViewingUser({
+              username: userData?.username || String(params.userName) || 'Anonymous',
+              profilePicture: userData?.profilePicture,
+            });
+          } else {
+            setViewingUser({
+              username: String(params.userName) || 'Anonymous',
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching user profile:', err);
+          setViewingUser({
+            username: String(params.userName) || 'Anonymous',
+          });
+        }
       }
-    );
+
+      // Fetch shared recipes for the viewing user
+      const sharedRecipesRef = collection(db, 'sharedRecipes');
+      const sharedQuery = query(
+        sharedRecipesRef,
+        where('userId', '==', viewingUserId),
+        orderBy('sharedAt', 'desc')
+      );
+
+      unsubscribe = onSnapshot(
+        sharedQuery,
+        (snapshot) => {
+          const fetched = snapshot.docs.map((d) => {
+            const data = d.data() as Omit<SharedRecipe, 'id'>;
+            const source = normalizeRecipeSource(data?.source);
+            return {
+              id: d.id,
+              ...data,
+              source,
+            };
+          });
+          setSharedRecipes(fetched);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Shared recipes snapshot error:', error);
+          Alert.alert('Error', 'Failed to fetch shared recipes.');
+          setLoading(false);
+        }
+      );
+    };
+
+    fetchData();
 
     return () => {
       unsubscribe?.();
     };
-  }, []);
+  }, [viewingUserId, isViewingOtherUser]);
 
   const handleUnshare = async (sharedRecipeId: string) => {
     Alert.alert(
@@ -270,9 +312,35 @@ export default function PostHistoryScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft color="#0f172a" size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post History</Text>
+        <Text style={styles.headerTitle}>
+          {isViewingOtherUser ? `${viewingUser?.username || 'User'}'s Recipes` : 'Post History'}
+        </Text>
         <View style={styles.backButton} />
       </View>
+
+      {/* User Profile Section - Only show when viewing other user */}
+      {isViewingOtherUser && viewingUser && (
+        <View style={styles.userProfileSection}>
+          {viewingUser.profilePicture ? (
+            <Image
+              source={{ uri: viewingUser.profilePicture }}
+              style={styles.userProfileImage}
+            />
+          ) : (
+            <View style={styles.userProfileImagePlaceholder}>
+              <Text style={styles.userProfileImageText}>
+                {viewingUser.username.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.userProfileInfo}>
+            <Text style={styles.userProfileName}>{viewingUser.username}</Text>
+            <Text style={styles.userProfileSubtitle}>
+              {sharedRecipes.length} shared recipe{sharedRecipes.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -334,8 +402,15 @@ export default function PostHistoryScreen() {
               key={recipe.id}
               recipe={recipe}
               index={index}
-              onPress={() => router.push({ pathname: `/recipe/${recipe.userRecipeId}` as any })}
+              onPress={() => router.push({
+                pathname: `/recipe/[id]` as any,
+                params: {
+                  id: recipe.id,
+                  source: 'shared'
+                }
+              })}
               onDelete={handleUnshare}
+              showDeleteAction={!isViewingOtherUser}
             />
           ))}
         </ScrollView>

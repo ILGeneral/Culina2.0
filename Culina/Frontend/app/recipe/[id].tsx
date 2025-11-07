@@ -64,6 +64,7 @@ type RecipeDoc = Recipe & {
   readyInMinutes?: number;
   tags?: string[];
   servings?: number;
+  userId?: string;
   authorUsername?: string;
   authorProfilePicture?: string;
   ratings?: {
@@ -409,9 +410,11 @@ export default function RecipeDetailsScreen() {
   useEffect(() => {
     if (!id || !auth.currentUser?.uid || source !== 'shared') return;
 
+    const currentUserId = auth.currentUser.uid; // Store uid to avoid null checks
+
     const fetchUserRating = async () => {
       try {
-        const rating = await getUserRating(String(id), auth.currentUser.uid);
+        const rating = await getUserRating(String(id), currentUserId);
         setUserRating(rating);
       } catch (err) {
         console.error('Error fetching user rating:', err);
@@ -729,8 +732,21 @@ export default function RecipeDetailsScreen() {
           <Animated.View entering={FadeInUp.delay(100).duration(500).springify()}>
             <View style={styles.card}>
               {/* Author Info for Shared Recipes */}
-              {(recipe.authorUsername || source === 'shared') && (
-                <View style={styles.authorContainer}>
+              {(recipe.authorUsername || source === 'shared') && recipe.userId && (
+                <TouchableOpacity
+                  style={styles.authorContainer}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push({
+                      pathname: `/postHistory` as any,
+                      params: {
+                        userId: recipe.userId,
+                        userName: recipe.authorUsername || 'Anonymous',
+                      },
+                    });
+                  }}
+                  activeOpacity={0.7}
+                >
                   <Image
                     source={{
                       uri: recipe.authorProfilePicture || "https://avatar.iran.liara.run/public"
@@ -741,7 +757,7 @@ export default function RecipeDetailsScreen() {
                     <Text style={styles.authorLabel}>Created by</Text>
                     <Text style={styles.authorName}>{recipe.authorUsername || 'Anonymous'}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               )}
 
               <View style={styles.chipsContainer}>
