@@ -1,5 +1,5 @@
 // lib/utils/shareRecipe.ts
-import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
 
@@ -174,11 +174,98 @@ export const isRecipeShared = async (
       where('userId', '==', userId),
       where('userRecipeId', '==', userRecipeId)
     );
-    
+
     const snapshot = await getDocs(q);
     return !snapshot.empty;
   } catch (error) {
     console.error('Error checking if recipe is shared:', error);
     return false;
+  }
+};
+
+/**
+ * Update a shared recipe
+ */
+export const updateSharedRecipe = async (
+  sharedRecipeId: string,
+  updates: Partial<RecipeData>,
+  userId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const sharedRecipeRef = doc(db, 'sharedRecipes', sharedRecipeId);
+
+    // Verify the recipe exists and belongs to the user
+    const sharedRecipeDoc = await getDoc(sharedRecipeRef);
+
+    if (!sharedRecipeDoc.exists()) {
+      return {
+        success: false,
+        error: 'Shared recipe not found',
+      };
+    }
+
+    const recipeData = sharedRecipeDoc.data();
+    if (recipeData.userId !== userId) {
+      return {
+        success: false,
+        error: 'You can only edit your own shared recipes',
+      };
+    }
+
+    // Prepare update data - only include defined fields
+    const updateData: any = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.ingredients !== undefined) updateData.ingredients = updates.ingredients;
+    if (updates.instructions !== undefined) updateData.instructions = updates.instructions;
+    if (updates.servings !== undefined) updateData.servings = updates.servings;
+    if (updates.estimatedCalories !== undefined) updateData.estimatedCalories = updates.estimatedCalories;
+    if (updates.prepTime !== undefined) updateData.prepTime = updates.prepTime;
+    if (updates.cookTime !== undefined) updateData.cookTime = updates.cookTime;
+    if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
+    if (updates.cuisine !== undefined) updateData.cuisine = updates.cuisine;
+    if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.imageUrl !== undefined) updateData.imageUrl = updates.imageUrl;
+
+    await updateDoc(sharedRecipeRef, updateData);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating shared recipe:', error);
+    return {
+      success: false,
+      error: 'Failed to update shared recipe. Please try again.',
+    };
+  }
+};
+
+/**
+ * Get the shared recipe ID for a user's recipe
+ */
+export const getSharedRecipeId = async (
+  userRecipeId: string,
+  userId: string
+): Promise<string | null> => {
+  try {
+    const sharedRecipesRef = collection(db, 'sharedRecipes');
+    const q = query(
+      sharedRecipesRef,
+      where('userId', '==', userId),
+      where('userRecipeId', '==', userRecipeId)
+    );
+
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    return snapshot.docs[0].id;
+  } catch (error) {
+    console.error('Error getting shared recipe ID:', error);
+    return null;
   }
 };

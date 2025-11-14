@@ -1,6 +1,6 @@
 // hooks/useSharedRecipe.ts
-import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, query, where, onSnapshot, orderBy, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '@/lib/firebaseConfig';
 import { normalizeRecipeSource } from '@/lib/utils/recipeSource';
@@ -44,6 +44,53 @@ export const useSharedRecipes = () => {
   const [communityRecipes, setCommunityRecipes] = useState<SharedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+
+  const loadMoreCommunityRecipes = useCallback(async () => {
+    if (!hasMore || loadingMore || !lastDoc || !auth.currentUser) return;
+
+    setLoadingMore(true);
+    try {
+      const uid = auth.currentUser.uid;
+      const communityQuery = query(
+        collection(db, 'sharedRecipes'),
+        orderBy('sharedAt', 'desc'),
+        startAfter(lastDoc),
+        limit(20)
+      );
+
+      const snapshot = await getDocs(communityQuery);
+
+      if (snapshot.empty) {
+        setHasMore(false);
+      } else {
+        const newRecipes = snapshot.docs
+          .map((doc) => {
+            const data = doc.data() as SharedRecipe;
+            return {
+              ...data,
+              id: doc.id,
+              source: normalizeRecipeSource((data as any)?.source),
+            };
+          })
+          .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
+
+        setCommunityRecipes((prev) => [...prev, ...newRecipes]);
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+
+        if (snapshot.docs.length < 20) {
+          setHasMore(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading more recipes:', err);
+      setError('Failed to load more recipes');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, loadingMore, lastDoc]);
 
   useEffect(() => {
     let unsubscribeMy: (() => void) | null = null;
@@ -121,6 +168,14 @@ export const useSharedRecipes = () => {
               })
               .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
             setCommunityRecipes(recipes);
+
+            // Set the last document for pagination
+            if (snapshot.docs.length > 0) {
+              setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+            }
+
+            // Check if there might be more recipes
+            setHasMore(snapshot.docs.length >= 50);
             setLoading(false);
           },
           (err) => {
@@ -148,5 +203,8 @@ export const useSharedRecipes = () => {
     communityRecipes,
     loading,
     error,
+    loadingMore,
+    hasMore,
+    loadMoreCommunityRecipes,
   };
 };

@@ -244,6 +244,9 @@ export const styles = StyleSheet.create({
   viewAction: {
     backgroundColor: '#0ea5e9',
   },
+  editAction: {
+    backgroundColor: '#8b5cf6',
+  },
   deleteAction: {
     backgroundColor: '#ef4444',
   },
@@ -252,5 +255,30 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
+  },
+  loadMoreButton: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center' as const,
+    marginTop: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#0ea5e9',
+  },
+  endContainer: {
+    paddingVertical: 24,
+    alignItems: 'center' as const,
+  },
+  endText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontStyle: 'italic' as const,
   },
 });

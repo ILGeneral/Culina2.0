@@ -173,6 +173,31 @@ export const homeStyles = StyleSheet.create({
     gap: 20,
     paddingBottom: 20,
   },
+  loadMoreButton: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0ea5e9',
+  },
+  endOfResultsContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  endOfResultsText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
 
   // Filter/Sort Styles
   filterContainer: {

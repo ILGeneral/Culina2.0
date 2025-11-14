@@ -12,7 +12,7 @@ import { styles } from '@/styles/postHistoryStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc, getDoc, limit, getDocs, startAfter, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import {
   ArrowLeft,
   ChefHat,
@@ -21,6 +21,7 @@ import {
   Clock,
   Trash2,
   Eye,
+  Edit3,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -57,11 +58,12 @@ type RecipeCardProps = {
   recipe: SharedRecipe;
   index: number;
   onPress: () => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   showDeleteAction?: boolean;
 };
 
-const RecipeCard = ({ recipe, index, onPress, onDelete, showDeleteAction = true }: RecipeCardProps) => {
+const RecipeCard = ({ recipe, index, onPress, onEdit, onDelete, showDeleteAction = true }: RecipeCardProps) => {
   const dateStr = formatDate(recipe.sharedAt);
   const sourceLabel = normalizeRecipeSource(recipe.source);
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
@@ -69,6 +71,11 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, showDeleteAction = true 
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     onDelete(recipe.id);
+  };
+
+  const handleEdit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onEdit(recipe.id);
   };
 
   const handlePress = () => {
@@ -86,13 +93,22 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, showDeleteAction = true 
         <Text style={styles.swipeActionText}>View</Text>
       </TouchableOpacity>
       {showDeleteAction && (
-        <TouchableOpacity
-          style={[styles.swipeAction, styles.deleteAction]}
-          onPress={handleDelete}
-        >
-          <Trash2 size={24} color="#fff" />
-          <Text style={styles.swipeActionText}>Unshare</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={[styles.swipeAction, styles.editAction]}
+            onPress={handleEdit}
+          >
+            <Edit3 size={24} color="#fff" />
+            <Text style={styles.swipeActionText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.swipeAction, styles.deleteAction]}
+            onPress={handleDelete}
+          >
+            <Trash2 size={24} color="#fff" />
+            <Text style={styles.swipeActionText}>Unshare</Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
@@ -174,6 +190,9 @@ export default function PostHistoryScreen() {
   const params = useLocalSearchParams();
   const [sharedRecipes, setSharedRecipes] = useState<SharedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [activeTab, setActiveTab] = useState<'AI' | 'Human'>('AI');
   const [viewingUser, setViewingUser] = useState<{
     username: string;
@@ -236,7 +255,8 @@ export default function PostHistoryScreen() {
       const sharedQuery = query(
         sharedRecipesRef,
         where('userId', '==', viewingUserId),
-        orderBy('sharedAt', 'desc')
+        orderBy('sharedAt', 'desc'),
+        limit(30)
       );
 
       unsubscribe = onSnapshot(
@@ -252,6 +272,14 @@ export default function PostHistoryScreen() {
             };
           });
           setSharedRecipes(fetched);
+
+          // Set last document for pagination
+          if (snapshot.docs.length > 0) {
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+          }
+
+          // Check if there might be more
+          setHasMore(snapshot.docs.length >= 30);
           setLoading(false);
         },
         (error) => {
@@ -268,6 +296,60 @@ export default function PostHistoryScreen() {
       unsubscribe?.();
     };
   }, [viewingUserId, isViewingOtherUser]);
+
+  const loadMoreRecipes = async () => {
+    if (!hasMore || loadingMore || !lastDoc || !viewingUserId) return;
+
+    setLoadingMore(true);
+    try {
+      const sharedRecipesRef = collection(db, 'sharedRecipes');
+      const nextQuery = query(
+        sharedRecipesRef,
+        where('userId', '==', viewingUserId),
+        orderBy('sharedAt', 'desc'),
+        startAfter(lastDoc),
+        limit(30)
+      );
+
+      const snapshot = await getDocs(nextQuery);
+
+      if (snapshot.empty) {
+        setHasMore(false);
+      } else {
+        const newRecipes = snapshot.docs.map((d) => {
+          const data = d.data() as Omit<SharedRecipe, 'id'>;
+          const source = normalizeRecipeSource(data?.source);
+          return {
+            id: d.id,
+            ...data,
+            source,
+          };
+        });
+
+        setSharedRecipes((prev) => [...prev, ...newRecipes]);
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+
+        if (snapshot.docs.length < 30) {
+          setHasMore(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading more recipes:', err);
+      Alert.alert('Error', 'Failed to load more recipes');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleEdit = (sharedRecipeId: string) => {
+    // Navigate to edit screen with the shared recipe ID
+    router.push({
+      pathname: `/editSharedRecipe` as any,
+      params: {
+        sharedRecipeId,
+      },
+    });
+  };
 
   const handleUnshare = async (sharedRecipeId: string) => {
     Alert.alert(
@@ -409,10 +491,33 @@ export default function PostHistoryScreen() {
                   source: 'shared'
                 }
               })}
+              onEdit={handleEdit}
               onDelete={handleUnshare}
               showDeleteAction={!isViewingOtherUser}
             />
           ))}
+
+          {/* Load More Button */}
+          {!loading && filteredRecipes.length > 0 && hasMore && (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={loadMoreRecipes}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color="#0ea5e9" />
+              ) : (
+                <Text style={styles.loadMoreText}>Load More</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* End Message */}
+          {!loading && filteredRecipes.length > 0 && !hasMore && (
+            <View style={styles.endContainer}>
+              <Text style={styles.endText}>You've reached the end!</Text>
+            </View>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>

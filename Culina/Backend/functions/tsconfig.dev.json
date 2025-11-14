@@ -1,4 +1,9 @@
 {
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
+  },
   "include": [
     ".eslintrc.js"
   ]

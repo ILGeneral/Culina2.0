@@ -21,7 +21,7 @@ type SortOption = 'recent' | 'rating' | 'ratingCount';
 type FilterOption = 'all' | '4plus' | '3plus';
 
 export default function HomeScreen() {
-  const { mySharedRecipes, communityRecipes, loading, error } = useSharedRecipes();
+  const { mySharedRecipes, communityRecipes, loading, error, loadingMore, hasMore, loadMoreCommunityRecipes } = useSharedRecipes();
   const [activeTab, setActiveTab] = useState<'my' | 'community'>('my');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [filterRating, setFilterRating] = useState<FilterOption>('all');
@@ -359,12 +359,34 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.recipeList}>
               {displayedRecipes.map((recipe: SharedRecipe, index: number) => (
-                <AnimatedRecipeCard 
-                  key={recipe.id} 
+                <AnimatedRecipeCard
+                  key={recipe.id}
                   recipe={{ ...recipe, isShared: true }}
                   index={index}
                 />
               ))}
+
+              {/* Load More Button - Only show for community tab */}
+              {activeTab === 'community' && hasMore && (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={loadMoreCommunityRecipes}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#0ea5e9" />
+                  ) : (
+                    <Text style={styles.loadMoreText}>Load More Recipes</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* End of Results Message */}
+              {activeTab === 'community' && !hasMore && displayedRecipes.length > 0 && (
+                <View style={styles.endOfResultsContainer}>
+                  <Text style={styles.endOfResultsText}>You've reached the end!</Text>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>

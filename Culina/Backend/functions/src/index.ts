@@ -337,6 +337,103 @@ export const submitReport = onCall(
 );
 
 /**
+ * Updates a shared recipe while maintaining data integrity.
+ * @param {object} data - Must contain 'sharedRecipeId' and update fields.
+ * @param {CallableContext} context - The context of the function call.
+ * @return {Promise<{success: boolean}>} A success object.
+ */
+export const updateSharedRecipe = onCall(
+  async (
+    data: {
+      sharedRecipeId: string;
+      title?: string;
+      description?: string;
+      ingredients?: (string | {name: string; qty?: string})[];
+      instructions?: string[];
+      servings?: number;
+      estimatedCalories?: number;
+      prepTime?: string;
+      cookTime?: string;
+      difficulty?: "Easy" | "Medium" | "Hard";
+      cuisine?: string;
+      tags?: string[];
+      imageUrl?: string;
+    },
+    context: CallableContext
+  ) => {
+    const uid = context.auth?.uid;
+    if (!uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Login required"
+      );
+    }
+
+    const {sharedRecipeId, ...updateFields} = data;
+
+    if (!sharedRecipeId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "sharedRecipeId is required"
+      );
+    }
+
+    // Remove undefined fields
+    const cleanedFields = Object.fromEntries(
+      Object.entries(updateFields).filter(([, value]) => value !== undefined)
+    );
+
+    if (Object.keys(cleanedFields).length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "No fields to update"
+      );
+    }
+
+    const sharedRecipeRef = db.collection("sharedRecipes").doc(sharedRecipeId);
+
+    try {
+      await db.runTransaction(async (tx) => {
+        const doc = await tx.get(sharedRecipeRef);
+
+        if (!doc.exists) {
+          throw new functions.https.HttpsError(
+            "not-found",
+            "Shared recipe not found"
+          );
+        }
+
+        // Verify ownership
+        if (doc.get("userId") !== uid) {
+          throw new functions.https.HttpsError(
+            "permission-denied",
+            "You can only edit your own shared recipes"
+          );
+        }
+
+        // Add updatedAt timestamp
+        const updateData = {
+          ...cleanedFields,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        tx.update(sharedRecipeRef, updateData);
+      });
+
+      return {success: true};
+    } catch (error) {
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Failed to update shared recipe"
+      );
+    }
+  }
+);
+
+/**
  * Simple test endpoint to verify backend is running.
  */
 export const helloTest = functions.https.onRequest((req, res) => {
