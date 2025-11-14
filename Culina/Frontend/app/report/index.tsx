@@ -160,15 +160,15 @@ export default function ReportIssueScreen() {
               textAlignVertical="top"
             />
 
-            <View style={styles.infoContainer}>
-              <Text style={styles.infoLabel}>
-                <Text style={styles.infoLabelText}>User: </Text>{userEmail}
+            <View style={reportStyles.infoContainer}>
+              <Text style={reportStyles.infoLabel}>
+                <Text style={reportStyles.infoLabelText}>User: </Text>{userEmail}
               </Text>
-              <Text style={styles.infoLabel}>
-                <Text style={styles.infoLabelText}>Device: </Text>{deviceInfo}
+              <Text style={reportStyles.infoLabel}>
+                <Text style={reportStyles.infoLabelText}>Device: </Text>{deviceInfo}
               </Text>
-              <Text style={styles.infoLabel}>
-                <Text style={styles.infoLabelText}>App Version: </Text>{appVersion}
+              <Text style={reportStyles.infoLabel}>
+                <Text style={reportStyles.infoLabelText}>App Version: </Text>{appVersion}
               </Text>
             </View>
 
@@ -184,7 +184,7 @@ export default function ReportIssueScreen() {
               {submitting ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <View style={styles.buttonContent}>
+                <View style={reportStyles.buttonContent}>
                   <Text style={reportStyles.submitButtonText}>
                     Submit Report
                   </Text>
