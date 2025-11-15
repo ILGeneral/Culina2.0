@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  Pressable,
   Alert,
   Modal,
 } from "react-native";
@@ -23,7 +22,6 @@ import {
   BookmarkPlus,
   ChevronDown,
   Leaf,
-  Check,
   ChefHat,
   Share2,
   Pencil,
@@ -137,7 +135,6 @@ export default function RecipeDetailsScreen() {
   const [saved, setSaved] = useState(false);
   const [openIngredients, setOpenIngredients] = useState(true);
   const [openInstructions, setOpenInstructions] = useState(true);
-  const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
   const [cookingMode, setCookingMode] = useState(false);
   const [isShared, setIsShared] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -559,11 +556,6 @@ export default function RecipeDetailsScreen() {
     fetchRecipe();
   }, [id, source]); // Added 'source' to dependencies
 
-  const toggleIngredient = (index: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCheckedIngredients((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
-  };
-
   const handleSharePress = async () => {
     if (!recipe || !auth.currentUser || !saved) {
       Alert.alert('Cannot Share', 'Only saved recipes can be shared with the community.');
@@ -830,7 +822,6 @@ export default function RecipeDetailsScreen() {
                 {openIngredients && (
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
-                      const isChecked = checkedIngredients.includes(idx);
                       const normalized = normalizeIngredientEntry(ing);
                       const ingName = normalized.name;
                       const qty = normalized.qty;
@@ -857,15 +848,12 @@ export default function RecipeDetailsScreen() {
                       }
 
                       return (
-                        <Pressable key={idx} style={styles.ingredientRow} onPress={() => toggleIngredient(idx)}>
-                          <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                            {isChecked && <Check color="white" size={16} />}
-                          </View>
-                          <Text style={[styles.ingredientText, isChecked && styles.ingredientTextChecked]}>
+                        <View key={idx} style={styles.ingredientRow}>
+                          <Text style={styles.ingredientText}>
                             {ingName}
                             {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
                           </Text>
-                        </Pressable>
+                        </View>
                       );
                     })}
                   </View>

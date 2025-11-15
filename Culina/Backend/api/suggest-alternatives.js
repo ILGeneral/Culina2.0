@@ -71,7 +71,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ✅ STEP 2: Verify authentication
+    // Verify authentication
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });

@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // ✅ STEP 1: Apply rate limiting
+  // STEP 1: Apply rate limiting
   try {
     await new Promise((resolve, reject) => {
       chatbotLimiter(req, res, (result) => {
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  // ✅ STEP 2: Verify authentication
+  // STEP 2: Verify authentication
   try {
     await verifyAuthToken(req);
   } catch (authError) {
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
   try {
     const { message, history, model } = req.body || {};
 
-    // ✅ SECURITY FIX: Add input validation
+    // For input validation
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "`message` is required and must be a string" });
     }

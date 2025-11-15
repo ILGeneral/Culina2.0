@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 
     console.log(`📦 Processing image buffer of ${imageBuffer.length} bytes from user ${userInfo.uid}`);
 
-    // SECURITY FIX: Include user ID in filename to prevent collisions and track ownership
+    // Includes user ID in filename to prevent collisions and track ownership
     const filename = `ingredients/${userInfo.uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
     // Upload to Vercel Blob

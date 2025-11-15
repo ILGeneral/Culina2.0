@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // SECURITY FIX: Endpoint deprecated to prevent credential exposure
+  // Endpoint deprecated to prevent credential exposure
   return res.status(410).json({
     error: 'Endpoint deprecated for security reasons',
     message: 'This endpoint exposed storage credentials. Please use /api/upload-ingredient-image instead.',

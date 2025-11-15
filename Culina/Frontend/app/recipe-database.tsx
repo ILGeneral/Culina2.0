@@ -184,7 +184,8 @@ const RecipeDatabaseCard = ({
   missingIngredients,
   partialMatches,
 }: RecipeDatabaseCardProps) => {
-  const tagList = useMemo(() => recipe.tags?.slice(0, 2) ?? [], [recipe.tags]);
+  // Includes 3 tags: meal-type, cooking-style, and dietary-attribute
+  const tagList = useMemo(() => recipe.tags?.slice(0, 3) ?? [], [recipe.tags]);
 
   const ingredientsPreview = useMemo(() => recipe.ingredients.slice(0, 3), [recipe.ingredients]);
 
@@ -439,10 +440,10 @@ export default function RecipeDatabaseScreen() {
     }
   }, [loadRecipes]);
 
-  // Re-rank recipes when inventory changes (without re-fetching)
+  // Re-ranks recipes when inventory changes (without re-fetching)
   const lastInventoryRef = useRef(inventory);
   useEffect(() => {
-    // Only re-rank if inventory actually changed and we have cached recipes
+    // Re-ranks only if inventory actually changed and we have cached recipes
     if (hasLoadedRecipes.current && persistedState.recipes.length > 0 &&
         lastInventoryRef.current !== inventory && inventory.length > 0) {
       const reranked = rankRecipesByInventory(persistedState.recipes, inventory);

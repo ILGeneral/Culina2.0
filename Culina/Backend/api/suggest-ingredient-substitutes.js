@@ -91,12 +91,12 @@ export default async function handler(req, res) {
     const userInventory = await getUserInventory(uid);
     const inventorySnapshot = inventory.length ? inventory : userInventory;
 
-    // Extract just the ingredient names from inventory for cleaner prompt
+    // Extracts just the ingredient names from inventory for cleaner prompt
     const availableIngredientNames = inventorySnapshot
       .map(item => item.name || item)
       .filter(Boolean);
 
-    // Define ingredient categories that can have external suggestions
+    // Defines ingredient categories that can have external suggestions
     const EXCEPTION_CATEGORIES = {
       baking: {
         keywords: ['flour', 'bread flour', 'cake flour', 'all-purpose flour', 'self-rising flour',
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       }
     };
 
-    // Check if target ingredient falls into exception categories
+    // To check if target ingredient falls into exception categories
     const targetLower = targetIngredient.toLowerCase();
     let allowExternalSuggestions = false;
     let matchedCategory = null;

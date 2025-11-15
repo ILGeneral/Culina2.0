@@ -107,12 +107,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "imageUrl or imageBase64 is required" });
   }
 
-  // ✅ SECURITY FIX: Validate Base64 size to prevent memory exhaustion
+  // Validate Base64 size to prevent memory exhaustion
   if (imageBase64 && imageBase64.length > 10 * 1024 * 1024) { // 10MB limit
     return res.status(400).json({ error: "Image too large. Maximum 10MB." });
   }
 
-  // ✅ SECURITY FIX: Validate URL format
+  // Validate URL format
   if (imageUrl) {
     try {
       const url = new URL(imageUrl);

@@ -13,6 +13,13 @@ type GenerateRecipesResponse = {
   recipes: Recipe[];
 };
 
+// API-allowed units - strict validation from generate-recipe.js prompt
+const API_ALLOWED_UNITS = [
+  "g", "kg", "cups", "tbsp", "tsp", "ml", "l", "oz", "lb",
+  "pieces", "slices", "cloves", "bunches", "cans", "bottles"
+];
+
+// Extended units for parsing 
 const KNOWN_UNITS = [
   "teaspoon",
   "teaspoons",
@@ -53,6 +60,8 @@ const KNOWN_UNITS = [
   "bunches",
   "can",
   "cans",
+  "bottle",
+  "bottles",
   "stick",
   "sticks",
   "package",
@@ -69,6 +78,59 @@ const normalizeToken = (token: string) => token.replace(/[()",:]/g, "").toLowerC
 const isNumericToken = (token: string) => /^\d+(?:\.\d+)?$/.test(token);
 const isFractionToken = (token: string) => /^\d+\/\d+$/.test(token);
 
+// Validates and normalizes unit to API-allowed format
+const validateAndNormalizeUnit = (unit: string | undefined): string | undefined => {
+  if (!unit) return undefined;
+
+  const normalized = unit.toLowerCase().trim();
+
+  // If already in allowed format, return as-is
+  if (API_ALLOWED_UNITS.includes(normalized)) {
+    return normalized;
+  }
+
+  // Map common variations to API-allowed units
+  const unitMappings: Record<string, string> = {
+    'teaspoon': 'tsp',
+    'teaspoons': 'tsp',
+    'tablespoon': 'tbsp',
+    'tablespoons': 'tbsp',
+    'cup': 'cups',
+    'gram': 'g',
+    'grams': 'g',
+    'kilogram': 'kg',
+    'kilograms': 'kg',
+    'ounce': 'oz',
+    'ounces': 'oz',
+    'pound': 'lb',
+    'pounds': 'lb',
+    'lbs': 'lb',
+    'milliliter': 'ml',
+    'milliliters': 'ml',
+    'liter': 'l',
+    'liters': 'l',
+    'slice': 'slices',
+    'clove': 'cloves',
+    'bunch': 'bunches',
+    'can': 'cans',
+    'bottle': 'bottles',
+    'piece': 'pieces',
+    'head': 'pieces', // API doesn't allow 'head', map to 'pieces'
+    'heads': 'pieces',
+    'stick': 'pieces',
+    'sticks': 'pieces',
+    'package': 'pieces',
+    'packages': 'pieces',
+    'pkg': 'pieces',
+    'bag': 'pieces',
+    'bags': 'pieces',
+    'pinch': 'tsp', // Approximate conversion
+    'dash': 'tsp',
+  };
+
+  return unitMappings[normalized] || 'pieces'; // Default to 'pieces' for unknown units
+};
+
 const normalizeIngredientEntry = (entry: unknown): { name: string; qty?: string; unit?: string } => {
   if (entry && typeof entry === "object" && "name" in entry) {
     const item = entry as {
@@ -82,11 +144,13 @@ const normalizeIngredientEntry = (entry: unknown): { name: string; qty?: string;
     const rawQty = item.qty ?? item.quantity;
     const qty = rawQty === null || rawQty === undefined ? undefined : String(rawQty).trim();
     const rawUnit = item.unit ?? item.unitType;
-    const unit = rawUnit === null || rawUnit === undefined ? undefined : String(rawUnit).trim();
+    const validatedUnit = validateAndNormalizeUnit(
+      rawUnit === null || rawUnit === undefined ? undefined : String(rawUnit).trim()
+    );
     return {
       name,
       ...(qty ? { qty } : {}),
-      ...(unit ? { unit } : {}),
+      ...(validatedUnit ? { unit: validatedUnit } : {}),
     };
   }
 
@@ -132,11 +196,12 @@ const normalizeIngredientEntry = (entry: unknown): { name: string; qty?: string;
       }
 
       const name = before;
+      const validatedUnit = validateAndNormalizeUnit(unitToken);
 
       return {
         name,
         ...(qtyTokens.length ? { qty: qtyTokens.join(" ") } : {}),
-        ...(unitToken ? { unit: unitToken } : {}),
+        ...(validatedUnit ? { unit: validatedUnit } : {}),
       };
     }
   }
@@ -239,7 +304,7 @@ const normalizeResponse = (data: unknown): GenerateRecipesResponse => {
   // Check if backend returned a single recipe object
   const maybeSingleRecipe = (data as { recipe?: unknown }).recipe;
   if (maybeSingleRecipe && typeof maybeSingleRecipe === 'object') {
-    console.log('⚠️  Backend returned single recipe, wrapping in array');
+    console.log('Backend returned single recipe, wrapping in array');
     return { recipes: [maybeSingleRecipe as Recipe] };
   }
 
@@ -252,10 +317,7 @@ const normalizeResponse = (data: unknown): GenerateRecipesResponse => {
   if (maybeRecipes.length === 0) {
     throw new Error('Backend returned empty recipes array');
   }
-
-  // Note: Removed the "< 5" check since backend currently returns 1 recipe
-  // You can add it back once your backend supports multiple recipes
-  console.log(`✅ Received ${maybeRecipes.length} recipe(s)`);
+  console.log(`Received ${maybeRecipes.length} recipe(s)`);
 
   const normalizedRecipes = maybeRecipes
     .map((item) => normalizeRecipeData(item as Recipe))
