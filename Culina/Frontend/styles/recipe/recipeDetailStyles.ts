@@ -15,9 +15,14 @@ export const styles = StyleSheet.create({
     right: 0,
     zIndex: 20,
     height: 90,
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(226, 232, 240, 0.7)",
+    borderBottomColor: "rgba(226, 232, 240, 0.8)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerContent: {
     position: "absolute",
@@ -64,13 +69,15 @@ export const styles = StyleSheet.create({
   contentArea: { paddingHorizontal: 20, marginTop: -16, zIndex: 10 },
   card: {
     backgroundColor: "white",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 20,
+    padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "rgba(226, 232, 240, 0.5)",
   },
   authorContainer: {
     flexDirection: 'row',
@@ -143,8 +150,14 @@ export const styles = StyleSheet.create({
   ingredientRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   checkbox: {
     width: 24,
@@ -161,8 +174,9 @@ export const styles = StyleSheet.create({
   },
   ingredientText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: '#334155',
+    fontWeight: '500',
   },
   ingredientTextChecked: {
     textDecorationLine: 'line-through',
@@ -170,39 +184,59 @@ export const styles = StyleSheet.create({
   },
   ingredientQty: {
     color: '#64748B',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  ingredientBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#128AFA',
+    marginRight: 4,
   },
   instructionsContainer: {
     marginTop: 16,
-    gap: 16,
+    gap: 12,
   },
   instructionStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#128AFA',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#128AFA',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: "#3B82F6",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 4,
   },
   stepNumberText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   stepText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 24,
     color: '#334155',
-    paddingTop: 4,
+    paddingTop: 6,
   },
   ctaContainer: {
     position: "absolute",
@@ -399,5 +433,170 @@ export const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+
+  // === NEW UI IMPROVEMENTS ===
+
+  // Metrics Grid
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 16,
+  },
+  metricCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  metricIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EFF6FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#128AFA',
+    marginTop: 4,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+
+  // Colored Tags
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  tag: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E40AF',
+    textTransform: 'capitalize',
+  },
+  // Tag type variations
+  tagMealType: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  tagMealTypeText: {
+    color: '#92400E',
+  },
+  tagCookingStyle: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#A7F3D0',
+  },
+  tagCookingStyleText: {
+    color: '#065F46',
+  },
+  tagDietary: {
+    backgroundColor: '#FCE7F3',
+    borderColor: '#FBCFE8',
+  },
+  tagDietaryText: {
+    color: '#9F1239',
+  },
+
+  // Difficulty Badge
+  difficultyBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  difficultyEasy: {
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+  },
+  difficultyMedium: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+  },
+  difficultyHard: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  difficultyTextEasy: {
+    color: '#047857',
+  },
+  difficultyTextMedium: {
+    color: '#D97706',
+  },
+  difficultyTextHard: {
+    color: '#DC2626',
+  },
+
+  // Source Badge
+  sourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+    marginBottom: 12,
+  },
+  sourceBadgeAI: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  sourceBadgeHuman: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  sourceBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sourceBadgeTextAI: {
+    color: '#1E40AF',
+  },
+  sourceBadgeTextHuman: {
+    color: '#15803D',
   },
 });
