@@ -93,13 +93,21 @@ export default async function handler(req, res) {
       allergies: allergies.length > 0 ? allergies : 'none'
     });
 
-    // Improved prompt with stricter formatting requirements and Culina's personality
+    // Stricter formatting reqs and Culina's personality
     const allergyText = allergies.length > 0 ? allergies.join(', ') : 'none';
 
     // Extract just ingredient names for clearer prompt
     const availableIngredients = inventory.map(item => item.name || item.ingredient).filter(Boolean);
 
-    // Define dietary restrictions explicitly
+    // Creates inventory context with quantities
+    const inventoryContext = inventory.map(item => {
+      const name = item.name || item.ingredient;
+      const qty = item.quantity || '';
+      const unit = item.unit || '';
+      return `- ${name}${qty ? ` (${qty} ${unit})` : ''}`;
+    }).join('\n');
+
+    // Defines dietary restrictions manually
     const getDietaryRestrictions = (dietType) => {
       const restrictions = {
         'vegetarian': {
@@ -142,10 +150,33 @@ export default async function handler(req, res) {
       dietInstructions = `- CRITICAL DIETARY RESTRICTION: ${diet.toUpperCase()}
   ${dietRestriction.definition}
   ABSOLUTELY FORBIDDEN INGREDIENTS: ${forbiddenList}
-  If ANY ingredient from the forbidden list appears in the available ingredients, DO NOT USE IT in any recipe`;
+  If ANY ingredient from the forbidden list appears in the available ingredients, treat it as INVISIBLE - DO NOT USE IT in any recipe`;
     }
 
-    // Define religious dietary restrictions
+    // Generate cal plan instructions
+    const getCaloriePlanInstructions = (plan) => {
+      if (plan === 'none' || !plan) return '';
+
+      const targets = {
+        'weight-loss': 'aim for 200-400 calories per serving',
+        'low-calorie': 'aim for 200-400 calories per serving',
+        'maintenance': 'aim for 350-550 calories per serving',
+        'muscle-gain': 'aim for 450-700 calories per serving',
+        'high-calorie': 'aim for 450-700 calories per serving',
+      };
+
+      const target = targets[plan] || 'aim for balanced calories';
+
+      return `
+- Calorie Target: ${plan}
+  IMPORTANT: Each recipe's total calories should align with this plan:
+  ${target}
+  Calculate approximate calories based on standard ingredient nutritional values.`;
+    };
+
+    const caloriePlanInstructions = getCaloriePlanInstructions(caloriePlan);
+
+    // Defines religious dietary restrictions
     const getReligiousRestrictions = (religionType) => {
       const restrictions = {
         'halal': {
@@ -179,7 +210,7 @@ export default async function handler(req, res) {
     }
 
     const prompt = `
-You are Culina 🍳, a cheerful, confident, and supportive AI kitchen companion who absolutely LOVES cooking!
+You are Culina, a cheerful, confident, and supportive AI kitchen companion who absolutely LOVES cooking!
 
 Your personality when creating recipes:
 - Be warm, friendly, and encouraging like a helpful friend in the kitchen
@@ -189,21 +220,50 @@ Your personality when creating recipes:
 
 Create as many different and varied recipes as possible using ONLY the ingredients available.
 
-AVAILABLE INGREDIENTS:
-${availableIngredients.join(', ')}
+AVAILABLE INGREDIENTS WITH QUANTITIES:
+${inventoryContext}
+
+NOTE: Use reasonable amounts in recipes. If an ingredient has limited quantity, be mindful not to use it all in one recipe.
 
 DIETARY REQUIREMENTS:
 ${dietInstructions}
 ${religiousInstructions}
-- Allergies: ${allergyText}
-- Calorie Plan: ${caloriePlan}
+- Allergies: ${allergyText}${caloriePlanInstructions}
 
-CRITICAL RULES - MUST FOLLOW:
-1. Use ONLY ingredients from the available list - DO NOT add or suggest ANY ingredients not listed
-2. Each recipe MUST use different combinations of available ingredients
-3. Each recipe MUST have a unique cooking style, cuisine, or approach
-4. STRICTLY respect all dietary restrictions and allergies
-5. If dietary restriction forbids an ingredient, NEVER use it even if available
+ABSOLUTE CRITICAL RULES - ZERO TOLERANCE:
+
+1. AVAILABLE INGREDIENTS ONLY - This is NON-NEGOTIABLE:
+   - DO NOT invent, suggest, or assume ANY ingredients not explicitly listed above
+   - DO NOT use substitutes or alternatives not in the list
+   - DO NOT suggest optional additions
+   - If you need an ingredient that isn't available, skip that recipe idea entirely
+   - When in doubt about an ingredient, DO NOT include it
+
+2. MAXIMUM DIVERSITY:
+   - Never create two recipes with similar ingredient combinations
+   - Each recipe must feel distinct in flavor profile and cooking approach
+   - Aim for different cuisines/styles across all recipes
+
+3. DIETARY RESTRICTIONS ARE SACRED:
+   - If ANY forbidden ingredient appears in available list, treat it as INVISIBLE
+   - Double-check title, description, and ingredients for restriction violations
+   - When uncertain if ingredient violates restriction, err on side of caution and avoid it
+
+4. INGREDIENT QUANTITY VALIDATION:
+   - Ensure ingredient quantities are realistic for the servings specified
+   - Standard serving sizes: breakfast 1-2 people, meals 2-4 people, snacks 4-6 people
+
+5. JSON FORMAT COMPLIANCE:
+   - Test your JSON mentally before outputting - it must be valid
+   - Strings in quotes, numbers without quotes, arrays with brackets
+   - No trailing commas, no comments, no extra text outside JSON
+
+VARIETY REQUIREMENTS - MUST ENSURE DIVERSITY:
+1. Use different cooking methods across recipes (e.g., one raw/salad, one baked, one sautéed, one boiled)
+2. Cover different meal types (breakfast, lunch, dinner, snack, dessert if possible)
+3. Vary cuisines (e.g., Asian, Mediterranean, American, Mexican) when ingredients allow
+4. Mix preparation complexity (have both quick 10-min recipes and more involved ones)
+5. Never generate two recipes with the same primary ingredient focus
 
 REQUIRED JSON FORMAT (return ONLY valid JSON, no other text):
 {
@@ -215,8 +275,8 @@ REQUIRED JSON FORMAT (return ONLY valid JSON, no other text):
       "cookTime": "X mins",
       "servings": 4,
       "difficulty": "Easy",
-      "calories": 250,
-      "tags": ["tag1", "tag2"],
+      "estimatedCalories": 250,
+      "tags": ["meal-type", "cooking-style", "dietary-attribute"],
       "ingredients": [
         {
           "name": "ingredient name exactly as listed in available ingredients",
@@ -225,8 +285,9 @@ REQUIRED JSON FORMAT (return ONLY valid JSON, no other text):
         }
       ],
       "instructions": [
-        "Step 1...",
-        "Step 2..."
+        "Detailed step with specific technique, temperature, or timing",
+        "Each step should be actionable with visual/tactile cues for doneness",
+        "Minimum 4 steps, maximum 8 steps per recipe"
       ]
     }
   ]
@@ -238,13 +299,112 @@ CRITICAL JSON FORMATTING RULES:
 - "unit" field must ONLY use these allowed values: "g", "kg", "cups", "tbsp", "tsp", "ml", "l", "oz", "lb", "pieces", "slices", "cloves", "bunches", "cans", "bottles"
 - DO NOT use any other units like "heads", "juice", "whole", "medium", "large", etc.
 - "servings" must be a NUMBER without quotes
-- "calories" must be a NUMBER without quotes
+- "estimatedCalories" must be a NUMBER without quotes
 - ALL other fields must be STRINGS in quotes
 - Never write unquoted text after numbers (wrong: 1 cup | correct: "qty": "1", "unit": "cup")
 
-Generate 3-5 diverse recipes that showcase different cooking methods, flavors, and meal types (breakfast, lunch, dinner, snacks). Be creative but ONLY use available ingredients!`;
+TAGS REQUIREMENTS:
+- First tag: meal type (breakfast, lunch, dinner, snack, dessert)
+- Second tag: preparation style (quick, one-pot, no-cook, baked, grilled, sautéed, etc.)
+- Third tag: dietary/health attribute (healthy, comfort-food, high-protein, low-carb, etc.)
+- Maximum 4 tags per recipe
+- Use lowercase, hyphenated format
+
+TIMING GUIDELINES:
+- prepTime: Time for ingredient prep (chopping, measuring, mixing) - realistic estimates
+- cookTime: Active cooking/baking time (0 mins for no-cook recipes)
+- Total time should be reasonable: most home recipes are 10-45 minutes total
+- Quick recipes (breakfast/snacks): aim for 15-20 mins total
+- Regular meals: 25-40 mins total
+- Complex dishes: up to 60 mins total
+
+INSTRUCTION WRITING RULES:
+- Start each step with an action verb (Heat, Chop, Combine, Season, etc.)
+- Include specific temperatures when relevant (medium heat, 350°F, etc.)
+- Provide visual or tactile cues for doneness (golden brown, fragrant, tender, etc.)
+- Keep steps focused on one main action each
+- Use encouraging language that builds confidence
+- Minimum 4 steps, maximum 8 steps per recipe
+
+EXAMPLE RECIPES (for reference only - DO NOT copy these):
+
+Example 1 - Simple Breakfast:
+{
+  "title": "Classic Scrambled Eggs 🍳",
+  "description": "Fluffy, creamy scrambled eggs that melt in your mouth",
+  "prepTime": "5 mins",
+  "cookTime": "5 mins",
+  "servings": 2,
+  "difficulty": "Easy",
+  "estimatedCalories": 180,
+  "tags": ["breakfast", "quick", "high-protein"],
+  "ingredients": [
+    {"name": "eggs", "qty": "4", "unit": "pieces"},
+    {"name": "butter", "qty": "1", "unit": "tbsp"},
+    {"name": "salt", "qty": "0.5", "unit": "tsp"}
+  ],
+  "instructions": [
+    "Crack eggs into a bowl and whisk until well combined and slightly frothy",
+    "Heat butter in a non-stick pan over medium-low heat until melted and foaming",
+    "Pour eggs into the pan and gently stir with a spatula, creating soft curds",
+    "Cook for 3-4 minutes, stirring occasionally until just set but still creamy",
+    "Remove from heat immediately and serve while hot and fluffy"
+  ]
+}
+
+Example 2 - Vegetarian Main:
+{
+  "title": "Mediterranean Chickpea Salad 🥗",
+  "description": "Fresh and zesty salad packed with protein and Mediterranean flavors",
+  "prepTime": "10 mins",
+  "cookTime": "0 mins",
+  "servings": 4,
+  "difficulty": "Easy",
+  "estimatedCalories": 220,
+  "tags": ["lunch", "no-cook", "healthy", "vegetarian"],
+  "ingredients": [
+    {"name": "chickpeas", "qty": "2", "unit": "cans"},
+    {"name": "cucumber", "qty": "1", "unit": "pieces"},
+    {"name": "tomato", "qty": "2", "unit": "pieces"},
+    {"name": "lemon", "qty": "1", "unit": "pieces"},
+    {"name": "olive oil", "qty": "3", "unit": "tbsp"}
+  ],
+  "instructions": [
+    "Drain and rinse chickpeas thoroughly under cold water",
+    "Dice cucumber and tomatoes into bite-sized pieces, about 1/2 inch cubes",
+    "Combine chickpeas and vegetables in a large bowl",
+    "Squeeze fresh lemon juice over the mixture and drizzle with olive oil",
+    "Season with salt and pepper, then toss well until everything is evenly coated",
+    "Let rest for 5 minutes to allow flavors to meld before serving"
+  ]
+}
+
+BEFORE YOU RESPOND - VERIFY CHECKLIST:
+□ Every ingredient used exists in the AVAILABLE INGREDIENTS list above
+□ Zero forbidden ingredients based on dietary/religious restrictions
+□ Each recipe has unique ingredients and cooking method
+□ All "qty" and "unit" fields are properly quoted strings
+□ Units only use allowed values (g, kg, cups, tbsp, tsp, ml, l, oz, lb, pieces, slices, cloves, bunches, cans, bottles)
+□ Instructions are detailed, actionable, and encouraging (4-8 steps each)
+□ estimatedCalories and servings are numbers without quotes
+□ Total time (prep + cook) is reasonable
+□ Tags follow the format: [meal-type, cooking-style, dietary-attribute]
+□ JSON is valid with no syntax errors
+
+Only output your response if ALL items are checked.
+
+NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be creative but ONLY use available ingredients!`;
 
     console.log('Calling Groq API...');
+
+    // Dynamic temperature based on inventory size
+    // Fewer ingredients = less creativity needed to avoid conflicts
+    // More ingredients = more creativity to find diverse combinations
+    const ingredientCount = inventory.length;
+    const temperature = ingredientCount < 5 ? 0.7 :
+                       ingredientCount < 10 ? 0.8 : 0.9;
+
+    console.log(`Using temperature ${temperature} for ${ingredientCount} ingredients`);
 
     const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -255,7 +415,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.8, // Increased for more variety and creativity
+        temperature: temperature,
         max_tokens: 6000, // Allow for more recipes
         response_format: { type: 'json_object' },
       }),
@@ -389,7 +549,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
         return ing;
       });
 
-      // Check if all ingredients are in inventory
+      // To check if all ingredients are in inventory
       const missingIngredients = recipe.ingredients.filter(ing => {
         const ingredientName = (ing.name || '').toLowerCase().trim();
         return !availableIngredientsSet.has(ingredientName);
@@ -401,7 +561,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
         return false;
       }
 
-      // Check if recipe violates dietary or religious restrictions
+      // To check if recipe violates user dietary or religious restrictions
       if (allForbidden.length > 0) {
         const violatingIngredients = recipe.ingredients.filter(ing => {
           const ingredientName = (ing.name || '').toLowerCase().trim();
@@ -418,7 +578,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
           return false;
         }
 
-        // Also check recipe title and description for forbidden terms (catch things like "Chicken Salad")
+        // To also check recipe title and description for forbidden terms (catch things like "Chicken Salad")
         const recipeText = `${recipe.title} ${recipe.description}`.toLowerCase();
         const titleViolations = allForbidden.filter(forbidden =>
           recipeText.includes(forbidden.toLowerCase())
@@ -432,7 +592,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
         }
       }
 
-      // Check if recipe violates allergy restrictions
+      // To check if recipe violates allergy restrictions
       if (allergies.length > 0) {
         const allergyViolations = recipe.ingredients.filter(ing => {
           const ingredientName = (ing.name || '').toLowerCase().trim();
@@ -453,7 +613,7 @@ Generate 3-5 diverse recipes that showcase different cooking methods, flavors, a
 
     console.log(`${validRecipes.length} valid recipes after filtering`);
 
-    // Remove duplicate recipes based on similarity
+    // To remove duplicate recipes based on similarity
     const deduplicatedRecipes = [];
     const seenTitles = new Set();
     const seenIngredientSets = new Set();

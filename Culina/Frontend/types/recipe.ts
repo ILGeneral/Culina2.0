@@ -2,14 +2,14 @@ export interface Recipe {
   title: string;
   description?: string;
   ingredients: (string | { name: string; qty?: string; unit?: string })[];
-  instructions?: string[];
-  servings?: number;
-  estimatedCalories?: number;
-  prepTime?: string;
-  cookTime?: string;
-  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  instructions: string[]; // always generates 4-8 steps
+  servings: number; //  provides servings
+  estimatedCalories: number; // Required - AI always calculates calories
+  prepTime: string; // e.g., "10 mins"
+  cookTime: string; // e.g., "15 mins"
+  difficulty: 'Easy' | 'Medium' | 'Hard'; 
   cuisine?: string;
-  tags?: string[];
+  tags: string[]; // AI generates 3-4 tags: [meal-type, cooking-style, dietary-attribute]
   imageUrl?: string;
   createdAt?: any;
   updatedAt?: any;
