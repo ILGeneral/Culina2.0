@@ -138,6 +138,30 @@ const chatBotStyles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 26,
   },
+  typingIndicatorContainer: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
+  typingText: {
+    fontSize: 14,
+    color: "#cbd5e1",
+    fontWeight: "500",
+    letterSpacing: 0.5,
+  },
+  typingDotsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  typingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#60a5fa",
+  },
   messageRow: {
     flexDirection: "row",
     width: "100%",

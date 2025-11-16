@@ -19,6 +19,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
 import * as Speech from "expo-speech";
 import { auth } from "@/lib/firebaseConfig";
+import Animated, {
+  FadeIn,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+  withDelay,
+} from "react-native-reanimated";
 
 type ChatMessage = {
   id: string;
@@ -48,11 +58,84 @@ const ChatBotScreen = () => {
   const [currentPose, setCurrentPose] = useState<ImageSourcePropType>(CULINA_POSES[0]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
+  // Animation values
+  const pulseScale = useSharedValue(1);
+  const shimmerOpacity = useSharedValue(0.3);
+  const typingDot1 = useSharedValue(0);
+  const typingDot2 = useSharedValue(0);
+  const typingDot3 = useSharedValue(0);
+
   useEffect(() => {
     return () => {
       Speech.stop();
     };
   }, []);
+
+  // Pulse animation for speaking or new messages
+  useEffect(() => {
+    if (speaking || sending) {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+    } else {
+      pulseScale.value = withTiming(1, { duration: 300 });
+    }
+  }, [speaking, sending]);
+
+  // Shimmer animation for collapsed bubble - only when speaking or sending
+  useEffect(() => {
+    if (!expanded && (speaking || sending)) {
+      shimmerOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.7, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.3, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+    } else {
+      shimmerOpacity.value = withTiming(0.8, { duration: 300 });
+    }
+  }, [expanded, speaking, sending]);
+
+  // Typing indicator animation
+  useEffect(() => {
+    if (sending) {
+      typingDot1.value = withRepeat(
+        withSequence(
+          withDelay(0, withTiming(-8, { duration: 400 })),
+          withTiming(0, { duration: 400 })
+        ),
+        -1,
+        false
+      );
+      typingDot2.value = withRepeat(
+        withSequence(
+          withDelay(150, withTiming(-8, { duration: 400 })),
+          withTiming(0, { duration: 400 })
+        ),
+        -1,
+        false
+      );
+      typingDot3.value = withRepeat(
+        withSequence(
+          withDelay(300, withTiming(-8, { duration: 400 })),
+          withTiming(0, { duration: 400 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      typingDot1.value = withTiming(0, { duration: 200 });
+      typingDot2.value = withTiming(0, { duration: 200 });
+      typingDot3.value = withTiming(0, { duration: 200 });
+    }
+  }, [sending]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -206,19 +289,40 @@ const ChatBotScreen = () => {
     }
   }, [input, messages, sending, speak]);
 
+  // Animated styles
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    opacity: shimmerOpacity.value,
+  }));
+
+  const typingDot1Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: typingDot1.value }],
+  }));
+
+  const typingDot2Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: typingDot2.value }],
+  }));
+
+  const typingDot3Style = useAnimatedStyle(() => ({
+    transform: [{ translateY: typingDot3.value }],
+  }));
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === "user";
     return (
       <View style={[
-        chatBotStyles.messageRow, 
+        chatBotStyles.messageRow,
         isUser ? chatBotStyles.messageRowEnd : chatBotStyles.messageRowStart
       ]}>
         <View style={[
-          chatBotStyles.bubble, 
+          chatBotStyles.bubble,
           isUser ? chatBotStyles.userBubble : chatBotStyles.botBubble
         ]}>
           <Text style={[
-            chatBotStyles.messageText, 
+            chatBotStyles.messageText,
             isUser ? chatBotStyles.userText : chatBotStyles.botText
           ]}>
             {item.content}
@@ -282,15 +386,31 @@ const ChatBotScreen = () => {
 
               {!expanded && displayedMessages.length > 0 && (
                 <View style={chatBotStyles.collapsedMessageContainer}>
-                  <View style={chatBotStyles.collapsedBubble}>
-                    <ScrollView
-                      style={chatBotStyles.collapsedScrollView}
-                      showsVerticalScrollIndicator={true}
-                      nestedScrollEnabled={true}
-                    >
-                      <Text style={chatBotStyles.collapsedText}>{displayedMessages[0].content}</Text>
-                    </ScrollView>
-                  </View>
+                  <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
+                    {sending ? (
+                      <View style={chatBotStyles.typingIndicatorContainer}>
+                        <Text style={chatBotStyles.typingText}>Culina is typing</Text>
+                        <View style={chatBotStyles.typingDotsContainer}>
+                          <Animated.View style={[chatBotStyles.typingDot, typingDot1Style]} />
+                          <Animated.View style={[chatBotStyles.typingDot, typingDot2Style]} />
+                          <Animated.View style={[chatBotStyles.typingDot, typingDot3Style]} />
+                        </View>
+                      </View>
+                    ) : (
+                      <ScrollView
+                        style={chatBotStyles.collapsedScrollView}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled={true}
+                      >
+                        <Animated.Text
+                          entering={FadeIn.duration(400).delay(100)}
+                          style={chatBotStyles.collapsedText}
+                        >
+                          {displayedMessages[0].content}
+                        </Animated.Text>
+                      </ScrollView>
+                    )}
+                  </Animated.View>
                 </View>
               )}
 
