@@ -133,6 +133,7 @@ export default function RecipeDetailsScreen() {
   const [recipe, setRecipe] = useState<RecipeDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [userRecipeId, setUserRecipeId] = useState<string | null>(null);
   const [openIngredients, setOpenIngredients] = useState(true);
   const [openInstructions, setOpenInstructions] = useState(true);
   const [cookingMode, setCookingMode] = useState(false);
@@ -210,8 +211,9 @@ export default function RecipeDetailsScreen() {
         readyInMinutes: recipe.readyInMinutes,
       }, auth.currentUser.uid);
 
-      if (result.success) {
+      if (result.success && result.savedRecipeId) {
         setSaved(true);
+        setUserRecipeId(result.savedRecipeId);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("Saved!", "Recipe has been saved to your collection.");
       } else {
@@ -486,8 +488,11 @@ export default function RecipeDetailsScreen() {
 
             // Check if this recipe is already saved in user's collection
             if (data.title) {
-              const alreadySaved = await isRecipeSaved(data.title, uid);
-              setSaved(alreadySaved);
+              const savedRecipeId = await isRecipeSaved(data.title, uid);
+              if (savedRecipeId) {
+                setSaved(true);
+                setUserRecipeId(savedRecipeId);
+              }
             }
 
             setLoading(false);
@@ -510,6 +515,7 @@ export default function RecipeDetailsScreen() {
           console.log("5. SUCCESS: Found recipe in user's collection.", data);
           setRecipe({ id: userRecipeSnap.id, ...data } as RecipeDoc);
           setSaved(true);
+          setUserRecipeId(userRecipeSnap.id);
           return;
         }
 
@@ -525,8 +531,11 @@ export default function RecipeDetailsScreen() {
 
           // Check if this recipe is already saved in user's collection
           if (data.title) {
-            const alreadySaved = await isRecipeSaved(data.title, uid);
-            setSaved(alreadySaved);
+            const savedRecipeId = await isRecipeSaved(data.title, uid);
+            if (savedRecipeId) {
+              setSaved(true);
+              setUserRecipeId(savedRecipeId);
+            }
           }
 
           return;
@@ -621,7 +630,7 @@ export default function RecipeDetailsScreen() {
   };
 
   const handleEditPress = () => {
-    if (!recipe || !saved) return;
+    if (!recipe || !saved || !userRecipeId) return;
 
     const canEdit = isAISource(recipe.source);
     if (!canEdit) {
@@ -630,7 +639,7 @@ export default function RecipeDetailsScreen() {
     }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push({ pathname: "/recipe/maker", params: { recipeId: String(id) } });
+    router.push({ pathname: "/recipe/maker", params: { recipeId: userRecipeId } });
   };
 
   // Helper to determine tag category for styling
@@ -697,7 +706,7 @@ export default function RecipeDetailsScreen() {
           {recipe.title}
         </Animated.Text>
         <View style={styles.headerActions}>
-          {saved && isAISource(recipe.source) && (
+          {saved && userRecipeId && isAISource(recipe.source) && (
             <TouchableOpacity onPress={handleEditPress}>
               <View style={styles.headerButton}>
                 <Pencil color="#0284c7" size={20} />

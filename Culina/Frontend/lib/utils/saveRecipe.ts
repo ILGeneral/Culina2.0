@@ -102,11 +102,12 @@ export const saveRecipeToCollection = async (
 
 /**
  * Check if a recipe is already saved in user's collection
+ * Returns the saved recipe ID if found, or null if not saved
  */
 export const isRecipeSaved = async (
   recipeTitle: string,
   userId: string
-): Promise<boolean> => {
+): Promise<string | null> => {
   try {
     const userRecipesRef = collection(db, 'users', userId, 'recipes');
     const q = query(
@@ -115,9 +116,12 @@ export const isRecipeSaved = async (
     );
 
     const snapshot = await getDocs(q);
-    return !snapshot.empty;
+    if (!snapshot.empty) {
+      return snapshot.docs[0].id;
+    }
+    return null;
   } catch (error) {
     console.error('Error checking if recipe is saved:', error);
-    return false;
+    return null;
   }
 };
