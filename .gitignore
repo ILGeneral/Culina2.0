@@ -15,3 +15,5 @@ nul
 firestore.rules
 ANALYSIS_SUMMARY.txt
 RECIPE_GENERATOR_ANALYSIS.txt
+Culina/Frontend/constants/COLOR_GUIDE.md
+Culina/Frontend/constants/QUICK_COLOR_REFERENCE.md

@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { Colors } from "@/constants/colors";
 
 const chatBotStyles = StyleSheet.create({
   flex: {
@@ -223,10 +224,15 @@ const chatBotStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 22,
-    backgroundColor: "#128AFA",
+    backgroundColor: Colors.secondary.main,
     justifyContent: "center",
     alignItems: "center",
     top: 5,
+    shadowColor: Colors.secondary.main,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
   sendButtonDisabled: {
     backgroundColor: "#94a3b8",

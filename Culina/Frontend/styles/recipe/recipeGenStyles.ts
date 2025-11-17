@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { Colors } from "@/constants/colors";
 
 const recipeGenStyles = StyleSheet.create({
   container: { 
@@ -151,10 +152,15 @@ const recipeGenStyles = StyleSheet.create({
   },
   generateButton: {
     marginTop: 16,
-    backgroundColor: "#0284c7",
+    backgroundColor: Colors.secondary.main,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
+    shadowColor: Colors.secondary.main,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   generateButtonDisabled: {
     opacity: 0.6,
@@ -312,11 +318,16 @@ const recipeGenStyles = StyleSheet.create({
   },
   primaryButton: {
     marginTop: 16,
-    backgroundColor: "#0284c7",
+    backgroundColor: Colors.secondary.main,
     borderRadius: 14,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: Colors.secondary.main,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   primaryButtonDisabled: {
     opacity: 0.6,

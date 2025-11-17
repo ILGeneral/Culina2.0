@@ -1,4 +1,5 @@
 import { StyleSheet, Dimensions } from "react-native";
+import { Colors } from "@/constants/colors";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -26,9 +27,14 @@ const inventoryStyle = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#128AFA",
+    backgroundColor: Colors.secondary.main,
     paddingVertical: 12,
     borderRadius: 14,
+    shadowColor: Colors.secondary.main,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   scanButtonText: {
     color: "#fff",
@@ -58,12 +64,17 @@ const inventoryStyle = StyleSheet.create({
     position: "absolute",
     right: 20,
     bottom: 28,
-    backgroundColor: "#128AFA",
+    backgroundColor: Colors.secondary.main,
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: Colors.secondary.main,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
   },
   sheetTitle: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
   sheetOpt: {

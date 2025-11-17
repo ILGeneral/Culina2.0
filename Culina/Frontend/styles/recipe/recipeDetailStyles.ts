@@ -1,13 +1,14 @@
 import { StyleSheet } from 'react-native';
+import { Colors } from '@/constants/colors';
 
 const HERO_HEIGHT = 320;
 
 export const styles = StyleSheet.create({
-  centerScreen: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC", paddingHorizontal: 24 },
-  loadingText: { marginTop: 8, color: "#475569" },
-  notFoundText: { color: "#475569", textAlign: "center", fontSize: 18 },
-  goBackButton: { marginTop: 24, backgroundColor: "#128AFA", paddingHorizontal: 28, paddingVertical: 12, borderRadius: 9999 },
-  goBackButtonText: { color: "white", fontWeight: "600" },
+  centerScreen: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.neutral.lightest, paddingHorizontal: 24 },
+  loadingText: { marginTop: 8, color: Colors.neutral.darker },
+  notFoundText: { color: Colors.neutral.darker, textAlign: "center", fontSize: 18 },
+  goBackButton: { marginTop: 24, backgroundColor: Colors.primary.main, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 9999 },
+  goBackButtonText: { color: Colors.neutral.white, fontWeight: "600" },
   header: {
     position: "absolute",
     top: 0,
@@ -251,20 +252,20 @@ export const styles = StyleSheet.create({
     borderTopColor: "#E2E8F0",
   },
   primaryButton: {
-    backgroundColor: "#128AFA",
+    backgroundColor: Colors.secondary.main,
     paddingVertical: 14,
     borderRadius: 9999,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: "#3B82F6",
+    shadowColor: Colors.secondary.main,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 4,
   },
-  primaryButtonText: { textAlign: "center", color: "white", fontSize: 18, fontWeight: "bold" },
+  primaryButtonText: { textAlign: "center", color: Colors.neutral.white, fontSize: 18, fontWeight: "bold" },
 
   // Rating Section Styles
   ratingHeader: {
