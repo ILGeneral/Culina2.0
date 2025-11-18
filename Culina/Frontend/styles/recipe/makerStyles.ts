@@ -238,4 +238,13 @@ export const makerStyles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
+  landscapeContainer: {
+    flexDirection: "row",
+    gap: 20,
+    width: "100%",
+  },
+  landscapeColumn: {
+    flex: 1,
+    gap: 20,
+  },
 });
