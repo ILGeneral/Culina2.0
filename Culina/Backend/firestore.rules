@@ -1,0 +1,190 @@
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Validate string length
+    function validString(str, minLen, maxLen) {
+      return str is string && str.size() >= minLen && str.size() <= maxLen;
+    }
+
+    // Validate timestamp is recent (within last 5 seconds)
+    function isRecentTimestamp(ts) {
+      return ts is timestamp &&
+             ts > request.time - duration.value(5, 's') &&
+             ts <= request.time;
+    }
+
+    match /users/{userId} {
+      // Allow any signed-in user to read basic profile info (for community features)
+      // but only the owner can write their own data
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isOwner(userId);
+
+      match /recipes/{recipeId} {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+
+      match /ingredients/{ingredientId} {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+
+      match /inventory/{inventoryId} {
+        allow read, write: if isSignedIn() && isOwner(userId);
+      }
+    }
+
+    match /sharedRecipes/{recipeId} {
+      // Public read for all signed-in users
+      allow read: if isSignedIn();
+
+      // Create: Validate all required fields and data integrity
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        // Validate required fields exist
+        && request.resource.data.keys().hasAll(['userId', 'userRecipeId', 'title', 'sharedAt'])
+        // Validate title length (1-200 characters)
+        && validString(request.resource.data.title, 1, 200)
+        // Validate description if present (max 1000 characters)
+        && (!request.resource.data.keys().hasAny(['description']) || validString(request.resource.data.description, 0, 1000))
+        // Validate ingredients is a list and not empty
+        && request.resource.data.ingredients is list
+        && request.resource.data.ingredients.size() > 0
+        && request.resource.data.ingredients.size() <= 100
+        // Validate timestamp is recent
+        && isRecentTimestamp(request.resource.data.sharedAt)
+        // Validate source field if present
+        && (!request.resource.data.keys().hasAny(['source']) ||
+            request.resource.data.source in ['AI Generated', 'AI - Edited', 'Human'])
+        // Validate servings if present
+        && (!request.resource.data.keys().hasAny(['servings']) ||
+            (request.resource.data.servings is number && request.resource.data.servings > 0 && request.resource.data.servings <= 100))
+        // Validate difficulty if present
+        && (!request.resource.data.keys().hasAny(['difficulty']) ||
+            request.resource.data.difficulty in ['Easy', 'Medium', 'Hard'])
+        // Validate userRecipeId format
+        && validString(request.resource.data.userRecipeId, 1, 100);
+
+      // Update: Only allow owner to update their recipe OR rating aggregate updates
+      allow update: if isSignedIn() && (
+        // Allow owner to update recipe (but not userId or userRecipeId)
+        (resource.data.userId == request.auth.uid
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.userRecipeId == resource.data.userRecipeId
+          && request.resource.data.sharedAt == resource.data.sharedAt)
+        ||
+        // Allow system to update ONLY rating aggregates (no other fields)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ratings'])
+          && request.resource.data.ratings.keys().hasAll(['averageRating', 'totalRatings', 'ratingDistribution', 'lastRatedAt'])
+          && request.resource.data.ratings.averageRating >= 0
+          && request.resource.data.ratings.averageRating <= 5
+          && request.resource.data.ratings.totalRatings >= 0
+          && request.resource.data.ratings.totalRatings <= 100000)
+      );
+
+      // Delete: Only owner can delete
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+
+        // Create: Validate comment structure
+        allow create: if isSignedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.keys().hasAll(['userId', 'userName', 'text', 'createdAt'])
+          && validString(request.resource.data.text, 1, 500)
+          && validString(request.resource.data.userName, 1, 50)
+          && isRecentTimestamp(request.resource.data.createdAt);
+
+        // Update/Delete: Only owner of comment
+        allow update, delete: if isSignedIn()
+          && resource.data.userId == request.auth.uid;
+      }
+
+      // Ratings subcollection (nested under sharedRecipes)
+      match /ratings/{ratingUserId} {
+        allow read: if isSignedIn();
+
+        // Create: User can only create rating with their own userId as document ID
+        allow create: if isSignedIn()
+          && ratingUserId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.rating is number
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5
+          && isRecentTimestamp(request.resource.data.createdAt);
+
+        // Update: User can only update their own rating
+        allow update: if isSignedIn()
+          && ratingUserId == request.auth.uid
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5;
+
+        // Delete: User can only delete their own rating
+        allow delete: if isSignedIn()
+          && ratingUserId == request.auth.uid
+          && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // Ratings collection - top level (for aggregated ratings)
+    match /ratings/{ratingId} {
+      // Anyone signed in can read ratings
+      allow read: if isSignedIn();
+
+      // Users can create ratings with their own userId
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['sharedRecipeId', 'userId', 'userName', 'rating', 'verified', 'helpfulCount', 'createdAt', 'updatedAt'])
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && validString(request.resource.data.sharedRecipeId, 1, 100)
+        && validString(request.resource.data.userName, 1, 50)
+        && request.resource.data.verified is bool
+        && request.resource.data.helpfulCount is number
+        && request.resource.data.helpfulCount >= 0
+        && isRecentTimestamp(request.resource.data.createdAt)
+        && isRecentTimestamp(request.resource.data.updatedAt);
+
+      // Users can only update their own ratings
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.sharedRecipeId == resource.data.sharedRecipeId
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        // Prevent changing verified status
+        && request.resource.data.verified == resource.data.verified;
+
+      // Users can only delete their own ratings
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Reports collection (if you implement reporting)
+    match /reports/{reportId} {
+      // Users can read their own reports
+      allow read: if isSignedIn() && resource.data.reporterId == request.auth.uid;
+
+      // Users can create reports
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.keys().hasAll(['reporterId', 'type', 'description', 'createdAt'])
+        && validString(request.resource.data.description, 1, 1000)
+        && isRecentTimestamp(request.resource.data.createdAt);
+
+      // No updates or deletes allowed
+      allow update, delete: if false;
+    }
+  }
+}
