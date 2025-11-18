@@ -18,7 +18,7 @@ import { functions, auth } from "@/lib/firebaseConfig";
 import Constants from "expo-constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import AnimatedPageWrapper from "../components/AnimatedPageWrapper";
-import { reportStyles as styles } from "@/styles/report/styles";
+import { reportStyles } from "@/styles/report/styles";
 
 export default function ReportIssueScreen() {
   const router = useRouter();

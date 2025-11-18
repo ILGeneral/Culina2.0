@@ -72,7 +72,7 @@ export default function OnboardingScreen() {
           console.error("Error updating onboarding status:", error);
         }
       }
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/home");
     }
   };
 

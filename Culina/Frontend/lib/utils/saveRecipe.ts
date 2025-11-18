@@ -3,7 +3,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc
 import { db } from '@/lib/firebaseConfig';
 
 interface RecipeData {
-  id: string;
+  id?: string;
   title: string;
   description?: string;
   ingredients: (string | { name: string; qty?: string; unit?: string })[];

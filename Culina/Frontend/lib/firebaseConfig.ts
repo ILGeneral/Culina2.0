@@ -1,10 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import {
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
@@ -22,12 +18,11 @@ const firebaseConfig = {
 // Initialize Firebase App safely
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with persistence
+// Initialize Auth
+// Note: Firebase JS SDK v10+ handles persistence automatically in React Native
 let auth: Auth;
 try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
+  auth = initializeAuth(app, {});
 } catch {
   auth = getAuth(app);
 }
