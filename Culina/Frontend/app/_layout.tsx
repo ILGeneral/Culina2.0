@@ -1,8 +1,9 @@
 import { ActivityIndicator, View } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebaseConfig";
+import { auth, db } from "@/lib/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { RecipeDatabaseProvider } from "@/contexts/RecipeDatabaseContext";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -10,6 +11,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const [user, loading] = useAuthState(auth);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
     if (loading) {
@@ -17,17 +19,47 @@ export default function RootLayout() {
     }
 
     const inAuthGroup = segments[0] === "(auth)";
+    const onOnboardingScreen = segments[1] === "onboarding";
 
+    // Not logged in - redirect to login
     if (!user && !inAuthGroup) {
       router.replace("/(auth)/login");
+      return;
     }
 
-    if (user && inAuthGroup) {
-      router.replace("/(tabs)/home");
+    // Logged in and in auth group - check onboarding status
+    if (user && inAuthGroup && !onOnboardingScreen) {
+      // If user is on login/register, check if they need onboarding
+      const checkOnboarding = async () => {
+        setCheckingOnboarding(true);
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const hasCompletedOnboarding = userDoc.data()?.hasCompletedOnboarding ?? false;
+
+          if (hasCompletedOnboarding) {
+            router.replace("/(tabs)/home");
+          } else {
+            router.replace("/(auth)/onboarding");
+          }
+        } catch (error) {
+          console.error("Error checking onboarding:", error);
+          router.replace("/(auth)/onboarding");
+        } finally {
+          setCheckingOnboarding(false);
+        }
+      };
+
+      checkOnboarding();
+    }
+
+    // User completed onboarding and is on onboarding screen - should not happen but handle it
+    if (user && onOnboardingScreen) {
+      // Let them stay on onboarding screen to complete it
+      return;
     }
   }, [loading, user, segments, router]);
 
-  if (loading) {
+  if (loading || checkingOnboarding) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#128AFAFF" />

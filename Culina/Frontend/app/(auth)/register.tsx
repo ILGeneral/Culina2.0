@@ -78,7 +78,8 @@ export default function RegisterScreen() {
         hasCompletedOnboarding: false,
       });
 
-      Alert.alert("Success", "Account created successfully!");
+      // Navigate directly to onboarding
+      // The root layout will detect the user and handle navigation
       router.replace("/(auth)/onboarding");
     } catch (err: any) {
       console.error(err);
