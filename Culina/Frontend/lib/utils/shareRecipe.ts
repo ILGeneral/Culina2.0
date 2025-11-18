@@ -51,6 +51,9 @@ export const shareRecipe = async (
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.exists() ? userDoc.data() : {};
 
+    // Generate a consistent avatar URL based on userId if no profile picture exists
+    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+
     // Create shared recipe document - only include defined fields
     const sharedRecipeData: any = {
       title: recipe.title,
@@ -63,7 +66,7 @@ export const shareRecipe = async (
       createdAt: recipe.createdAt || serverTimestamp(),
       // Add author information
       authorUsername: userData?.username || 'Anonymous',
-      authorProfilePicture: userData?.profilePicture || 'https://avatar.iran.liara.run/public',
+      authorProfilePicture: userData?.profilePicture || defaultAvatar,
     };
 
     const sourceLabel = normalizeRecipeSource(recipe.source);

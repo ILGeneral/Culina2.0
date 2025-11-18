@@ -774,7 +774,7 @@ export default function RecipeDetailsScreen() {
                 >
                   <Image
                     source={{
-                      uri: recipe.authorProfilePicture || "https://avatar.iran.liara.run/public"
+                      uri: recipe.authorProfilePicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${recipe.userId}`
                     }}
                     style={styles.authorImage}
                   />

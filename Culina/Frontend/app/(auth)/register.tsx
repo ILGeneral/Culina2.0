@@ -68,6 +68,7 @@ export default function RegisterScreen() {
       await setDoc(doc(db, "users", userCred.user.uid), {
         username: username.trim(),
         email: email.trim(),
+        profilePicture: `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}`,
         preferences: {
           diet,
           religiousPreference,

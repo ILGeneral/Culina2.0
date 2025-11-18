@@ -21,6 +21,7 @@ import * as FileSystem from "expo-file-system";
 import { Camera, X, Check } from "lucide-react-native";
 import Background from "@/components/Background";
 import styles from "@/styles/editProfile/styles";
+import { uploadImageAsync } from "@/lib/uploadImage";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -152,9 +153,8 @@ export default function EditProfileScreen() {
     try {
       setUploadingImage(true);
 
-      // For now, we'll use a placeholder that uses the image URI
-      // In a production app, you would upload to Firebase Storage or another cloud storage service
-      const imageUrl = uri; // Direct use of local URI for demonstration
+      // Upload image to Firebase Storage
+      const imageUrl = await uploadImageAsync(uri, user.uid, 'profile-pictures');
 
       // Update local state
       setProfilePicture(imageUrl);

@@ -3,14 +3,14 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from "uuid";
 
-export async function uploadImageAsync(uri: string, userId: string) {
+export async function uploadImageAsync(uri: string, userId: string, folder: string = 'inventory') {
   try {
     // Read the file as blob
     const response = await fetch(uri);
     const blob = await response.blob();
 
     // Create unique path
-    const imageRef = ref(storage, `inventory/${userId}/${uuidv4()}.jpg`);
+    const imageRef = ref(storage, `${folder}/${userId}/${uuidv4()}.jpg`);
 
     // Upload blob
     await uploadBytes(imageRef, blob);
