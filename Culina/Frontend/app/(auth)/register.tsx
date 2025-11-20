@@ -65,10 +65,13 @@ export default function RegisterScreen() {
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(userCred.user, { displayName: username.trim() });
 
+      // Generate a random DiceBear avatar using user ID as seed (PNG format for React Native)
+      const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/png?seed=${userCred.user.uid}&size=200`;
+
       await setDoc(doc(db, "users", userCred.user.uid), {
         username: username.trim(),
         email: email.trim(),
-        profilePicture: `https://avatar.iran.liara.run/public/${Math.floor(Math.random() * 100)}`,
+        profilePicture: defaultAvatar,
         preferences: {
           diet,
           religiousPreference,

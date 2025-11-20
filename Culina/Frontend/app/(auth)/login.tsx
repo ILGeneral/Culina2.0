@@ -36,7 +36,7 @@ export default function Login() {
         const hasCompletedOnboarding = userData?.hasCompletedOnboarding ?? false;
 
         if (hasCompletedOnboarding) {
-          router.replace("/");
+          router.replace("/(tabs)/home");
         } else {
           router.replace("/(auth)/onboarding");
         }

@@ -51,8 +51,8 @@ export const shareRecipe = async (
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.exists() ? userDoc.data() : {};
 
-    // Generate a consistent avatar URL based on userId if no profile picture exists
-    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+    // Generate a consistent avatar URL based on userId if no profile picture exists (PNG for React Native)
+    const defaultAvatar = `https://api.dicebear.com/7.x/avataaars/png?seed=${userId}&size=200`;
 
     // Create shared recipe document - only include defined fields
     const sharedRecipeData: any = {

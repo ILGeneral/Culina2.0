@@ -15,13 +15,10 @@ import { useRouter } from "expo-router";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { updateProfile, User } from "firebase/auth";
-import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
-import { Camera, X, Check } from "lucide-react-native";
+import { Camera } from "lucide-react-native";
 import Background from "@/components/Background";
 import styles from "@/styles/editProfile/styles";
-import { uploadImageAsync } from "@/lib/uploadImage";
+import AvatarPicker from "@/components/AvatarPicker";
 
 const ALLERGY_OPTIONS = [
   "Peanuts",
@@ -49,9 +46,7 @@ export default function EditProfileScreen() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [showAllergyList, setShowAllergyList] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string>("");
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [showCropPreview, setShowCropPreview] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const toggleAllergy = (value: string) => {
     setAllergies((prev) =>
@@ -92,93 +87,31 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handlePickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please enable photo library access in your device settings.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 1,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setSelectedImageUri(result.assets[0].uri);
-        setShowCropPreview(true);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image.');
-    }
-  };
-
-  const handleCancelCrop = () => {
-    setSelectedImageUri(null);
-    setShowCropPreview(false);
-  };
-
-  const handleConfirmCrop = async () => {
-    if (!selectedImageUri) return;
-
-    try {
-      setShowCropPreview(false);
-
-      // Crop the image to square aspect ratio
-      const manipulatedImage = await ImageManipulator.manipulateAsync(
-        selectedImageUri,
-        [{ resize: { width: 800, height: 800 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-      );
-
-      await uploadProfilePicture(manipulatedImage.uri);
-      setSelectedImageUri(null);
-    } catch (error) {
-      console.error('Error cropping image:', error);
-      Alert.alert('Error', 'Failed to crop image.');
-      setShowCropPreview(false);
-    }
-  };
-
-  const uploadProfilePicture = async (uri: string) => {
+  const handleSelectAvatar = async (avatarUrl: string) => {
     if (!user) return;
 
     try {
-      setUploadingImage(true);
-
-      // Upload image to Firebase Storage
-      const imageUrl = await uploadImageAsync(uri, user.uid, 'profile-pictures');
-
       // Update local state
-      setProfilePicture(imageUrl);
+      setProfilePicture(avatarUrl);
 
       // Update Firestore
       const docRef = doc(db, 'users', user.uid);
       await updateDoc(docRef, {
-        profilePicture: imageUrl,
+        profilePicture: avatarUrl,
       });
 
       // Update Firebase Auth profile
       await updateProfile(user, {
-        photoURL: imageUrl,
+        photoURL: avatarUrl,
       });
 
       // Update all shared recipes with new profile picture
-      await updateSharedRecipesProfile(username, imageUrl);
+      await updateSharedRecipesProfile(username, avatarUrl);
 
       Alert.alert('Success', 'Profile picture updated!');
-    } catch (error) {
-      console.error('Error uploading profile picture:', error);
+    } catch (error: any) {
+      console.error('Error updating profile picture:', error);
       Alert.alert('Error', 'Failed to update profile picture. Please try again.');
-    } finally {
-      setUploadingImage(false);
     }
   };
 
@@ -276,25 +209,20 @@ export default function EditProfileScreen() {
           <View style={styles.profilePictureContainer}>
             <Image
               source={{
-                uri: profilePicture || "https://avatar.iran.liara.run/public"
+                uri: profilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.uid}&size=200`
               }}
               style={styles.profilePictureImage}
             />
             <TouchableOpacity
               style={styles.profilePictureButton}
-              onPress={handlePickImage}
-              disabled={uploadingImage}
+              onPress={() => setShowAvatarPicker(true)}
             >
-              {uploadingImage ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Camera size={20} color="#fff" />
-              )}
+              <Camera size={20} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.profilePictureHint}>
-            Tap the camera icon to change your profile picture
+            Tap the camera icon to choose an avatar
           </Text>
         </View>
 
@@ -395,45 +323,21 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Crop Preview Modal */}
-      <Modal
-        visible={showCropPreview}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleCancelCrop}
-      >
-        <View style={styles.cropModalOverlay}>
-          <View style={styles.cropModalContent}>
-            <Text style={styles.cropModalTitle}>Save Image</Text>
-
-            {selectedImageUri && (
-              <Image
-                source={{ uri: selectedImageUri }}
-                style={styles.cropPreviewImage}
-                resizeMode="cover"
-              />
-            )}
-
-            <View style={styles.imageActionButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={handleCancelCrop}
-              >
-                <X size={20} color="#374151" />
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirmCrop}
-              >
-                <Check size={20} color="#fff" />
-                <Text style={styles.confirmButtonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Avatar Picker Modal */}
+      {showAvatarPicker && (
+        <Modal
+          visible={showAvatarPicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowAvatarPicker(false)}
+        >
+          <AvatarPicker
+            onSelect={handleSelectAvatar}
+            onClose={() => setShowAvatarPicker(false)}
+            currentAvatar={profilePicture}
+          />
+        </Modal>
+      )}
     </Background>
   );
 }
