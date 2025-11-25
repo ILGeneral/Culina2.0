@@ -140,6 +140,8 @@ export default function RecipeDetailsScreen() {
   const [isShared, setIsShared] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [userRating, setUserRating] = useState<Rating | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [authorImageError, setAuthorImageError] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -410,11 +412,17 @@ export default function RecipeDetailsScreen() {
     if (!id || !auth.currentUser?.uid || source !== 'shared') return;
 
     const currentUserId = auth.currentUser.uid; // Store uid to avoid null checks
+    let isMounted = true; // Track if component is still mounted
 
     const fetchUserRating = async () => {
+      // Safety check: ensure user is still logged in
+      if (!auth.currentUser || !isMounted) return;
+
       try {
         const rating = await getUserRating(String(id), currentUserId);
-        setUserRating(rating);
+        if (isMounted) {
+          setUserRating(rating);
+        }
       } catch (err) {
         console.error('Error fetching user rating:', err);
       }
@@ -428,6 +436,9 @@ export default function RecipeDetailsScreen() {
     const unsubscribe = onSnapshot(
       recipeRef,
       (docSnapshot) => {
+        // Safety check: ensure component is still mounted and user is still logged in
+        if (!isMounted || !auth.currentUser) return;
+
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
           // Update recipe with new ratings data
@@ -444,7 +455,10 @@ export default function RecipeDetailsScreen() {
     );
 
     // Cleanup listener on unmount
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [id, source]);
 
   // Refetch user rating when modal closes
@@ -739,13 +753,14 @@ export default function RecipeDetailsScreen() {
         onScroll={scrollHandler}
       >
         <Animated.View style={[styles.hero, animatedHeroStyle]}>
-          {recipe.imageUrl ? (
+          {recipe.imageUrl && !imageError ? (
             <Image
               source={{ uri: recipe.imageUrl }}
               style={styles.heroImage}
               resizeMode="cover"
               onError={(error) => {
                 console.warn('Failed to load recipe hero image:', recipe.imageUrl, error);
+                setImageError(true);
               }}
             />
           ) : (
@@ -779,15 +794,24 @@ export default function RecipeDetailsScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={{
-                      uri: recipe.authorProfilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${recipe.userId}&size=200`
-                    }}
-                    style={styles.authorImage}
-                    onError={(error) => {
-                      console.warn('Failed to load author profile picture:', error);
-                    }}
-                  />
+                  {!authorImageError ? (
+                    <Image
+                      source={{
+                        uri: recipe.authorProfilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${recipe.userId}&size=200`
+                      }}
+                      style={styles.authorImage}
+                      onError={(error) => {
+                        console.warn('Failed to load author profile picture:', error);
+                        setAuthorImageError(true);
+                      }}
+                    />
+                  ) : (
+                    <View style={[styles.authorImage, { backgroundColor: '#0ea5e9', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Text style={{ fontSize: 20, fontWeight: '700', color: '#fff' }}>
+                        {(recipe.authorUsername || 'A').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.authorInfo}>
                     <Text style={styles.authorLabel}>Created by</Text>
                     <Text style={styles.authorName}>{recipe.authorUsername || 'Anonymous'}</Text>

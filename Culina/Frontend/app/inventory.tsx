@@ -1,5 +1,3 @@
-import * as FileSystem from "expo-file-system/legacy";
-import * as ImageManipulator from 'expo-image-manipulator';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/styles/inventoryStyle";
 import {
@@ -7,12 +5,10 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   Modal,
   Image,
   TextInput,
   Alert,
-  Dimensions,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -20,16 +16,8 @@ import {
   ScrollView,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import {
-  BottomSheetModal,
-  BottomSheetBackdrop,
-  BottomSheetView,
-  BottomSheetModalProvider,
-} from "@gorhom/bottom-sheet";
 import {
   collection,
   query,
@@ -39,9 +27,9 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebaseConfig";
-import { detectFoodFromImage, API_BASE } from "@/lib/clarifai";
 import {
   searchMealDbIngredients,
   type MealDbIngredient,
@@ -50,9 +38,10 @@ import {
 } from "@/lib/mealdb";
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import InventoryHeader from "@/app/components/inventory/InventoryHeader";
+import { ShoppingCart, Plus, Minus } from "lucide-react-native";
 
 // —— helpers ——
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const capitalize = (s: string) =>
   s
     .toLowerCase()
@@ -60,14 +49,17 @@ const capitalize = (s: string) =>
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+
 const sanitizeQuantity = (t: string) => {
   let c = t.replace(/[^0-9.]/g, "");
   const d = c.indexOf(".");
   if (d !== -1) c = c.slice(0, d + 1) + c.slice(d + 1).replace(/\./g, "");
   return c;
 };
+
 const mealThumb = (n: string) =>
   `https://www.themealdb.com/images/ingredients/${encodeURIComponent(n)}.png`;
+
 const UNIT_OPTIONS = [
   "",
   "g",
@@ -86,10 +78,12 @@ const UNIT_OPTIONS = [
   "cans",
   "bottles",
 ] as const;
+
 type Unit = (typeof UNIT_OPTIONS)[number];
-type Filter = "All" | "Low Stock" | "Meat" | "Vegetables" | "Fruits";
-const CAT: Record<Exclude<Filter, "All" | "Low Stock">, string[]> = {
-  Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham"],
+type Filter = "All" | "Meat" | "Vegetables" | "Fruits"; // Removed "Low Stock"
+
+const CAT: Record<Exclude<Filter, "All">, string[]> = {
+  Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham", "sausage", "lamb"],
   Vegetables: [
     "tomato",
     "onion",
@@ -98,6 +92,9 @@ const CAT: Record<Exclude<Filter, "All" | "Low Stock">, string[]> = {
     "potato",
     "broccoli",
     "spinach",
+    "lettuce",
+    "cucumber",
+    "pepper",
   ],
   Fruits: [
     "apple",
@@ -107,7 +104,72 @@ const CAT: Record<Exclude<Filter, "All" | "Low Stock">, string[]> = {
     "grape",
     "pineapple",
     "strawberry",
+    "lemon",
+    "lime",
   ],
+};
+
+// Smart Unit Suggestions based on ingredient type
+const SMART_UNIT_MAP: Record<string, Unit> = {
+  // Liquids
+  milk: "l",
+  water: "l",
+  juice: "ml",
+  oil: "ml",
+  vinegar: "ml",
+  sauce: "ml",
+  cream: "ml",
+
+  // Countable items
+  egg: "pieces",
+  apple: "pieces",
+  banana: "pieces",
+  orange: "pieces",
+  tomato: "pieces",
+  onion: "pieces",
+  potato: "pieces",
+  carrot: "pieces",
+
+  // Dry goods/powders
+  flour: "g",
+  sugar: "g",
+  salt: "g",
+  rice: "kg",
+  pasta: "g",
+
+  // Sliced items
+  bread: "slices",
+  cheese: "slices",
+  ham: "slices",
+
+  // Spices/herbs
+  garlic: "cloves",
+  basil: "bunches",
+  parsley: "bunches",
+
+  // Canned/packaged
+  "canned": "cans",
+  "bottled": "bottles",
+};
+
+// Function to get smart unit suggestion
+const getSmartUnit = (ingredientName: string): Unit => {
+  const lower = ingredientName.toLowerCase().trim();
+
+  // Check exact matches first
+  if (SMART_UNIT_MAP[lower]) {
+    return SMART_UNIT_MAP[lower];
+  }
+
+  // Check partial matches
+  for (const [key, unit] of Object.entries(SMART_UNIT_MAP)) {
+    if (lower.includes(key)) {
+      return unit;
+    }
+  }
+
+  // Default
+  return "";
 };
 
 // —— main ——
@@ -129,28 +191,28 @@ export default function InventoryScreen() {
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Bulk add mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkItems, setBulkItems] = useState<Array<{name: string, quantity: number, unit: Unit}>>([]);
+
+  // Shopping list
+  const [shoppingListVisible, setShoppingListVisible] = useState(false);
+  const [shoppingList, setShoppingList] = useState<any[]>([]);
+
   const applySuggestion = (ingredient: MealDbIngredient) => {
-    setName(capitalize(ingredient.name));
+    const ingredientName = capitalize(ingredient.name);
+    setName(ingredientName);
+
+    // Apply smart unit suggestion
+    const smartUnit = getSmartUnit(ingredientName);
+    if (smartUnit && !unit) {
+      setUnit(smartUnit);
+    }
+
     setSuggest([]);
     setSuggestLoading(false);
     setHighlightIndex(null);
   };
-
-  // camera
-  const [camOpen, setCamOpen] = useState(false);
-  const [permission, requestPermission] = useCameraPermissions();
-  const camRef = useRef<CameraView | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [capturing, setCapturing] = useState(false);
-  const [capturedPhoto, setCapturedPhoto] = useState<{
-    uri: string;
-    base64?: string;
-  } | null>(null);
-  const [previewVisible, setPreviewVisible] = useState(false);
-
-  // bottom sheet
-  const sheetRef = useRef<BottomSheetModal>(null);
-  const snap = useMemo(() => ["26%"], []);
 
   const user = auth.currentUser;
 
@@ -182,6 +244,33 @@ export default function InventoryScreen() {
         console.error("Firestore snapshot error:", error);
         setLoading(false);
         Alert.alert("Error", "Failed to load inventory. Please try again.");
+      }
+    );
+    return unsub;
+  }, [user?.uid]);
+
+  // Shopping list listener
+  useEffect(() => {
+    if (!user?.uid) {
+      setShoppingList([]);
+      return;
+    }
+
+    const q = query(collection(db, "users", user.uid, "shoppingList"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const arr: any[] = [];
+        snap.forEach((d) => {
+          const data = d.data();
+          if (data?.name && !data?.purchased) {
+            arr.push({ id: d.id, ...data });
+          }
+        });
+        setShoppingList(arr.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+      },
+      (error) => {
+        console.error("Shopping list snapshot error:", error);
       }
     );
     return unsub;
@@ -270,60 +359,6 @@ export default function InventoryScreen() {
     }
   };
 
-  const handleCameraFocus = async (event: any) => {
-    if (!camRef.current) return;
-    const { locationX, locationY } = event.nativeEvent;
-    const xNormalized = Math.min(Math.max(locationX / SCREEN_WIDTH, 0), 1);
-    const yNormalized = Math.min(Math.max(locationY / SCREEN_HEIGHT, 0), 1);
-    try {
-      await (camRef.current as any)?.focus?.({
-        x: xNormalized,
-        y: yNormalized,
-      });
-    } catch (err) {
-      console.warn("Camera focus failed", err);
-    }
-  };
-
-  const handleCapturePress = async () => {
-    if (capturing || uploading || previewVisible) return;
-    try {
-      setCapturing(true);
-      await new Promise((resolve) => setTimeout(resolve, 250));
-
-      const p = await camRef.current?.takePictureAsync({
-        base64: false,
-        quality: 0.3, // Reduced from 0.5 to keep file size small
-        imageType: "jpg",
-        skipProcessing: true,
-      });
-
-      if (p?.uri) {
-        setCapturedPhoto(p);
-        setPreviewVisible(true);
-      }
-    } catch {
-      Alert.alert("Capture failed");
-    } finally {
-      setCapturing(false);
-    }
-  };
-
-  const retakePhoto = () => {
-    if (uploading) return;
-    setPreviewVisible(false);
-    setCapturedPhoto(null);
-  };
-
-  const confirmScan = async () => {
-    if (!capturedPhoto || uploading) return;
-    await handleCapture(capturedPhoto);
-  };
-
-  // — Add sheet —
-  const openSheet = () => sheetRef.current?.present();
-  const closeSheet = () => sheetRef.current?.dismiss();
-
   // — Manual add —
   const ensurePrefetch = () => {
     if (!hasMealDbIngredientsLoaded()) {
@@ -332,7 +367,6 @@ export default function InventoryScreen() {
   };
 
   const manualAdd = () => {
-    closeSheet();
     setEditing(null);
     setName("");
     setQty("");
@@ -341,155 +375,10 @@ export default function InventoryScreen() {
     setSuggest([]);
     setSuggestLoading(false);
     setHighlightIndex(null);
+    setBulkMode(false);
+    setBulkItems([]);
     setFormVisible(true);
     ensurePrefetch();
-  };
-
-  // — Camera add —
-  const cameraAdd = async () => {
-    closeSheet();
-
-    // Check and request camera permission with user feedback
-    if (!permission?.granted) {
-      try {
-        const res = await requestPermission();
-        if (!res.granted) {
-          Alert.alert(
-            "Camera Permission Required",
-            "Please enable camera access in your device settings to scan ingredients."
-          );
-          return;
-        }
-      } catch (err) {
-        console.error("Permission request failed:", err);
-        Alert.alert("Error", "Could not request camera permission");
-        return;
-      }
-    }
-
-    // Reset state before opening camera
-    setEditing(null);
-    setName("");
-    setQty("");
-    setUnit("");
-    setImg(null);
-    setSuggest([]);
-    setCapturedPhoto(null);
-    setPreviewVisible(false);
-    ensurePrefetch();
-
-    // Small delay to ensure state is clean before opening
-    setTimeout(() => {
-      setCamOpen(true);
-    }, 100);
-  };
-
-  const handleCapture = async (photo: { uri: string }) => {
-    let success = false;
-
-    try {
-      if (!user?.uid) {
-        Alert.alert("Error", "Please log in to upload images");
-        return;
-      }
-      setUploading(true);
-
-      // Step 1: Resize and compress the image
-      // Food detection works well with smaller images (max 1024px)
-      const manipResult = await ImageManipulator.manipulateAsync(
-        photo.uri,
-        [
-          // Resize to max 1024px on longest side while maintaining aspect ratio
-          { resize: { width: 1024 } }
-        ],
-        {
-          compress: 0.6, // 60% quality - good balance for food detection
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: false
-        }
-      );
-
-      console.log('📸 Image resized to:', manipResult.width, 'x', manipResult.height);
-
-      // Step 1.5: Check file size
-      const fileInfo = await FileSystem.getInfoAsync(manipResult.uri);
-      if (fileInfo.exists && 'size' in fileInfo) {
-        if (fileInfo.size > 5 * 1024 * 1024) {
-          throw new Error("Image too large. Maximum 5MB allowed. Please try a smaller photo.");
-        }
-        const estimatedSizeKB = Math.round(fileInfo.size / 1024);
-        console.log(`📦 Compressed image size: ~${estimatedSizeKB}KB`);
-      }
-
-      // Step 2: Upload to Vercel Blob via backend with timeout
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-      try {
-        // Create FormData for React Native compatibility
-        const formData = new FormData();
-        formData.append('image', {
-          uri: manipResult.uri,
-          type: 'image/jpeg',
-          name: 'ingredient.jpg',
-        } as any);
-
-        const uploadRes = await fetch(`${API_BASE}/api/upload-ingredient-image`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${await user.getIdToken()}`,
-          },
-          body: formData,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeout);
-
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          throw new Error(`Upload failed: ${uploadRes.status} - ${errText}`);
-        }
-
-        const uploadResult = await uploadRes.json();
-        const blobUrl = uploadResult.url;
-        console.log("Uploaded to Vercel Blob:", blobUrl);
-
-        // Step 4: Send blob URL to Clarifai
-        try {
-          const det = await detectFoodFromImage({ url: blobUrl });
-          const topConcept = Array.isArray(det) ? det[0]?.name : undefined;
-
-          if (topConcept) {
-            setName(capitalize(topConcept));
-          } else {
-            Alert.alert("No ingredients detected", "Try capturing a clearer photo.");
-          }
-
-          success = true;
-          setCamOpen(false);
-          setFormVisible(true);
-        } catch (clarifaiError) {
-          console.error("Clarifai detection error:", clarifaiError);
-          Alert.alert("Error", "Failed to detect ingredient. Please try again.");
-        }
-      } catch (uploadError) {
-        clearTimeout(timeout);
-        if (uploadError instanceof Error && uploadError.name === 'AbortError') {
-          throw new Error("Upload timed out after 30 seconds. Please check your connection and try again.");
-        }
-        throw uploadError;
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("Upload error:", errorMessage);
-      Alert.alert("Upload failed", errorMessage);
-    } finally {
-      setUploading(false);
-      if (success) {
-        setPreviewVisible(false);
-        setCapturedPhoto(null);
-      }
-    }
   };
 
   // — Save —
@@ -543,13 +432,35 @@ export default function InventoryScreen() {
           doc(db, "users", user.uid, "ingredients", editing.id),
           data
         );
+
+        if (bulkMode) {
+          // Continue in bulk mode
+          setBulkItems([...bulkItems, { name: safeName, quantity: qn, unit }]);
+          setName("");
+          setQty("");
+          setUnit("");
+          setImg(null);
+        } else {
+          setFormVisible(false);
+        }
       } else {
         await addDoc(collection(db, "users", user.uid, "ingredients"), {
           ...data,
           createdAt: serverTimestamp(),
         });
+
+        if (bulkMode) {
+          // Continue in bulk mode
+          setBulkItems([...bulkItems, { name: safeName, quantity: qn, unit }]);
+          Alert.alert("Added!", `${safeName} added. Add another or tap Done.`);
+          setName("");
+          setQty("");
+          setUnit("");
+          setImg(null);
+        } else {
+          setFormVisible(false);
+        }
       }
-      setFormVisible(false);
     } catch (err) {
       console.error("Save ingredient error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -567,6 +478,8 @@ export default function InventoryScreen() {
     setSuggest([]);
     setSuggestLoading(false);
     setHighlightIndex(null);
+    setBulkMode(false);
+    setBulkItems([]);
     setFormVisible(true);
   };
 
@@ -598,388 +511,487 @@ export default function InventoryScreen() {
     ]);
   };
 
-  const pass = (it: any) => {
-    if (filter === "All") return true;
-    if (filter === "Low Stock") return it.quantity <= 1;
-    return CAT[filter].some((k) => it.name.toLowerCase().includes(k));
+  // Quantity adjustment
+  const adjustQuantity = (delta: number) => {
+    const current = parseFloat(qty) || 0;
+    const newQty = Math.max(0, current + delta);
+    setQty(String(newQty));
   };
-  const filtered = items.filter(
-    (i) => i.name.toLowerCase().includes(search.toLowerCase()) && pass(i)
-  );
 
-  // — render —
-  const render = ({ item }: any) => (
-    <Pressable
+  // Shopping list functions
+  const addToShoppingList = async (item: any) => {
+    if (!user?.uid) return;
+
+    try {
+      await addDoc(collection(db, "users", user.uid, "shoppingList"), {
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        imageUrl: item.imageUrl,
+        purchased: false,
+        createdAt: serverTimestamp(),
+      });
+      Alert.alert("Added to Shopping List", `${item.name} added to your shopping list`);
+    } catch (err) {
+      console.error("Add to shopping list failed:", err);
+      Alert.alert("Error", "Failed to add to shopping list");
+    }
+  };
+
+  const markPurchased = async (itemId: string) => {
+    if (!user?.uid) return;
+
+    try {
+      await updateDoc(
+        doc(db, "users", user.uid, "shoppingList", itemId),
+        { purchased: true, purchasedAt: serverTimestamp() }
+      );
+    } catch (err) {
+      console.error("Mark purchased failed:", err);
+    }
+  };
+
+  const addLowStockToShoppingList = async () => {
+    if (!user?.uid) return;
+
+    const lowStockItems = items.filter(item => item.quantity < 5);
+
+    if (lowStockItems.length === 0) {
+      Alert.alert("All Stocked!", "You don't have any low stock items.");
+      return;
+    }
+
+    try {
+      const batch = writeBatch(db);
+
+      lowStockItems.forEach(item => {
+        const ref = doc(collection(db, "users", user.uid, "shoppingList"));
+        batch.set(ref, {
+          name: item.name,
+          quantity: 5, // Suggest restocking to 5 units
+          unit: item.unit,
+          imageUrl: item.imageUrl,
+          purchased: false,
+          createdAt: serverTimestamp(),
+        });
+      });
+
+      await batch.commit();
+      Alert.alert("Added to Shopping List", `${lowStockItems.length} low stock items added!`);
+      setShoppingListVisible(true);
+    } catch (err) {
+      console.error("Batch add failed:", err);
+      Alert.alert("Error", "Failed to create shopping list");
+    }
+  };
+
+  // Filtered & sorted
+  const filtered = useMemo(() => {
+    let arr = items.filter((it) => {
+      // Search
+      if (search) {
+        const s = search.toLowerCase();
+        const nm = (it.name ?? "").toLowerCase();
+        if (!nm.includes(s)) return false;
+      }
+
+      // Filter (Low Stock removed)
+      if (filter !== "All") {
+        const nm = (it.name ?? "").toLowerCase();
+        const cat = CAT[filter as keyof typeof CAT] || [];
+        if (!cat.some((c) => nm.includes(c))) return false;
+      }
+      return true;
+    });
+
+    // Sort by name
+    arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    return arr;
+  }, [items, search, filter]);
+
+  const renderItem = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      style={styles.itemCard}
       onPress={() => edit(item)}
       onLongPress={() => del(item)}
-      style={styles.tile}
+      accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
     >
-      <Image
-        source={{ uri: item.imageUrl ?? mealThumb(item.name) }}
-        style={styles.tileImg}
-      />
-      <Text style={styles.tileName}>{item.name}</Text>
-      <Text style={styles.tileQty}>
-        {item.quantity} {item.unit}
-      </Text>
-    </Pressable>
+      {item.imageUrl && (
+        <Image source={{ uri: item.imageUrl }} style={styles.itemImg} />
+      )}
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.name}</Text>
+        <Text style={styles.itemQty}>
+          {item.quantity} {item.unit}
+        </Text>
+        {item.quantity < 5 && (
+          <Text style={styles.lowStockLabel}>Low Stock!</Text>
+        )}
+      </View>
+      <TouchableOpacity
+        style={styles.addToCartBtn}
+        onPress={(e) => {
+          e.stopPropagation();
+          addToShoppingList(item);
+        }}
+      >
+        <ShoppingCart size={20} color="#15803d" />
+      </TouchableOpacity>
+    </TouchableOpacity>
   );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <Background>
-          <SafeAreaView style={styles.container}>
-            {/* header */}
-            <View style={styles.head}>
-              <Text style={styles.title}>My Pantry</Text>
-              <View style={styles.search}>
-                <Ionicons name="search" size={18} color="#6b7280" />
-                <TextInput
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search ingredients..."
-                  style={styles.searchInput}
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch("")}>
-                    <Ionicons name="close-circle" size={18} color="#9ca3af" />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <View style={styles.filters}>
-                {(
-                  [
-                    "All",
-                    "Low Stock",
-                    "Meat",
-                    "Vegetables",
-                    "Fruits",
-                  ] as Filter[]
-                ).map((f) => (
-                  <TouchableOpacity
-                    key={f}
-                    style={[styles.fChip, filter === f && styles.fChipOn]}
-                    onPress={() => setFilter(f)}
-                  >
-                    <Text style={[styles.fTxt, filter === f && styles.fTxtOn]}>{f}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+      <Background>
+        <SafeAreaView style={styles.safeArea}>
+          <InventoryHeader onAddPress={manualAdd} />
 
-            {loading ? (
-              <View style={[styles.center, { flex: 1 }]}>
-                <ActivityIndicator size="large" />
-              </View>
-            ) : (
-              <FlatList
-                data={filtered}
-                keyExtractor={(i, index) => i.id || `temp-${index}`}
-                numColumns={2}
-                columnWrapperStyle={{ gap: 12 }}
-                contentContainerStyle={{
-                  paddingHorizontal: 16,
-                  paddingBottom: 120,
-                  gap: 12,
-                }}
-                renderItem={render}
-                ListEmptyComponent={
-                  <View style={[styles.center, { paddingTop: 60 }]}>
-                    <Text style={{ fontSize: 18, fontWeight: '600', color: '#6b7280', marginBottom: 8 }}>
-                      No ingredients found
-                    </Text>
-                    <Text style={{ fontSize: 14, color: '#9ca3af' }}>
-                      {search ? "Try a different search" : "Add your first ingredient to get started!"}
-                    </Text>
-                  </View>
-                }
+          {/* search + filter */}
+          <View style={styles.controlsRow}>
+            <View style={styles.searchWrap}>
+              <Ionicons
+                name="search-outline"
+                size={18}
+                style={{ marginRight: 6 }}
               />
-            )}
-
-            {/* FAB */}
-            <TouchableOpacity style={styles.fab} onPress={openSheet}>
-              <Ionicons name="add" size={28} color="#fff" />
-            </TouchableOpacity>
-
-            {/* bottom sheet */}
-            <BottomSheetModal
-              ref={sheetRef}
-              index={0}
-              snapPoints={snap}
-              backdropComponent={(p) => (
-                <BottomSheetBackdrop
-                  appearsOnIndex={0}
-                  disappearsOnIndex={-1}
-                  {...p}
-                />
-              )}
-              enablePanDownToClose
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search ingredients..."
+                style={styles.searchInput}
+                placeholderTextColor="#9ca3af"
+              />
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
             >
-              <BottomSheetView
-                style={{ paddingHorizontal: 16, paddingBottom: 8 }}
-              >
-                <Text style={styles.sheetTitle}>Add Ingredient</Text>
-                <TouchableOpacity style={styles.sheetOpt} onPress={cameraAdd}>
-                  <Ionicons
-                    name="camera-outline"
-                    size={22}
-                    style={{ marginRight: 12 }}
-                  />
-                  <Text style={styles.sheetTxt}>Use Camera</Text>
+              {(
+                ["All", "Meat", "Vegetables", "Fruits"] as Filter[]
+              ).map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  style={[
+                    styles.filterChip,
+                    filter === f && styles.filterChipActive,
+                  ]}
+                  onPress={() => setFilter(f)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      filter === f && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {f}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.sheetOpt} onPress={manualAdd}>
-                  <Ionicons
-                    name="pencil-outline"
-                    size={22}
-                    style={{ marginRight: 12 }}
-                  />
-                  <Text style={styles.sheetTxt}>Type Manually</Text>
-                </TouchableOpacity>
-              </BottomSheetView>
-            </BottomSheetModal>
+              ))}
+            </ScrollView>
+          </View>
 
-            <Modal visible={formVisible} animationType="slide" transparent>
-              <KeyboardAvoidingView
-                style={styles.formWrap}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-              >
-                <View style={styles.formBackdrop}>
-                  <Pressable
-                    style={{ flex: 1 }}
-                    onPress={() => setFormVisible(false)}
-                  />
-                  <View style={styles.formCard}>
-                    <ScrollView
-                      contentContainerStyle={styles.formContent}
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={false}
-                    >
+          {/* Shopping List Button */}
+          <View style={styles.shoppingListBtnContainer}>
+            <TouchableOpacity
+              style={styles.shoppingListBtn}
+              onPress={() => setShoppingListVisible(true)}
+            >
+              <ShoppingCart size={18} color="#fff" />
+              <Text style={styles.shoppingListBtnText}>
+                Shopping List ({shoppingList.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addLowStockBtn}
+              onPress={addLowStockToShoppingList}
+            >
+              <Text style={styles.addLowStockBtnText}>+ Low Stock</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* list */}
+          {loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color="#15803d" />
+              <Text style={styles.loadingText}>Loading pantry...</Text>
+            </View>
+          ) : filtered.length === 0 ? (
+            <View style={styles.center}>
+              <Ionicons name="leaf-outline" size={64} color="#9ca3af" />
+              <Text style={styles.emptyText}>
+                {search
+                  ? "No ingredients match your search"
+                  : filter !== "All"
+                  ? `No ${filter.toLowerCase()} found`
+                  : "Your pantry is empty"}
+              </Text>
+              <Text style={styles.emptyHint}>
+                {search || filter !== "All"
+                  ? "Try a different search or filter"
+                  : "Add your first ingredient to get started"}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filtered}
+              keyExtractor={(it) => it.id}
+              renderItem={renderItem}
+              contentContainerStyle={styles.list}
+            />
+          )}
+
+          {/* FAB - Quick Add */}
+          <TouchableOpacity style={styles.fab} onPress={manualAdd}>
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+
+          {/* Add/Edit Form Modal */}
+          <Modal visible={formVisible} animationType="slide" transparent>
+            <KeyboardAvoidingView
+              style={styles.formWrap}
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+              <View style={styles.formBackdrop}>
+                <Pressable
+                  style={{ flex: 1 }}
+                  onPress={() => {
+                    if (bulkMode && bulkItems.length > 0) {
+                      Alert.alert(
+                        "Exit Bulk Mode?",
+                        `You've added ${bulkItems.length} item(s). Exit bulk mode?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Exit",
+                            onPress: () => {
+                              setFormVisible(false);
+                              setBulkMode(false);
+                              setBulkItems([]);
+                            },
+                          },
+                        ]
+                      );
+                    } else {
+                      setFormVisible(false);
+                    }
+                  }}
+                />
+                <View style={styles.formCard}>
+                  <ScrollView
+                    contentContainerStyle={styles.formContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={styles.formHeader}>
                       <Text style={styles.formTitle}>
-                        {editing ? "Edit Ingredient" : "Add Ingredient"}
+                        {editing ? "Edit Ingredient" : bulkMode ? `Bulk Add (${bulkItems.length} added)` : "Add Ingredient"}
                       </Text>
-                      {(img || name.trim()) && (
-                        <Image
-                          source={{ uri: img ?? mealThumb(name.trim()) }}
-                          style={styles.formImg}
-                        />
+                      {!editing && (
+                        <TouchableOpacity
+                          style={[styles.bulkModeBtn, bulkMode && styles.bulkModeBtnActive]}
+                          onPress={() => setBulkMode(!bulkMode)}
+                        >
+                          <Text style={[styles.bulkModeBtnText, bulkMode && styles.bulkModeBtnTextActive]}>
+                            {bulkMode ? "Exit Bulk" : "Bulk Mode"}
+                          </Text>
+                        </TouchableOpacity>
                       )}
-                      <Text style={styles.label}>Name</Text>
-                      <TextInput
-                        value={name}
-                        onChangeText={onChangeName}
-                        onKeyPress={handleKeyDown}
-                        placeholder="e.g. Tomato"
-                        style={styles.input}
-                        autoCapitalize="words"
+                    </View>
+
+                    {bulkMode && bulkItems.length > 0 && (
+                      <View style={styles.bulkItemsPreview}>
+                        <Text style={styles.bulkItemsTitle}>Added items:</Text>
+                        {bulkItems.slice(-3).map((item, idx) => (
+                          <Text key={idx} style={styles.bulkItemText}>
+                            • {item.name} - {item.quantity} {item.unit}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+
+                    {(img || name.trim()) && (
+                      <Image
+                        source={{ uri: img ?? mealThumb(name.trim()) }}
+                        style={styles.formImg}
                       />
-                      {(suggestLoading || suggest.length > 0) && (
-                        <View style={styles.suggestPanel}>
-                          {suggestLoading && (
-                            <View style={styles.suggestLoadingRow}>
-                              <ActivityIndicator size="small" color="#0284c7" />
-                              <Text style={styles.suggestLoadingText}>Searching TheMealDB…</Text>
-                            </View>
-                          )}
-                          {!suggestLoading &&
-                            suggest.map((sg, idx) => (
-                              <TouchableOpacity
-                                key={sg.name}
-                                style={[
-                                  styles.suggestRow,
-                                  highlightIndex === idx && styles.suggestRowHighlight,
-                                ]}
-                                onPress={() => applySuggestion(sg)}
-                              >
-                                <Text style={styles.suggestName}>{capitalize(sg.name)}</Text>
-                                {sg.type ? (
-                                  <Text style={styles.suggestMeta}>{sg.type}</Text>
-                                ) : null}
-                              </TouchableOpacity>
-                            ))}
-                          {!suggestLoading && suggest.length === 0 && (
-                            <Text style={styles.suggestEmpty}>No matches found</Text>
-                          )}
-                        </View>
-                      )}
-                      <Text style={styles.label}>Quantity</Text>
+                    )}
+                    <Text style={styles.label}>Name</Text>
+                    <TextInput
+                      value={name}
+                      onChangeText={onChangeName}
+                      onKeyPress={handleKeyDown}
+                      placeholder="e.g. Tomato"
+                      style={styles.input}
+                      autoCapitalize="words"
+                      autoFocus
+                    />
+                    {(suggestLoading || suggest.length > 0) && (
+                      <View style={styles.suggestPanel}>
+                        {suggestLoading && (
+                          <View style={styles.suggestLoadingRow}>
+                            <ActivityIndicator size="small" color="#0284c7" />
+                            <Text style={styles.suggestLoadingText}>Searching TheMealDB…</Text>
+                          </View>
+                        )}
+                        {!suggestLoading &&
+                          suggest.map((sg, idx) => (
+                            <TouchableOpacity
+                              key={sg.name}
+                              style={[
+                                styles.suggestRow,
+                                highlightIndex === idx && styles.suggestRowHighlight,
+                              ]}
+                              onPress={() => applySuggestion(sg)}
+                            >
+                              <Text style={styles.suggestName}>{capitalize(sg.name)}</Text>
+                              {sg.type ? (
+                                <Text style={styles.suggestMeta}>{sg.type}</Text>
+                              ) : null}
+                            </TouchableOpacity>
+                          ))}
+                        {!suggestLoading && suggest.length === 0 && (
+                          <Text style={styles.suggestEmpty}>No matches found</Text>
+                        )}
+                      </View>
+                    )}
+                    <Text style={styles.label}>Quantity</Text>
+                    <View style={styles.quantityRow}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => adjustQuantity(-1)}
+                      >
+                        <Minus size={20} color="#15803d" />
+                      </TouchableOpacity>
                       <TextInput
                         value={qty}
                         onChangeText={(t) => setQty(sanitizeQuantity(t))}
                         keyboardType="numeric"
                         inputMode="decimal"
                         placeholder="0"
-                        style={styles.input}
+                        style={[styles.input, styles.qtyInput]}
                       />
-                      <Text style={styles.label}>Unit</Text>
-                      <View style={[styles.input, styles.unitPickerContainer]}>
-                        <Picker
-                          selectedValue={unit}
-                          onValueChange={(value) => setUnit(value)}
-                          mode="dropdown"
-                          dropdownIconColor="#128AFA"
-                          style={styles.unitPicker}
-                        >
-                          {UNIT_OPTIONS.map((option) => (
-                            <Picker.Item
-                              key={option || "none"}
-                              label={option === "" ? "Select unit" : option}
-                              value={option}
-                            />
-                          ))}
-                        </Picker>
-                      </View>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => adjustQuantity(1)}
+                      >
+                        <Plus size={20} color="#15803d" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.label}>Unit</Text>
+                    <View style={[styles.input, styles.unitPickerContainer]}>
+                      <Picker
+                        selectedValue={unit}
+                        onValueChange={(value) => setUnit(value)}
+                        mode="dropdown"
+                        dropdownIconColor="#128AFA"
+                        style={styles.unitPicker}
+                      >
+                        {UNIT_OPTIONS.map((option) => (
+                          <Picker.Item
+                            key={option || "none"}
+                            label={option === "" ? "Select unit" : option}
+                            value={option}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
 
-                      <View style={styles.btnRow}>
-                        <TouchableOpacity
-                          style={[styles.formBtn, styles.cancelBtn]}
-                          onPress={() => {
+                    <View style={styles.btnRow}>
+                      <TouchableOpacity
+                        style={[styles.formBtn, styles.cancelBtn]}
+                        onPress={() => {
+                          if (bulkMode && bulkItems.length > 0) {
+                            Alert.alert(
+                              "Exit Bulk Mode?",
+                              `You've added ${bulkItems.length} item(s). Exit?`,
+                              [
+                                { text: "No", style: "cancel" },
+                                {
+                                  text: "Yes",
+                                  onPress: () => {
+                                    setFormVisible(false);
+                                    setBulkMode(false);
+                                    setBulkItems([]);
+                                    setSuggest([]);
+                                    setSuggestLoading(false);
+                                    setHighlightIndex(null);
+                                  },
+                                },
+                              ]
+                            );
+                          } else {
                             setFormVisible(false);
                             setSuggest([]);
                             setSuggestLoading(false);
                             setHighlightIndex(null);
-                          }}
-                        >
-                          <Text style={[styles.formBtnTxt, styles.cancelBtnTxt]}>
-                            Cancel
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.formBtn, styles.saveBtn]}
-                          onPress={save}
-                        >
-                          <Text style={styles.formBtnTxt}>
-                            {editing ? "Update" : "Save"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </ScrollView>
-                  </View>
-                </View>
-              </KeyboardAvoidingView>
-            </Modal>
-
-            {/* camera */}
-            <Modal visible={camOpen} animationType="fade">
-              <View style={styles.cameraContainer}>
-                {!permission?.granted ? (
-                  <View style={styles.center}>
-                    <Text style={styles.cameraPermissionText}>
-                      Camera permission required
-                    </Text>
-                    <TouchableOpacity
-                      onPress={requestPermission}
-                      style={styles.cameraPermissionBtn}
-                    >
-                      <Text style={styles.cameraPermissionBtnText}>Grant Permission</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setCamOpen(false)}
-                      style={styles.cameraCancelBtn}
-                    >
-                      <Text style={styles.cameraCancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View style={styles.cameraContainer}>
-                    <View style={styles.previewWrapper}>
-                      <CameraView
-                        ref={camRef}
-                        style={styles.cameraPreview}
-                        facing="back"
+                          }
+                        }}
                       >
-                        {/* Camera preview only */}
-                      </CameraView>
-                      {!previewVisible && (
-                        <TouchableWithoutFeedback onPress={handleCameraFocus}>
-                          <View style={styles.focusLayer} />
-                        </TouchableWithoutFeedback>
-                      )}
-                      <TouchableOpacity
-                        onPress={() => setCamOpen(false)}
-                        style={styles.topCloseButton}
-                      >
-                        <Ionicons name="arrow-back" size={26} color="#fff" />
+                        <Text style={[styles.formBtnTxt, styles.cancelBtnTxt]}>
+                          {bulkMode && bulkItems.length > 0 ? "Done" : "Cancel"}
+                        </Text>
                       </TouchableOpacity>
-                      {!previewVisible && (
-                        <>
-                          <View pointerEvents="none" style={styles.frameCorners}>
-                            <View style={[styles.frameCorner, styles.frameCorner_tl]} />
-                            <View style={[styles.frameCorner, styles.frameCorner_tr]} />
-                            <View style={[styles.frameCorner, styles.frameCorner_bl]} />
-                            <View style={[styles.frameCorner, styles.frameCorner_br]} />
-                          </View>
-                          <View pointerEvents="none" style={styles.reticleOverlay}>
-                            <View style={styles.reticleCircle} />
-                            <View style={styles.reticleLineHorizontal} />
-                            <View style={styles.reticleLineVertical} />
-                            <Text style={styles.reticlePlus}>+</Text>
-                          </View>
-                        </>
-                      )}
-                      {previewVisible && capturedPhoto && (
-                        <View style={styles.previewOverlay}>
-                          <Image
-                            source={{ uri: capturedPhoto.uri }}
-                            style={styles.previewImage}
-                            resizeMode="cover"
-                          />
-                        </View>
-                      )}
+                      <TouchableOpacity
+                        style={[styles.formBtn, styles.saveBtn]}
+                        onPress={save}
+                      >
+                        <Text style={styles.formBtnTxt}>
+                          {editing ? "Update" : bulkMode ? "Add & Continue" : "Save"}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                    <View style={styles.camOverlayPanel}>
-                      {previewVisible && capturedPhoto ? (
-                        <View style={styles.previewActions}>
-                          <TouchableOpacity
-                            style={styles.previewSecondaryBtn}
-                            onPress={retakePhoto}
-                            disabled={uploading}
-                          >
-                            <Text style={styles.previewSecondaryBtnText}>Retake</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.previewPrimaryBtn}
-                            onPress={confirmScan}
-                            disabled={uploading}
-                          >
-                            {uploading ? (
-                              <ActivityIndicator color="#111827" />
-                            ) : (
-                              <Text style={styles.previewPrimaryBtnText}>Scan</Text>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          disabled={capturing || uploading}
-                          onPress={handleCapturePress}
-                          style={styles.captureButton}
-                          accessibilityLabel="Capture and scan ingredient"
-                        >
-                          {capturing || uploading ? (
-                            <ActivityIndicator color="#fff" />
-                          ) : (
-                            <View style={styles.captureInner} />
-                          )}
-                        </TouchableOpacity>
-                      )}
-                      <Text style={styles.scanPrompt}>
-                        {uploading
-                          ? "Scanning ingredient..."
-                          : previewVisible
-                          ? "Confirm the photo before scanning"
-                          : capturing
-                          ? "Capturing..."
-                          : "Tap the red button to capture"}
-                      </Text>
-                    </View>
-                  </View>
-                )}
+                  </ScrollView>
+                </View>
               </View>
-            </Modal>
-          </SafeAreaView>
-        </Background>
-      </BottomSheetModalProvider>
+            </KeyboardAvoidingView>
+          </Modal>
+
+          {/* Shopping List Modal */}
+          <Modal visible={shoppingListVisible} animationType="slide" transparent>
+            <KeyboardAvoidingView style={styles.formWrap} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+              <View style={styles.formBackdrop}>
+                <Pressable style={{ flex: 1 }} onPress={() => setShoppingListVisible(false)} />
+                <View style={styles.formCard}>
+                  <View style={styles.formHeader}>
+                    <Text style={styles.formTitle}>Shopping List</Text>
+                    <TouchableOpacity onPress={() => setShoppingListVisible(false)}>
+                      <Ionicons name="close" size={24} color="#374151" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {shoppingList.length === 0 ? (
+                    <View style={styles.emptyShoppingList}>
+                      <ShoppingCart size={48} color="#9ca3af" />
+                      <Text style={styles.emptyText}>Your shopping list is empty</Text>
+                      <Text style={styles.emptyHint}>Add items to your shopping list to see them here</Text>
+                    </View>
+                  ) : (
+                    <ScrollView contentContainerStyle={styles.shoppingListContent}>
+                      {shoppingList.map((item) => (
+                        <View key={item.id} style={styles.shoppingListItem}>
+                          <TouchableOpacity
+                            style={styles.shoppingListCheckbox}
+                            onPress={() => markPurchased(item.id)}
+                          >
+                            <View style={styles.checkbox} />
+                          </TouchableOpacity>
+                          <View style={styles.shoppingListInfo}>
+                            <Text style={styles.shoppingListName}>{item.name}</Text>
+                            <Text style={styles.shoppingListQty}>
+                              {item.quantity} {item.unit}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
+        </SafeAreaView>
+      </Background>
     </GestureHandlerRootView>
   );
-};
+}

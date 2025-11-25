@@ -5,9 +5,320 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const inventoryStyle = StyleSheet.create({
   container: { flex: 1 },
-  center: { justifyContent: "center", alignItems: "center" },
+  center: { justifyContent: "center", alignItems: "center", flex: 1 },
+  safeArea: { flex: 1 },
   head: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 26, fontWeight: "bold", color: "#128AFA" },
+
+  // Search & Filter controls
+  controlsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    gap: 12,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#0f172a",
+  },
+  filterScroll: {
+    paddingVertical: 4,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  filterChipActive: {
+    backgroundColor: "#15803d",
+    borderColor: "#15803d",
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  filterChipTextActive: {
+    color: "#fff",
+  },
+
+  // List
+  list: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 100,
+  },
+  itemCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  itemImg: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    marginRight: 12,
+    backgroundColor: "#f3f4f6",
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 4,
+  },
+  itemQty: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+  lowStockLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ef4444",
+    marginTop: 2,
+  },
+  addToCartBtn: {
+    padding: 8,
+    marginLeft: 8,
+  },
+
+  // Quick Add Presets
+  quickAddSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  quickAddTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+  quickAddScroll: {
+    gap: 8,
+  },
+  quickAddCard: {
+    alignItems: "center",
+    marginRight: 12,
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    minWidth: 80,
+  },
+  quickAddEmoji: {
+    fontSize: 32,
+    marginBottom: 6,
+  },
+  quickAddName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+  },
+
+  // Shopping List
+  shoppingListBtnContainer: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  shoppingListBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#15803d",
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  shoppingListBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  addLowStockBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#f97316",
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  addLowStockBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  emptyShoppingList: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  shoppingListContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 100,
+  },
+  shoppingListItem: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+  },
+  shoppingListCheckbox: {
+    marginRight: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#15803d",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shoppingListInfo: {
+    flex: 1,
+  },
+  shoppingListName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0f172a",
+    marginBottom: 2,
+  },
+  shoppingListQty: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+
+  // Bulk Mode
+  formHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  bulkModeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  bulkModeBtnActive: {
+    backgroundColor: "#dcfce7",
+    borderColor: "#16a34a",
+  },
+  bulkModeBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  bulkModeBtnTextActive: {
+    color: "#16a34a",
+  },
+  bulkItemsPreview: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "#f0fdf4",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  bulkItemsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#15803d",
+    marginBottom: 8,
+  },
+  bulkItemText: {
+    fontSize: 13,
+    color: "#166534",
+    marginBottom: 4,
+  },
+
+  // Quantity Adjustment
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  qtyBtn: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: "#f0fdf4",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  qtyInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    textAlign: "center",
+  },
+
+  // Empty states
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: "#64748b",
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+  },
+  emptyHint: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#9ca3af",
+    textAlign: "center",
+    paddingHorizontal: 32,
+  },
+
   search: {
     marginTop: 12,
     flexDirection: "row",
@@ -19,7 +330,6 @@ const inventoryStyle = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
-  searchInput: { flex: 1 },
   filters: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   scanButton: {
     marginTop: 16,
