@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { styles } from "@/styles/recipe/recipeDetailStyles";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, writeBatch } from "firebase/firestore";
 import { db, auth } from "@/lib/firebaseConfig";
 import { saveRecipeToCollection, isRecipeSaved } from "@/lib/utils/saveRecipe";
 import {
@@ -304,17 +304,24 @@ export default function RecipeDetailsScreen() {
     return null;
   };
 
-  // Handle ingredient deduction
+  // Handle ingredient deduction with Firestore batch writes (atomic operation)
   const handleDeductIngredients = useCallback(async (ingredients: IngredientEntry[]) => {
+    if (!auth.currentUser?.uid) {
+      Alert.alert('Error', 'You must be logged in to deduct ingredients');
+      return;
+    }
+
     let deductedCount = 0;
     let errors: string[] = [];
     const notFoundIngredients: string[] = [];
+    const batch = writeBatch(db);
 
-    console.log('=== Starting Ingredient Deduction ===');
+    console.log('=== Starting Ingredient Deduction (Batch Mode) ===');
     console.log('Recipe Ingredients:', ingredients);
     console.log('Current Inventory Items:', inventory.map(i => `${i.name} (qty: ${i.quantity})`));
 
     try {
+      // First pass: validate and prepare batch operations
       for (const recipeIngredient of ingredients) {
         const { name: ingredientName, quantity: recipeQuantity } = parseIngredientQuantity(recipeIngredient);
 
@@ -326,35 +333,32 @@ export default function RecipeDetailsScreen() {
         if (matchedInventoryItem && matchedInventoryItem.id) {
           console.log(`  ✓ Matched with: "${matchedInventoryItem.name}" (available: ${matchedInventoryItem.quantity})`);
 
-          try {
-            const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
+          const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
+          console.log(`  → Calculating: ${matchedInventoryItem.quantity} - ${recipeQuantity} = ${newQuantity}`);
 
-            console.log(`  → Calculating: ${matchedInventoryItem.quantity} - ${recipeQuantity} = ${newQuantity}`);
+          const itemRef = doc(db, 'users', auth.currentUser.uid, 'ingredients', matchedInventoryItem.id);
 
-            if (newQuantity === 0) {
-              // Delete the ingredient if quantity reaches 0
-              console.log(`  → Attempting to delete ingredient ID: ${matchedInventoryItem.id}`);
-              await deleteIngredient(matchedInventoryItem.id);
-              console.log(`  ✓ Successfully deleted (quantity reached 0)`);
-            } else {
-              // Update the ingredient quantity
-              console.log(`  → Attempting to update ingredient ID: ${matchedInventoryItem.id} to quantity: ${newQuantity}`);
-              await updateIngredient(matchedInventoryItem.id, { quantity: newQuantity });
-              console.log(`  ✓ Successfully updated to quantity: ${newQuantity}`);
-            }
-            deductedCount++;
-
-            // Add a small delay to ensure Firebase processes the update
-            await new Promise(resolve => setTimeout(resolve, 100));
-          } catch (err) {
-            errors.push(`${matchedInventoryItem.name}`);
-            console.error(`  ✗ Error updating ${matchedInventoryItem.name}:`, err);
-            console.error(`  ✗ Error details:`, JSON.stringify(err, null, 2));
+          if (newQuantity === 0) {
+            // Add delete operation to batch
+            console.log(`  → Adding to batch: DELETE ingredient ID: ${matchedInventoryItem.id}`);
+            batch.delete(itemRef);
+          } else {
+            // Add update operation to batch
+            console.log(`  → Adding to batch: UPDATE ingredient ID: ${matchedInventoryItem.id} to quantity: ${newQuantity}`);
+            batch.update(itemRef, { quantity: newQuantity });
           }
+          deductedCount++;
         } else {
           console.log(`  ✗ No match found in inventory`);
           notFoundIngredients.push(ingredientName);
         }
+      }
+
+      // Execute all operations atomically
+      if (deductedCount > 0) {
+        console.log(`\n→ Committing batch with ${deductedCount} operations...`);
+        await batch.commit();
+        console.log('✓ Batch committed successfully');
       }
 
       console.log('\n=== Deduction Summary ===');
@@ -362,21 +366,11 @@ export default function RecipeDetailsScreen() {
       console.log(`Errors: ${errors.length}`);
       console.log(`Not Found: ${notFoundIngredients.length}`);
 
-      // Wait a moment for Firebase to propagate changes
-      console.log('Waiting for Firebase to propagate changes...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      console.log('Updated Inventory Items:', inventory.map(i => `${i.name} (qty: ${i.quantity})`));
-
       if (deductedCount > 0) {
         let message = `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.`;
 
         if (notFoundIngredients.length > 0) {
           message += `\n\nNot found in pantry:\n${notFoundIngredients.map(i => `• ${i}`).join('\n')}`;
-        }
-
-        if (errors.length > 0) {
-          message += `\n\nFailed to update:\n${errors.map(i => `• ${i}`).join('\n')}`;
         }
 
         Alert.alert('Ingredients Deducted!', message, [{ text: 'Great!' }]);
@@ -388,10 +382,11 @@ export default function RecipeDetailsScreen() {
         );
       }
     } catch (err) {
-      console.error('Error deducting ingredients:', err);
+      console.error('Error deducting ingredients (batch failed):', err);
+      Alert.alert('Error', 'Failed to update pantry. Please try again.');
       throw err;
     }
-  }, [inventory, updateIngredient, deleteIngredient]);
+  }, [inventory]);
 
   // Check if recipe is shared
   useEffect(() => {
