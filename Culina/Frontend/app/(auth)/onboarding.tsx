@@ -52,7 +52,9 @@ export default function OnboardingScreen() {
   );
 
   const handleViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    setCurrentIndex(viewableItems[0].index);
+    if (viewableItems && viewableItems.length > 0 && viewableItems[0]?.index !== undefined) {
+      setCurrentIndex(viewableItems[0].index);
+    }
   }).current;
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;

@@ -56,10 +56,21 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!email || !username || !password || !confirm || !diet || !religiousPreference || !calories)
-      return Alert.alert("Please fill in all fields");
+      return Alert.alert("Error", "Please fill in all fields");
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return Alert.alert("Error", "Please enter a valid email address");
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return Alert.alert("Error", "Password must be at least 6 characters long");
+    }
 
     if (password !== confirm)
-      return Alert.alert("Passwords do not match");
+      return Alert.alert("Error", "Passwords do not match");
 
     try {
       const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);

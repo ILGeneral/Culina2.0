@@ -12,6 +12,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const [user, loading] = useAuthState(auth);
   const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
     if (loading) {
@@ -28,13 +29,15 @@ export default function RootLayout() {
     }
 
     // Logged in and in auth group - check onboarding status
-    if (user && inAuthGroup && !onOnboardingScreen) {
+    if (user && inAuthGroup && !onOnboardingScreen && !checkingOnboarding && !hasChecked) {
       // If user is on login/register, check if they need onboarding
       const checkOnboarding = async () => {
         setCheckingOnboarding(true);
         try {
           const userDoc = await getDoc(doc(db, "users", user.uid));
           const hasCompletedOnboarding = userDoc.data()?.hasCompletedOnboarding ?? false;
+
+          setHasChecked(true);
 
           if (hasCompletedOnboarding) {
             router.replace("/(tabs)/home");
@@ -43,6 +46,7 @@ export default function RootLayout() {
           }
         } catch (error) {
           console.error("Error checking onboarding:", error);
+          setHasChecked(true);
           router.replace("/(auth)/onboarding");
         } finally {
           setCheckingOnboarding(false);
@@ -57,7 +61,7 @@ export default function RootLayout() {
       // Let them stay on onboarding screen to complete it
       return;
     }
-  }, [loading, user, segments, router]);
+  }, [loading, user, segments, router, checkingOnboarding, hasChecked]);
 
   if (loading || checkingOnboarding) {
     return (

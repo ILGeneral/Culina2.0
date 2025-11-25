@@ -740,7 +740,14 @@ export default function RecipeDetailsScreen() {
       >
         <Animated.View style={[styles.hero, animatedHeroStyle]}>
           {recipe.imageUrl ? (
-            <Image source={{ uri: recipe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            <Image
+              source={{ uri: recipe.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+              onError={(error) => {
+                console.warn('Failed to load recipe hero image:', recipe.imageUrl, error);
+              }}
+            />
           ) : (
             <LinearGradient colors={["#128AFA", "#6EC4FF"]} style={styles.heroImage} />
           )}
@@ -777,6 +784,9 @@ export default function RecipeDetailsScreen() {
                       uri: recipe.authorProfilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${recipe.userId}&size=200`
                     }}
                     style={styles.authorImage}
+                    onError={(error) => {
+                      console.warn('Failed to load author profile picture:', error);
+                    }}
                   />
                   <View style={styles.authorInfo}>
                     <Text style={styles.authorLabel}>Created by</Text>

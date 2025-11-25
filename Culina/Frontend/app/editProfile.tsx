@@ -106,7 +106,12 @@ export default function EditProfileScreen() {
       });
 
       // Update all shared recipes with new profile picture
-      await updateSharedRecipesProfile(username, avatarUrl);
+      try {
+        await updateSharedRecipesProfile(username, avatarUrl);
+      } catch (sharedRecipeError) {
+        // Log but don't fail the entire operation if shared recipes update fails
+        console.error('Error updating shared recipes:', sharedRecipeError);
+      }
 
       Alert.alert('Success', 'Profile picture updated!');
     } catch (error: any) {
@@ -212,6 +217,9 @@ export default function EditProfileScreen() {
                 uri: profilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.uid}&size=200`
               }}
               style={styles.profilePictureImage}
+              onError={(error) => {
+                console.warn('Failed to load profile picture:', error);
+              }}
             />
             <TouchableOpacity
               style={styles.profilePictureButton}

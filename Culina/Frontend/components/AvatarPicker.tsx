@@ -26,6 +26,15 @@ export default function AvatarPicker({ onSelect, onClose, currentAvatar }: Avata
 
   const generateAvatarUrl = (style: string, seed: number) => {
     // Use PNG format instead of SVG for React Native compatibility
+    // Validate inputs to prevent malformed URLs
+    if (!style || typeof style !== 'string') {
+      console.warn('Invalid avatar style, using default');
+      style = 'avataaars';
+    }
+    if (typeof seed !== 'number' || seed < 0) {
+      console.warn('Invalid avatar seed, using default');
+      seed = 0;
+    }
     return `https://api.dicebear.com/7.x/${style}/png?seed=${seed}&size=200`;
   };
 
@@ -94,6 +103,9 @@ export default function AvatarPicker({ onSelect, onClose, currentAvatar }: Avata
                     <Image
                       source={{ uri: avatarUrl }}
                       style={styles.avatarImage}
+                      onError={(error) => {
+                        console.warn('Failed to load avatar image:', avatarUrl, error);
+                      }}
                     />
                   </TouchableOpacity>
                 );
@@ -109,6 +121,9 @@ export default function AvatarPicker({ onSelect, onClose, currentAvatar }: Avata
             <Image
               source={{ uri: generateAvatarUrl(selectedStyle, selectedSeed) }}
               style={styles.previewImage}
+              onError={(error) => {
+                console.warn('Failed to load preview avatar image:', error);
+              }}
             />
           </View>
           <TouchableOpacity style={styles.confirmButton} onPress={handleSelect}>
