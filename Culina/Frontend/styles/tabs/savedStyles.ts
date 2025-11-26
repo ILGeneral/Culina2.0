@@ -28,6 +28,17 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 8,
   },
+  profileButton: {
+    backgroundColor: '#DCF3FCFF',
+    borderRadius: 20,
+    padding: 8,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
   sectionTitle: {
     fontSize: 24,
     fontWeight: '700',

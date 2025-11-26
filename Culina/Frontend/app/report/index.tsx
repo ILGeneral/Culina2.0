@@ -95,11 +95,11 @@ export default function ReportIssueScreen() {
       if (error.code === 'unauthenticated') {
         Alert.alert("Authentication Error", "Please log in to submit a report.");
       } else if (error.code === 'not-found') {
-        Alert.alert("Service Unavailable", "The report service is currently unavailable. Please try again later.");
+        Alert.alert("Feature Coming Soon", "The report submission feature is currently being set up. Please contact support directly via email for now.");
       } else if (error.code === 'invalid-argument') {
         Alert.alert("Invalid Input", error.message || "Please check your input and try again.");
       } else {
-        Alert.alert("Error", `Failed to submit report: ${error.message || 'Please try again later.'}`);
+        Alert.alert("Feature Coming Soon", "The report submission feature is currently being set up. Please contact support directly via email for now.");
       }
     } finally {
       setSubmitting(false);

@@ -16,7 +16,6 @@ export default function InventoryHeader({ onAddPress }: Props) {
         <TouchableOpacity onPress={() => router.back()} className="p-2">
           <ArrowLeft color="#15803d" size={26} />
         </TouchableOpacity>
-        <Text className="text-3xl font-bold text-gray-800">Inventory</Text>
       </View>
     </View>
   );

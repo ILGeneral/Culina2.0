@@ -517,12 +517,12 @@ export default function SavedRecipesScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => router.push('/profile')}
-              style={styles.iconButton}
+              style={styles.profileButton}
             >
               {userProfilePicture ? (
                 <Image
                   source={{ uri: userProfilePicture }}
-                  style={{ width: 32, height: 32, borderRadius: 16 }}
+                  style={styles.profileImage}
                 />
               ) : (
                 <User color="#128AFAFF" size={24} />
