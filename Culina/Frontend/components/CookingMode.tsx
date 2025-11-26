@@ -12,12 +12,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, Clock } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, Clock, BookOpen, Camera, Award } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as ImagePicker from 'expo-image-picker';
+import { detectTechniques, type TechniqueGuide } from '@/lib/cookingTechniques';
+import TechniqueGuideModal from './TechniqueGuideModal';
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -196,6 +199,17 @@ export default function CookingMode({
   // Inventory deduction state
   const [isDeducting, setIsDeducting] = useState(false);
   const [hasDeducted, setHasDeducted] = useState(false);
+
+  // Technique guide state
+  const [showTechniqueModal, setShowTechniqueModal] = useState(false);
+  const [selectedTechnique, setSelectedTechnique] = useState<TechniqueGuide | null>(null);
+
+  // Photo capture state
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+
+  // Plating mode state
+  const [showPlatingMode, setShowPlatingMode] = useState(false);
 
   const progress = instructions.length > 0 ? (completedSteps.size / instructions.length) * 100 : 0;
   const isFullyComplete = progress === 100;
@@ -517,23 +531,23 @@ export default function CookingMode({
       showAchievementNotification({
         title: 'First Step!',
         message: 'Great start! Keep the momentum going!',
-        icon: '🌟'
+        icon: ''
       });
     }
     // Halfway achievement
     else if (completedCount === Math.floor(totalSteps / 2) && completedCount > 1) {
       showAchievementNotification({
-        title: 'Halfway There! 🔥',
+        title: 'Halfway There!',
         message: 'You\'re doing amazing! Keep it up!',
-        icon: '⭐'
+        icon: ''
       });
     }
     // Almost done achievement
     else if (progressPercent >= 75 && progressPercent < 100) {
       showAchievementNotification({
-        title: 'Almost Done! 💪',
+        title: 'Almost Done!',
         message: 'The finish line is in sight!',
-        icon: '🏆'
+        icon: ''
       });
     }
     // Perfect completion - Skip showing achievement banner, the completion banner will show instead
@@ -544,9 +558,9 @@ export default function CookingMode({
     // Streak achievements (every 3 steps)
     else if (completedCount % 3 === 0 && completedCount > 0) {
       showAchievementNotification({
-        title: `${completedCount} Steps! 🚀`,
+        title: `${completedCount} Steps!`,
         message: 'You\'re on fire! Keep cooking!',
-        icon: '🔥'
+        icon: ''
       });
     }
   };

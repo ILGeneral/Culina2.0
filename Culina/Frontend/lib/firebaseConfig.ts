@@ -1,11 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, type Auth, initializeAuth } from "firebase/auth";
-// @ts-ignore - React Native persistence is available but types may not be
-import { getReactNativePersistence } from "firebase/auth/react-native";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGsx_FhTWt-hHvoPZwdg9j5CVkoy77ZJQ",
@@ -20,17 +17,9 @@ const firebaseConfig = {
 // Initialize Firebase App safely
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Auth with AsyncStorage persistence for React Native
-// This ensures users stay logged in when they close and reopen the app
-let auth: Auth;
-try {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
-} catch (error) {
-  // If already initialized, get existing instance
-  auth = getAuth(app);
-}
+// Initialize Auth
+// Firebase web SDK has built-in persistence that works with React Native
+const auth = getAuth(app);
 
 // Initialize other services
 const db = getFirestore(app);

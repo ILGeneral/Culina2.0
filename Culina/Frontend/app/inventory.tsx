@@ -39,7 +39,9 @@ import {
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import InventoryHeader from "@/app/components/inventory/InventoryHeader";
-import { ShoppingCart, Plus, Minus } from "lucide-react-native";
+import { ShoppingCart, Plus, Minus, Calendar, AlertCircle, X } from "lucide-react-native";
+import { getExpirationStatus, filterExpiringSoon, formatExpirationDate } from "@/lib/utils/expirationHelpers";
+import { Timestamp } from "firebase/firestore";
 
 // —— helpers ——
 const capitalize = (s: string) =>
@@ -80,7 +82,7 @@ const UNIT_OPTIONS = [
 ] as const;
 
 type Unit = (typeof UNIT_OPTIONS)[number];
-type Filter = "All" | "Meat" | "Vegetables" | "Fruits"; // Removed "Low Stock"
+type Filter = "All" | "Meat" | "Vegetables" | "Fruits";
 
 const CAT: Record<Exclude<Filter, "All">, string[]> = {
   Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham", "sausage", "lamb"],
@@ -178,6 +180,7 @@ export default function InventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("All");
+  const [showExpiringSoon, setShowExpiringSoon] = useState(false);
 
   // form
   const [formVisible, setFormVisible] = useState(false);
@@ -190,6 +193,11 @@ export default function InventoryScreen() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Expiration date state
+  const [expirationDate, setExpirationDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState<'calendar' | 'quick'>('quick');
 
   // Bulk add mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -372,6 +380,7 @@ export default function InventoryScreen() {
     setQty("");
     setUnit("");
     setImg(null);
+    setExpirationDate(null);
     setSuggest([]);
     setSuggestLoading(false);
     setHighlightIndex(null);
@@ -414,13 +423,21 @@ export default function InventoryScreen() {
     // Safe image URL with proper encoding to prevent URL crash
     const safeImageUrl = img ?? mealThumb(encodeURIComponent(trimmedName));
 
-    const data = {
+    const data: any = {
       name: safeName,
       quantity: qn,
       unit: unit,
       imageUrl: safeImageUrl,
       updatedAt: serverTimestamp(),
     };
+
+    // Add expiration date if set
+    if (expirationDate) {
+      data.expirationDate = Timestamp.fromDate(expirationDate);
+    } else if (editing?.id && editing.expirationDate) {
+      // Keep existing expiration date if editing and not changed
+      data.expirationDate = editing.expirationDate;
+    }
 
     try {
       if (editing?.id) {
@@ -475,6 +492,15 @@ export default function InventoryScreen() {
     setUnit((it.unit ?? "") as Unit);
 
     setImg(it.imageUrl);
+
+    // Load expiration date if exists
+    if (it.expirationDate) {
+      const date = it.expirationDate.toDate ? it.expirationDate.toDate() : new Date(it.expirationDate);
+      setExpirationDate(date);
+    } else {
+      setExpirationDate(null);
+    }
+
     setSuggest([]);
     setSuggestLoading(false);
     setHighlightIndex(null);
@@ -595,50 +621,95 @@ export default function InventoryScreen() {
         if (!nm.includes(s)) return false;
       }
 
-      // Filter (Low Stock removed)
+      // Category Filter
       if (filter !== "All") {
         const nm = (it.name ?? "").toLowerCase();
         const cat = CAT[filter as keyof typeof CAT] || [];
         if (!cat.some((c) => nm.includes(c))) return false;
       }
+
+      // Expiring Soon Toggle (independent of category)
+      if (showExpiringSoon) {
+        const expiringSoonItems = filterExpiringSoon(items, 7);
+        if (!expiringSoonItems.some(exp => exp.id === it.id)) return false;
+      }
+
       return true;
     });
 
-    // Sort by name
-    arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    // Sort by expiration if toggle is on, otherwise by name
+    if (showExpiringSoon) {
+      arr.sort((a, b) => {
+        if (!a.expirationDate && !b.expirationDate) return 0;
+        if (!a.expirationDate) return 1;
+        if (!b.expirationDate) return -1;
+        const aTime = a.expirationDate.toDate ? a.expirationDate.toDate().getTime() : new Date(a.expirationDate).getTime();
+        const bTime = b.expirationDate.toDate ? b.expirationDate.toDate().getTime() : new Date(b.expirationDate).getTime();
+        return aTime - bTime;
+      });
+    } else {
+      arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
     return arr;
-  }, [items, search, filter]);
+  }, [items, search, filter, showExpiringSoon]);
 
-  const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.itemCard}
-      onPress={() => edit(item)}
-      onLongPress={() => del(item)}
-      accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
-    >
-      {item.imageUrl && (
-        <Image source={{ uri: item.imageUrl }} style={styles.itemImg} />
-      )}
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemQty}>
-          {item.quantity} {item.unit}
-        </Text>
-        {item.quantity < 5 && (
-          <Text style={styles.lowStockLabel}>Low Stock!</Text>
-        )}
-      </View>
+  const renderItem = ({ item }: { item: any }) => {
+    const expirationStatus = getExpirationStatus(item);
+
+    return (
       <TouchableOpacity
-        style={styles.addToCartBtn}
-        onPress={(e) => {
-          e.stopPropagation();
-          addToShoppingList(item);
-        }}
+        style={styles.itemCard}
+        onPress={() => edit(item)}
+        onLongPress={() => del(item)}
+        accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
       >
-        <ShoppingCart size={20} color="#15803d" />
+        {item.imageUrl && (
+          <Image source={{ uri: item.imageUrl }} style={styles.itemImg} />
+        )}
+        <View style={styles.itemInfo}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            {expirationStatus.status !== 'unknown' && (
+              <View style={{
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                backgroundColor: expirationStatus.backgroundColor,
+              }}>
+                <Text style={{
+                  fontSize: 10,
+                  fontWeight: '600',
+                  color: expirationStatus.color,
+                }}>
+                  {expirationStatus.icon} {expirationStatus.text}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.itemQty}>
+            {item.quantity} {item.unit}
+          </Text>
+          {item.quantity < 5 && (
+            <Text style={styles.lowStockLabel}>Low Stock!</Text>
+          )}
+          {item.expirationDate && expirationStatus.status !== 'unknown' && (
+            <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+              Expires: {formatExpirationDate(item.expirationDate)}
+            </Text>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.addToCartBtn}
+          onPress={(e) => {
+            e.stopPropagation();
+            addToShoppingList(item);
+          }}
+        >
+          <ShoppingCart size={20} color="#15803d" />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -689,6 +760,40 @@ export default function InventoryScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+
+          {/* Expiring Soon Toggle */}
+          <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                borderRadius: 20,
+                borderWidth: 1.5,
+                borderColor: showExpiringSoon ? '#F59E0B' : '#FED7AA',
+                backgroundColor: showExpiringSoon ? '#F59E0B' : '#FFF',
+                alignSelf: 'flex-start',
+              }}
+              onPress={() => setShowExpiringSoon(!showExpiringSoon)}
+            >
+              <Ionicons
+                name={showExpiringSoon ? "time" : "time-outline"}
+                size={16}
+                color={showExpiringSoon ? "#fff" : "#F59E0B"}
+              />
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: showExpiringSoon ? '#fff' : '#F59E0B',
+                }}
+              >
+                Expiring Soon
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Shopping List Button */}
@@ -897,6 +1002,126 @@ export default function InventoryScreen() {
                       </Picker>
                     </View>
 
+                    {/* Expiration Date Section */}
+                    <Text style={styles.label}>Expiration Date (Optional)</Text>
+                    <View style={{ gap: 8 }}>
+                      {/* Quick date buttons */}
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#F3F4F6',
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                          }}
+                          onPress={() => {
+                            const date = new Date();
+                            date.setDate(date.getDate() + 3);
+                            setExpirationDate(date);
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: '#374151' }}>3 days</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#F3F4F6',
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                          }}
+                          onPress={() => {
+                            const date = new Date();
+                            date.setDate(date.getDate() + 7);
+                            setExpirationDate(date);
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: '#374151' }}>1 week</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#F3F4F6',
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                          }}
+                          onPress={() => {
+                            const date = new Date();
+                            date.setDate(date.getDate() + 14);
+                            setExpirationDate(date);
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: '#374151' }}>2 weeks</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#F3F4F6',
+                            borderWidth: 1,
+                            borderColor: '#E5E7EB',
+                          }}
+                          onPress={() => {
+                            const date = new Date();
+                            date.setMonth(date.getMonth() + 1);
+                            setExpirationDate(date);
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, color: '#374151' }}>1 month</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderRadius: 8,
+                            backgroundColor: '#FEF3C7',
+                            borderWidth: 1,
+                            borderColor: '#FCD34D',
+                          }}
+                          onPress={() => setShowDatePicker(true)}
+                        >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Calendar size={14} color="#CA8A04" />
+                            <Text style={{ fontSize: 13, color: '#CA8A04', fontWeight: '600' }}>Custom</Text>
+                          </View>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Display selected date */}
+                      {expirationDate && (
+                        <View style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: '#F9FAFB',
+                          padding: 12,
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: '#E5E7EB',
+                        }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Calendar size={16} color="#128AFA" />
+                            <Text style={{ fontSize: 14, color: '#374151' }}>
+                              {expirationDate.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setExpirationDate(null)}>
+                            <X size={18} color="#6B7280" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+
                     <View style={styles.btnRow}>
                       <TouchableOpacity
                         style={[styles.formBtn, styles.cancelBtn]}
@@ -945,6 +1170,78 @@ export default function InventoryScreen() {
                 </View>
               </View>
             </KeyboardAvoidingView>
+          </Modal>
+
+          {/* Custom Date Picker Modal */}
+          <Modal visible={showDatePicker} animationType="fade" transparent>
+            <View style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <View style={{
+                backgroundColor: '#fff',
+                borderRadius: 16,
+                padding: 20,
+                width: '85%',
+                maxWidth: 400,
+              }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+                    Select Expiration Date
+                  </Text>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <X size={24} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ gap: 12 }}>
+                  {[7, 14, 30, 60, 90].map((days) => (
+                    <TouchableOpacity
+                      key={days}
+                      style={{
+                        padding: 14,
+                        borderRadius: 10,
+                        backgroundColor: '#F3F4F6',
+                        borderWidth: 1,
+                        borderColor: '#E5E7EB',
+                      }}
+                      onPress={() => {
+                        const date = new Date();
+                        date.setDate(date.getDate() + days);
+                        setExpirationDate(date);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      <Text style={{ fontSize: 15, color: '#374151', fontWeight: '500' }}>
+                        {days === 7 ? '1 week' : days === 14 ? '2 weeks' : days === 30 ? '1 month' : days === 60 ? '2 months' : '3 months'}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                        {new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={{
+                    marginTop: 16,
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: '#F9FAFB',
+                    alignItems: 'center',
+                  }}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={{ fontSize: 14, color: '#6B7280', fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </Modal>
 
           {/* Shopping List Modal */}

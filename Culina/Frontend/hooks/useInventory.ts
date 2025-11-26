@@ -11,6 +11,8 @@ export type Ingredient = {
   type?: string;
   caloriesPerUnit?: number;
   imageUrl?: string;
+  expirationDate?: any;  // Firestore Timestamp or Date
+  purchaseDate?: any;    // Firestore Timestamp or Date (optional)
   createdAt?: any;
   updatedAt?: any;
 };

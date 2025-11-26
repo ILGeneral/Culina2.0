@@ -1,5 +1,7 @@
 import { getAuth } from "firebase/auth";
 import type { Recipe } from "@/types/recipe";
+import type { Ingredient } from "@/hooks/useInventory";
+import { prioritizeIngredientsByExpiration } from "@/lib/utils/expirationHelpers";
 
 const API_BASE = 'https://culina-backend.vercel.app/api';
 
@@ -74,6 +76,38 @@ const KNOWN_UNITS = [
 ];
 
 const normalizeToken = (token: string) => token.replace(/[()",:]/g, "").toLowerCase();
+
+/**
+ * Enhance recipe generation preferences with expiration context
+ * @param inventory - User's inventory with expiration dates
+ * @param existingPreferences - User's existing preferences
+ * @returns Enhanced preferences array with expiration context
+ */
+export const enhancePreferencesWithExpiration = (
+  inventory: Ingredient[],
+  existingPreferences: string[] = []
+): string[] => {
+  const { critical, warning } = prioritizeIngredientsByExpiration(inventory);
+
+  const enhancedPreferences = [...existingPreferences];
+
+  // Add expiring soon ingredients as priority
+  if (critical.length > 0) {
+    const criticalNames = critical.map(item => item.name).join(', ');
+    enhancedPreferences.unshift(
+      `IMPORTANT: Please prioritize using these ingredients that are expiring very soon (within 3 days): ${criticalNames}`
+    );
+  }
+
+  if (warning.length > 0) {
+    const warningNames = warning.map(item => item.name).join(', ');
+    enhancedPreferences.push(
+      `Also try to use these ingredients expiring within a week: ${warningNames}`
+    );
+  }
+
+  return enhancedPreferences;
+};
 
 const isNumericToken = (token: string) => /^\d+(?:\.\d+)?$/.test(token);
 const isFractionToken = (token: string) => /^\d+\/\d+$/.test(token);
