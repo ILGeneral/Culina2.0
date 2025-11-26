@@ -9,8 +9,8 @@ interface AvatarPickerProps {
 }
 
 const AVATAR_STYLES = [
-  { name: 'Avataaars', style: 'avataaars', description: 'Cartoon avatars' },
-  { name: 'Bottts', style: 'bottts', description: 'Robot avatars' },
+  { name: 'Avatars', style: 'avataaars', description: 'Cartoon avatars' },
+  { name: 'Bots', style: 'bottts', description: 'Robot avatars' },
   { name: 'Personas', style: 'personas', description: 'Minimal avatars' },
   { name: 'Lorelei', style: 'lorelei', description: 'Illustrated faces' },
   { name: 'Micah', style: 'micah', description: 'Unique characters' },
