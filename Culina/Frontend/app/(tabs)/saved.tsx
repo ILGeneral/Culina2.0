@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { styles } from '@/styles/tabs/savedStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, doc, deleteDoc, onSnapshot, query, orderBy, getDoc } from 'firebase/firestore';
 import {
   ChefHat,
   Users,
@@ -316,7 +317,28 @@ export default function SavedRecipesScreen() {
   const [loading, setLoading] = useState(true);
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<'AI' | 'Human'>('AI');
+  const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const router = useRouter();
+
+  // Fetch user profile picture
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        if (userData?.profilePicture) {
+          setUserProfilePicture(userData.profilePicture);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   // Filter recipes based on active tab
   const filteredRecipes = recipes.filter((recipe) => {
@@ -497,7 +519,14 @@ export default function SavedRecipesScreen() {
               onPress={() => router.push('/profile')}
               style={styles.iconButton}
             >
-              <User color="#128AFAFF" size={24} />
+              {userProfilePicture ? (
+                <Image
+                  source={{ uri: userProfilePicture }}
+                  style={{ width: 32, height: 32, borderRadius: 16 }}
+                />
+              ) : (
+                <User color="#128AFAFF" size={24} />
+              )}
             </TouchableOpacity>
           </View>
         </View>

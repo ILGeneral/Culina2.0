@@ -546,10 +546,14 @@ export default function InventoryScreen() {
 
   // Shopping list functions
   const addToShoppingList = async (item: any) => {
-    if (!user?.uid) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) {
+      Alert.alert("Error", "You must be logged in to add items to shopping list");
+      return;
+    }
 
     try {
-      await addDoc(collection(db, "users", user.uid, "shoppingList"), {
+      await addDoc(collection(db, "users", currentUser.uid, "shoppingList"), {
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
@@ -565,11 +569,12 @@ export default function InventoryScreen() {
   };
 
   const markPurchased = async (itemId: string) => {
-    if (!user?.uid) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) return;
 
     try {
       await updateDoc(
-        doc(db, "users", user.uid, "shoppingList", itemId),
+        doc(db, "users", currentUser.uid, "shoppingList", itemId),
         { purchased: true, purchasedAt: serverTimestamp() }
       );
     } catch (err) {
@@ -578,7 +583,8 @@ export default function InventoryScreen() {
   };
 
   const addLowStockToShoppingList = async () => {
-    if (!user?.uid) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) return;
 
     const lowStockItems = items.filter(item => item.quantity < 5);
 
@@ -591,7 +597,7 @@ export default function InventoryScreen() {
       const batch = writeBatch(db);
 
       lowStockItems.forEach(item => {
-        const ref = doc(collection(db, "users", user.uid, "shoppingList"));
+        const ref = doc(collection(db, "users", currentUser.uid, "shoppingList"));
         batch.set(ref, {
           name: item.name,
           quantity: 5, // Suggest restocking to 5 units
