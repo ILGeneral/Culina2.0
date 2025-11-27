@@ -67,7 +67,7 @@ const inventoryStyle = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     alignItems: "center",
@@ -77,12 +77,33 @@ const inventoryStyle = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  itemCardFresh: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#10b981",
+    backgroundColor: "#fafffe",
+  },
+  itemCardExpiringSoon: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#f59e0b",
+    backgroundColor: "#fffef9",
+    shadowColor: "#f59e0b",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  itemCardExpired: {
+    borderLeftWidth: 4,
+    borderLeftColor: "#ef4444",
+    backgroundColor: "#fffafa",
+  },
   itemImg: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    marginRight: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 14,
+    marginRight: 14,
     backgroundColor: "#f3f4f6",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
   },
   itemInfo: {
     flex: 1,
@@ -298,25 +319,65 @@ const inventoryStyle = StyleSheet.create({
     textAlign: "center",
   },
 
+  // Search result count
+  resultCountContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  resultCountText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
+  },
+
   // Empty states
   loadingText: {
     marginTop: 12,
     fontSize: 15,
     color: "#64748b",
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#f3f4f6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   emptyText: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: "600",
+    marginTop: 8,
+    fontSize: 20,
+    fontWeight: "700",
     color: "#374151",
     textAlign: "center",
   },
   emptyHint: {
     marginTop: 8,
-    fontSize: 14,
+    fontSize: 15,
     color: "#9ca3af",
     textAlign: "center",
+    lineHeight: 22,
     paddingHorizontal: 32,
+  },
+  emptyButton: {
+    marginTop: 20,
+    backgroundColor: "#128AFA",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
   },
 
   search: {

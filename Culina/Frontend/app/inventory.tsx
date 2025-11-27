@@ -36,7 +36,7 @@ import {
   hasMealDbIngredientsLoaded,
 } from "@/lib/mealdb";
 import Background from "@/components/Background";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import InventoryHeader from "@/app/components/inventory/InventoryHeader";
 import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed } from "lucide-react-native";
 import { getExpirationStatus, filterExpiringSoon, formatExpirationDate } from "@/lib/utils/expirationHelpers";
@@ -577,18 +577,55 @@ export default function InventoryScreen() {
     return arr;
   }, [items, search, filter, showExpiringSoon]);
 
+  const renderRightActions = (item: any) => {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#ef4444',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%',
+            borderTopRightRadius: 16,
+            borderBottomRightRadius: 16,
+          }}
+          onPress={() => del(item)}
+        >
+          <Ionicons name="trash-outline" size={24} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 4 }}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderItem = ({ item }: { item: any }) => {
     const expirationStatus = getExpirationStatus(item);
     const [imageError, setImageError] = React.useState(false);
     const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
 
+    // Determine card style based on expiration status
+    const getCardStyle = () => {
+      if (expirationStatus.status === 'critical') {
+        return [styles.itemCard, styles.itemCardExpired];
+      } else if (expirationStatus.status === 'warning') {
+        return [styles.itemCard, styles.itemCardExpiringSoon];
+      } else if (expirationStatus.status === 'fresh') {
+        return [styles.itemCard, styles.itemCardFresh];
+      }
+      return styles.itemCard;
+    };
+
     return (
-      <TouchableOpacity
-        style={styles.itemCard}
-        onPress={() => edit(item)}
-        onLongPress={() => del(item)}
-        accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
+      <Swipeable
+        renderRightActions={() => renderRightActions(item)}
+        overshootRight={false}
       >
+        <TouchableOpacity
+          style={getCardStyle()}
+          onPress={() => edit(item)}
+          accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
+        >
         {item.imageUrl && !imageError ? (
           <Image
             source={{ uri: item.imageUrl }}
@@ -597,7 +634,7 @@ export default function InventoryScreen() {
           />
         ) : (
           <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
-            <placeholder.Icon size={32} color={placeholder.color} />
+            <placeholder.Icon size={36} color={placeholder.color} />
           </View>
         )}
         <View style={styles.itemInfo}>
@@ -633,6 +670,7 @@ export default function InventoryScreen() {
           )}
         </View>
       </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -721,6 +759,16 @@ export default function InventoryScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Result count */}
+          {!loading && filtered.length > 0 && (
+            <View style={styles.resultCountContainer}>
+              <Text style={styles.resultCountText}>
+                {filtered.length} {filtered.length === 1 ? 'ingredient' : 'ingredients'}
+                {search && ' found'}
+              </Text>
+            </View>
+          )}
+
           {/* list */}
           {loading ? (
             <View style={styles.center}>
@@ -728,19 +776,29 @@ export default function InventoryScreen() {
               <Text style={styles.loadingText}>Loading pantry...</Text>
             </View>
           ) : filtered.length === 0 ? (
-            <View style={styles.center}>
-              <Ionicons name="leaf-outline" size={64} color="#9ca3af" />
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIconContainer}>
+                {filter === "Meat" ? (
+                  <Beef size={48} color="#9ca3af" />
+                ) : filter === "Vegetables" ? (
+                  <Carrot size={48} color="#9ca3af" />
+                ) : filter === "Fruits" ? (
+                  <Apple size={48} color="#9ca3af" />
+                ) : (
+                  <Ionicons name="leaf-outline" size={48} color="#9ca3af" />
+                )}
+              </View>
               <Text style={styles.emptyText}>
                 {search
-                  ? "No ingredients match your search"
+                  ? "No ingredients match"
                   : filter !== "All"
-                  ? `No ${filter.toLowerCase()} found`
+                  ? `No ${filter.toLowerCase()} yet`
                   : "Your pantry is empty"}
               </Text>
               <Text style={styles.emptyHint}>
                 {search || filter !== "All"
-                  ? "Try a different search or filter"
-                  : "Add your first ingredient to get started"}
+                  ? "Try a different search or filter to find what you're looking for"
+                  : "Tap the + button to add your first ingredient and start building your inventory"}
               </Text>
             </View>
           ) : (
