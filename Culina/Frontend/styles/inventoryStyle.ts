@@ -109,14 +109,17 @@ const inventoryStyle = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     color: "#0f172a",
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   itemQty: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: "500",
     color: "#64748b",
+    letterSpacing: 0.2,
   },
   lowStockLabel: {
     fontSize: 12,

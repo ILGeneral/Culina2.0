@@ -4,6 +4,7 @@ import {
   View,
   Text,
   FlatList,
+  SectionList,
   TouchableOpacity,
   Modal,
   Image,
@@ -14,6 +15,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Animated,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,6 +40,7 @@ import {
 import Background from "@/components/Background";
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import InventoryHeader from "@/app/components/inventory/InventoryHeader";
+import { SkeletonCard, Toast, SectionHeader, PressableCard } from "@/app/components/inventory/InventoryComponents";
 import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed } from "lucide-react-native";
 import { getExpirationStatus, filterExpiringSoon, formatExpirationDate } from "@/lib/utils/expirationHelpers";
 import { Timestamp } from "firebase/firestore";
@@ -216,6 +219,21 @@ export default function InventoryScreen() {
   // Bulk add mode
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkItems, setBulkItems] = useState<Array<{name: string, quantity: number, unit: Unit}>>([]);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    visible: false,
+    message: '',
+    type: 'success',
+  });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast({ ...toast, visible: false });
+  };
 
   const applySuggestion = (ingredient: MealDbIngredient) => {
     const ingredientName = capitalize(ingredient.name);
@@ -440,8 +458,10 @@ export default function InventoryScreen() {
           setQty("");
           setUnit("");
           setImg(null);
+          showToast(`${safeName} updated!`, 'success');
         } else {
           setFormVisible(false);
+          showToast(`${safeName} updated successfully!`, 'success');
         }
       } else {
         await addDoc(collection(db, "users", user.uid, "ingredients"), {
@@ -452,19 +472,20 @@ export default function InventoryScreen() {
         if (bulkMode) {
           // Continue in bulk mode
           setBulkItems([...bulkItems, { name: safeName, quantity: qn, unit }]);
-          Alert.alert("Added!", `${safeName} added. Add another or tap Done.`);
+          showToast(`${safeName} added!`, 'success');
           setName("");
           setQty("");
           setUnit("");
           setImg(null);
         } else {
           setFormVisible(false);
+          showToast(`${safeName} added successfully!`, 'success');
         }
       }
     } catch (err) {
       console.error("Save ingredient error:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      Alert.alert("Save Failed", `Could not save ingredient: ${errorMessage}`);
+      showToast(`Failed to save: ${errorMessage}`, 'error');
     }
   };
 
@@ -519,9 +540,10 @@ export default function InventoryScreen() {
         onPress: async () => {
           try {
             await deleteDoc(doc(db, "users", user.uid, "ingredients", it.id));
+            showToast(`${it.name} deleted`, 'info');
           } catch (err) {
             console.error("Delete failed:", err);
-            Alert.alert("Delete Failed", "Could not delete ingredient. Please try again.");
+            showToast("Failed to delete ingredient", 'error');
           }
         },
       },
@@ -577,6 +599,31 @@ export default function InventoryScreen() {
     return arr;
   }, [items, search, filter, showExpiringSoon]);
 
+  // Group items by expiration status for section headers
+  const groupedItems = useMemo(() => {
+    const groups: { title: string; count: number; data: any[] }[] = [];
+
+    const expired = filtered.filter(item => getExpirationStatus(item).status === 'critical');
+    const expiringSoon = filtered.filter(item => getExpirationStatus(item).status === 'warning');
+    const fresh = filtered.filter(item => getExpirationStatus(item).status === 'fresh');
+    const noDate = filtered.filter(item => getExpirationStatus(item).status === 'unknown');
+
+    if (expired.length > 0) {
+      groups.push({ title: 'Expired', count: expired.length, data: expired });
+    }
+    if (expiringSoon.length > 0) {
+      groups.push({ title: 'Expiring Soon', count: expiringSoon.length, data: expiringSoon });
+    }
+    if (fresh.length > 0) {
+      groups.push({ title: 'Fresh', count: fresh.length, data: fresh });
+    }
+    if (noDate.length > 0) {
+      groups.push({ title: 'No Expiration Date', count: noDate.length, data: noDate });
+    }
+
+    return groups;
+  }, [filtered]);
+
   const renderRightActions = (item: any) => {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
@@ -621,11 +668,8 @@ export default function InventoryScreen() {
         renderRightActions={() => renderRightActions(item)}
         overshootRight={false}
       >
-        <TouchableOpacity
-          style={getCardStyle()}
-          onPress={() => edit(item)}
-          accessibilityLabel={`${item.name}, ${item.quantity} ${item.unit}`}
-        >
+        <PressableCard onPress={() => edit(item)}>
+          <View style={getCardStyle()}>
         {item.imageUrl && !imageError ? (
           <Image
             source={{ uri: item.imageUrl }}
@@ -669,7 +713,8 @@ export default function InventoryScreen() {
             </Text>
           )}
         </View>
-      </TouchableOpacity>
+          </View>
+        </PressableCard>
       </Swipeable>
     );
   };
@@ -678,6 +723,14 @@ export default function InventoryScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Background>
         <SafeAreaView style={styles.safeArea}>
+          {/* Toast Notification */}
+          <Toast
+            visible={toast.visible}
+            message={toast.message}
+            type={toast.type}
+            onHide={hideToast}
+          />
+
           <InventoryHeader onAddPress={manualAdd} />
 
           {/* search + filter */}
@@ -771,9 +824,12 @@ export default function InventoryScreen() {
 
           {/* list */}
           {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color="#15803d" />
-              <Text style={styles.loadingText}>Loading pantry...</Text>
+            <View style={{ paddingTop: 12 }}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
             </View>
           ) : filtered.length === 0 ? (
             <View style={styles.emptyContainer}>
