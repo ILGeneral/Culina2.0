@@ -240,6 +240,11 @@ export default function ProfileScreen() {
         await AsyncStorage.removeItem(recipeStorageKey);
       }
 
+      // Clear saved login credentials (email and password)
+      await AsyncStorage.removeItem("@saved_email");
+      await AsyncStorage.removeItem("@saved_password");
+      await AsyncStorage.removeItem("@remember_me");
+
       await signOut(auth);
       router.replace("/login");
     } catch (error) {

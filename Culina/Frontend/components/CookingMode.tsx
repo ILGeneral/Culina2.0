@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, Clock, BookOpen, Camera, Award } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, BookOpen, Camera, Award } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +21,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import * as ImagePicker from 'expo-image-picker';
 import { detectTechniques, type TechniqueGuide } from '@/lib/cookingTechniques';
 import TechniqueGuideModal from './TechniqueGuideModal';
+import { detectEquipment, groupEquipmentByCategory, type Equipment } from '@/lib/equipmentDetector';
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -138,6 +139,10 @@ export default function CookingMode({
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [currentOrientation, setCurrentOrientation] = useState<ScreenOrientation.Orientation>();
 
+  // Equipment state
+  const [requiredEquipment, setRequiredEquipment] = useState<Equipment[]>([]);
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+
   // Automatic Next Step mode state
   const [autoModeActive, setAutoModeActive] = useState(false);
   const [autoModeTimer, setAutoModeTimer] = useState(10);
@@ -224,6 +229,15 @@ export default function CookingMode({
     });
     setCriticalSteps(critical);
   }, [instructions]);
+
+  // ========== DETECT EQUIPMENT ON MOUNT ==========
+  useEffect(() => {
+    // Detect required equipment
+    const equipment = detectEquipment(instructions, ingredients);
+    setRequiredEquipment(equipment);
+
+    console.log('Equipment detected:', equipment.map(e => e.name));
+  }, [instructions, ingredients]);
 
   // ========== SHOW REMINDERS FOR CURRENT STEP ==========
   useEffect(() => {
@@ -1051,28 +1065,21 @@ export default function CookingMode({
             style={[styles.quickActionButton, styles.timerActionButton]}
             onPress={() => setShowAddTimerModal(true)}
           >
-            <Plus size={18} color="#f97316" />
-            <Text style={styles.quickActionText}>Timer</Text>
+            <Plus size={22} color="#f97316" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.quickActionButton, styles.noteActionButton]}
             onPress={handleOpenNotes}
           >
-            <StickyNote size={18} color="#10b981" />
-            <Text style={styles.quickActionText}>
-              {stepNotes[currentStep] ? 'Edit Note' : 'Add Note'}
-            </Text>
+            <StickyNote size={22} color="#10b981" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.quickActionButton, styles.scaleActionButton]}
             onPress={() => setShowScalingModal(true)}
           >
-            <Scale size={18} color="#0284c7" />
-            <Text style={styles.quickActionText}>
-              {servingMultiplier === 1 ? 'Scale' : `${servingMultiplier}x`}
-            </Text>
+            <Scale size={22} color="#0284c7" />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1086,16 +1093,20 @@ export default function CookingMode({
             }}
           >
             {remindersEnabled ? (
-              <Bell size={18} color="#8b5cf6" />
+              <Bell size={22} color="#8b5cf6" />
             ) : (
-              <BellOff size={18} color="#94a3b8" />
+              <BellOff size={22} color="#94a3b8" />
             )}
-            <Text style={[
-              styles.quickActionText,
-              remindersEnabled && styles.quickActionTextActive
-            ]}>
-              Alerts
-            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickActionButton, styles.equipmentActionButton]}
+            onPress={() => {
+              setShowEquipmentModal(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Package size={22} color="#f59e0b" />
           </TouchableOpacity>
           </View>
         )}
@@ -1996,6 +2007,105 @@ export default function CookingMode({
             </View>
           </Animated.View>
         )}
+
+        {/* Equipment List Modal */}
+        <Modal
+          visible={showEquipmentModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowEquipmentModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={BounceIn.duration(400)}
+              style={[styles.modalContent, { maxHeight: '80%' }]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Required Equipment</Text>
+                <TouchableOpacity onPress={() => setShowEquipmentModal(false)}>
+                  <X size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                {requiredEquipment.length} items detected from recipe
+              </Text>
+
+              <ScrollView style={styles.equipmentList} showsVerticalScrollIndicator={false}>
+                {groupEquipmentByCategory(requiredEquipment).cookware.length > 0 && (
+                  <>
+                    <Text style={styles.equipmentCategoryTitle}>🍳 Cookware</Text>
+                    {groupEquipmentByCategory(requiredEquipment).cookware.map((item, index) => (
+                      <View key={index} style={styles.equipmentItem}>
+                        <Text style={styles.equipmentIcon}>{item.icon}</Text>
+                        <Text style={styles.equipmentName}>{item.name}</Text>
+                        {item.isEssential && (
+                          <View style={styles.essentialBadge}>
+                            <Text style={styles.essentialText}>Essential</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {groupEquipmentByCategory(requiredEquipment).utensil.length > 0 && (
+                  <>
+                    <Text style={styles.equipmentCategoryTitle}>🔪 Utensils</Text>
+                    {groupEquipmentByCategory(requiredEquipment).utensil.map((item, index) => (
+                      <View key={index} style={styles.equipmentItem}>
+                        <Text style={styles.equipmentIcon}>{item.icon}</Text>
+                        <Text style={styles.equipmentName}>{item.name}</Text>
+                        {item.isEssential && (
+                          <View style={styles.essentialBadge}>
+                            <Text style={styles.essentialText}>Essential</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {groupEquipmentByCategory(requiredEquipment).appliance.length > 0 && (
+                  <>
+                    <Text style={styles.equipmentCategoryTitle}>⚡ Appliances</Text>
+                    {groupEquipmentByCategory(requiredEquipment).appliance.map((item, index) => (
+                      <View key={index} style={styles.equipmentItem}>
+                        <Text style={styles.equipmentIcon}>{item.icon}</Text>
+                        <Text style={styles.equipmentName}>{item.name}</Text>
+                        {item.isEssential && (
+                          <View style={styles.essentialBadge}>
+                            <Text style={styles.essentialText}>Essential</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
+
+                {groupEquipmentByCategory(requiredEquipment).tool.length > 0 && (
+                  <>
+                    <Text style={styles.equipmentCategoryTitle}>🛠️ Tools</Text>
+                    {groupEquipmentByCategory(requiredEquipment).tool.map((item, index) => (
+                      <View key={index} style={styles.equipmentItem}>
+                        <Text style={styles.equipmentIcon}>{item.icon}</Text>
+                        <Text style={styles.equipmentName}>{item.name}</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={() => setShowEquipmentModal(false)}
+              >
+                <Text style={styles.modalPrimaryButtonText}>Got It!</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
+
       </LinearGradient>
     </SafeAreaView>
   );
@@ -2366,22 +2476,21 @@ const styles = StyleSheet.create({
   // Quick Actions Styles
   quickActions: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   quickActionButton: {
-    flex: 1,
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
     borderRadius: 12,
-    gap: 6,
     borderWidth: 2,
   },
   timerActionButton: {
@@ -2403,6 +2512,14 @@ const styles = StyleSheet.create({
   reminderActionButtonActive: {
     backgroundColor: '#f5f3ff',
     borderColor: '#c084fc',
+  },
+  equipmentActionButton: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  timeActionButton: {
+    backgroundColor: '#fce7f3',
+    borderColor: '#fbcfe8',
   },
   quickActionText: {
     fontSize: 13,
@@ -2521,11 +2638,18 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 16,
   },
   modalTitle: {
     fontSize: 22,
@@ -3095,5 +3219,192 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
+  },
+  // Equipment and Time Modal Styles
+  modalHeader: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  equipmentList: {
+    gap: 24,
+  },
+  equipmentCategoryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#64748b',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  equipmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  equipmentIcon: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  equipmentName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    flex: 1,
+  },
+  essentialBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+  },
+  essentialText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400e',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timeBreakdownContainer: {
+    gap: 20,
+  },
+  timeTotalCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  timeTotalInfo: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeSplitContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timeCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeCardIcon: {
+    marginBottom: 4,
+  },
+  timeCardEmoji: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  timeProgressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  timeProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+  },
+  timeDetailsList: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 12,
+  },
+  timeDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeDetailDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  timeDetailLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748b',
+    flex: 1,
+  },
+  timeDetailValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  timeInfoBox: {
+    backgroundColor: '#f0f9ff',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  timeInfoText: {
+    fontSize: 13,
+    color: '#0c4a6e',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  modalPrimaryButton: {
+    backgroundColor: '#0284c7',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  modalPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  timeTotalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timeTotalValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  timeCardLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  timeCardSubLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94a3b8',
+  },
+  timeCardValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0f172a',
   },
 });

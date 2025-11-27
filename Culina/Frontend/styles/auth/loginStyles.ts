@@ -43,6 +43,17 @@ export const loginStyles = StyleSheet.create({
   eyeIcon: {
     padding: 4,
   },
+  rememberMeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  rememberMeText: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: "#374151",
+  },
   button: {
     backgroundColor: "#128AFA",
     paddingVertical: 14,
