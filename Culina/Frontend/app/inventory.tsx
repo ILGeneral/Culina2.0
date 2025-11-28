@@ -296,6 +296,10 @@ export default function InventoryScreen() {
   // Expiration date state
   const [expirationDate, setExpirationDate] = useState<Date | null>(null);
   const [customDateInput, setCustomDateInput] = useState<string>("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempMonth, setTempMonth] = useState<number>(new Date().getMonth() + 1);
+  const [tempDay, setTempDay] = useState<number>(new Date().getDate());
+  const [tempYear, setTempYear] = useState<number>(new Date().getFullYear());
 
   // Image error state for form
   const [formImageError, setFormImageError] = useState(false);
@@ -981,7 +985,6 @@ export default function InventoryScreen() {
                       placeholder="e.g. Tomato"
                       style={styles.input}
                       autoCapitalize="words"
-                      autoFocus
                     />
                     {(suggestLoading || suggest.length > 0) && (
                       <View style={styles.suggestPanel}>
@@ -1057,23 +1060,45 @@ export default function InventoryScreen() {
                     {/* Expiration Date Section */}
                     <Text style={styles.label}>Expiration Date (Optional)</Text>
                     <View style={{ gap: 8 }}>
-                      {/* Custom date input */}
-                      <TextInput
-                        value={customDateInput}
-                        onChangeText={(text) => {
-                          setCustomDateInput(text);
-                          const parsedDate = parseDateInput(text);
-                          if (parsedDate) {
-                            setExpirationDate(parsedDate);
+                      {/* Date picker button */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          if (expirationDate) {
+                            setTempMonth(expirationDate.getMonth() + 1);
+                            setTempDay(expirationDate.getDate());
+                            setTempYear(expirationDate.getFullYear());
                           }
+                          setShowDatePicker(true);
                         }}
-                        placeholder="MM/DD/YYYY or MM/DD/YY"
-                        style={[styles.input, { marginBottom: 0 }]}
-                        keyboardType="numeric"
-                        maxLength={10}
-                      />
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          borderWidth: 1,
+                          borderColor: '#d1d5db',
+                          borderRadius: 8,
+                          paddingHorizontal: 12,
+                          paddingVertical: 14,
+                          backgroundColor: '#fff',
+                        }}
+                      >
+                        <Calendar size={18} color="#128AFA" style={{ marginRight: 8 }} />
+                        <Text style={{
+                          flex: 1,
+                          fontSize: 16,
+                          color: expirationDate ? '#0f172a' : '#9ca3af'
+                        }}>
+                          {expirationDate
+                            ? expirationDate.toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })
+                            : 'Select expiration date'
+                          }
+                        </Text>
+                      </TouchableOpacity>
                       <Text style={{ fontSize: 11, color: '#6B7280', marginTop: -4 }}>
-                        Enter date in MM/DD/YYYY format (e.g., 12/31/2024)
+                        Tap to select a date from the calendar
                       </Text>
 
                       {/* Display selected date */}
@@ -1157,6 +1182,173 @@ export default function InventoryScreen() {
                 </View>
               </View>
             </KeyboardAvoidingView>
+          </Modal>
+
+          {/* Date Picker Modal */}
+          <Modal visible={showDatePicker} animationType="slide" transparent>
+            <View style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              justifyContent: 'flex-end',
+            }}>
+              <View style={{
+                backgroundColor: '#fff',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                paddingTop: 20,
+                paddingBottom: 40,
+              }}>
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingHorizontal: 20,
+                  paddingBottom: 20,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#e5e7eb',
+                }}>
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <Text style={{ fontSize: 16, color: '#6b7280' }}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 18, fontWeight: '600', color: '#0f172a' }}>
+                    Select Date
+                  </Text>
+                  <TouchableOpacity onPress={() => {
+                    // Validate date before setting
+                    const daysInMonth = new Date(tempYear, tempMonth, 0).getDate();
+                    if (tempDay > daysInMonth) {
+                      Alert.alert(
+                        'Invalid Date',
+                        `${new Date(tempYear, tempMonth - 1, 1).toLocaleDateString('en-US', { month: 'long' })} ${tempYear} only has ${daysInMonth} days. Please select a valid date.`
+                      );
+                      return;
+                    }
+                    const selectedDate = new Date(tempYear, tempMonth - 1, tempDay);
+                    setExpirationDate(selectedDate);
+                    const formattedDate = `${String(tempMonth).padStart(2, '0')}/${String(tempDay).padStart(2, '0')}/${tempYear}`;
+                    setCustomDateInput(formattedDate);
+                    setShowDatePicker(false);
+                  }}>
+                    <Text style={{ fontSize: 16, color: '#128AFA', fontWeight: '600' }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{
+                  paddingTop: 20,
+                  paddingHorizontal: 16,
+                }}>
+                  {/* Month Picker - Full Width */}
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                      Month
+                    </Text>
+                    <View style={{
+                      borderWidth: 1.5,
+                      borderColor: '#128AFA',
+                      borderRadius: 12,
+                      backgroundColor: '#f9fafb',
+                      overflow: 'hidden',
+                    }}>
+                      <Picker
+                        selectedValue={tempMonth}
+                        onValueChange={(value) => setTempMonth(value)}
+                        style={{ height: 50 }}
+                        itemStyle={{ fontSize: 18, height: 50 }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                          <Picker.Item
+                            key={month}
+                            label={new Date(2024, month - 1, 1).toLocaleDateString('en-US', { month: 'long' })}
+                            value={month}
+                            style={{ fontSize: 18 }}
+                          />
+                        ))}
+                      </Picker>
+                    </View>
+                  </View>
+
+                  {/* Day and Year Pickers - Side by Side */}
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {/* Day Picker */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                        Day
+                      </Text>
+                      <View style={{
+                        borderWidth: 1.5,
+                        borderColor: '#128AFA',
+                        borderRadius: 12,
+                        backgroundColor: '#f9fafb',
+                        overflow: 'hidden',
+                      }}>
+                        <Picker
+                          selectedValue={tempDay}
+                          onValueChange={(value) => setTempDay(value)}
+                          style={{ height: 50 }}
+                          itemStyle={{ fontSize: 18, height: 50 }}
+                        >
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                            <Picker.Item
+                              key={day}
+                              label={String(day)}
+                              value={day}
+                              style={{ fontSize: 18 }}
+                            />
+                          ))}
+                        </Picker>
+                      </View>
+                    </View>
+
+                    {/* Year Picker */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                        Year
+                      </Text>
+                      <View style={{
+                        borderWidth: 1.5,
+                        borderColor: '#128AFA',
+                        borderRadius: 12,
+                        backgroundColor: '#f9fafb',
+                        overflow: 'hidden',
+                      }}>
+                        <Picker
+                          selectedValue={tempYear}
+                          onValueChange={(value) => setTempYear(value)}
+                          style={{ height: 50 }}
+                          itemStyle={{ fontSize: 18, height: 50 }}
+                        >
+                          {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map((year) => (
+                            <Picker.Item
+                              key={year}
+                              label={String(year)}
+                              value={year}
+                              style={{ fontSize: 18 }}
+                            />
+                          ))}
+                        </Picker>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={{
+                  marginTop: 20,
+                  paddingHorizontal: 20,
+                  backgroundColor: '#f9fafb',
+                  paddingVertical: 12,
+                  marginHorizontal: 20,
+                  borderRadius: 8,
+                }}>
+                  <Text style={{ fontSize: 14, color: '#374151', textAlign: 'center' }}>
+                    Selected: {new Date(tempYear, tempMonth - 1, Math.min(tempDay, new Date(tempYear, tempMonth, 0).getDate())).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </Text>
+                </View>
+              </View>
+            </View>
           </Modal>
 
         </SafeAreaView>
