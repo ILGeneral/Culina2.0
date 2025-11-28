@@ -21,6 +21,7 @@ import {
   ExternalLink,
   Tag,
   MapPin,
+  Info,
 } from "lucide-react-native";
 import { useRecipeDatabaseState } from "@/contexts/RecipeDatabaseContext";
 import { recipeDatabaseStyles as styles } from "@/styles/recipeDatabaseStyles";
@@ -193,7 +194,7 @@ const RecipeDatabaseCard = ({
 
   return (
     <Animated.View entering={FadeInUp.delay(index * 80).duration(400).springify()} style={styles.card}>
-      <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
+      <View>
         {recipe.imageUrl && (
           <Image source={{ uri: recipe.imageUrl }} style={styles.cardImage} resizeMode="cover" />
         )}
@@ -292,8 +293,10 @@ const RecipeDatabaseCard = ({
 
           {missingIngredients.length > 0 && (
             <View style={styles.missingSection}>
-              <View style={styles.missingSectionHeader}>
-                <Text style={styles.sectionLabel}>Missing ingredients ({missingIngredients.length})</Text>
+              <Text style={styles.sectionLabel}>Missing ingredients ({missingIngredients.length})</Text>
+              <View style={styles.tapHintBadge}>
+                <Info size={12} color="#0ea5e9" />
+                <Text style={styles.tapHintText}>Tap for alternatives</Text>
               </View>
               {missingIngredients.slice(0, 5).map((item, idx) => (
                 <Text key={`${recipe.id}-missing-${idx}`} style={styles.missingItem} numberOfLines={1}>
@@ -313,7 +316,7 @@ const RecipeDatabaseCard = ({
             <Text style={styles.actionButtonText}>View Details</Text>
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 };

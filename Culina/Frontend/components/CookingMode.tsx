@@ -1061,53 +1061,68 @@ export default function CookingMode({
         {/* Quick Action Buttons - Only show in portrait */}
         {!isLandscape && (
           <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={[styles.quickActionButton, styles.timerActionButton]}
-            onPress={() => setShowAddTimerModal(true)}
-          >
-            <Plus size={22} color="#f97316" />
-          </TouchableOpacity>
+          <View style={styles.quickActionWrapper}>
+            <TouchableOpacity
+              style={[styles.quickActionButton, styles.timerActionButton]}
+              onPress={() => setShowAddTimerModal(true)}
+            >
+              <Plus size={22} color="#f97316" />
+            </TouchableOpacity>
+            <Text style={styles.quickActionLabel}>Timer</Text>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.quickActionButton, styles.noteActionButton]}
-            onPress={handleOpenNotes}
-          >
-            <StickyNote size={22} color="#10b981" />
-          </TouchableOpacity>
+          <View style={styles.quickActionWrapper}>
+            <TouchableOpacity
+              style={[styles.quickActionButton, styles.noteActionButton]}
+              onPress={handleOpenNotes}
+            >
+              <StickyNote size={22} color="#10b981" />
+            </TouchableOpacity>
+            <Text style={styles.quickActionLabel}>Notes</Text>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.quickActionButton, styles.scaleActionButton]}
-            onPress={() => setShowScalingModal(true)}
-          >
-            <Scale size={22} color="#0284c7" />
-          </TouchableOpacity>
+          <View style={styles.quickActionWrapper}>
+            <TouchableOpacity
+              style={[styles.quickActionButton, styles.scaleActionButton]}
+              onPress={() => setShowScalingModal(true)}
+            >
+              <Scale size={22} color="#0284c7" />
+            </TouchableOpacity>
+            <Text style={styles.quickActionLabel}>Scale</Text>
+          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.quickActionButton,
-              remindersEnabled ? styles.reminderActionButtonActive : styles.reminderActionButton
-            ]}
-            onPress={() => {
-              setRemindersEnabled(!remindersEnabled);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            {remindersEnabled ? (
-              <Bell size={22} color="#8b5cf6" />
-            ) : (
-              <BellOff size={22} color="#94a3b8" />
-            )}
-          </TouchableOpacity>
+          <View style={styles.quickActionWrapper}>
+            <TouchableOpacity
+              style={[
+                styles.quickActionButton,
+                remindersEnabled ? styles.reminderActionButtonActive : styles.reminderActionButton
+              ]}
+              onPress={() => {
+                setRemindersEnabled(!remindersEnabled);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              {remindersEnabled ? (
+                <Bell size={22} color="#8b5cf6" />
+              ) : (
+                <BellOff size={22} color="#94a3b8" />
+              )}
+            </TouchableOpacity>
+            <Text style={styles.quickActionLabel}>Alerts</Text>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.quickActionButton, styles.equipmentActionButton]}
-            onPress={() => {
-              setShowEquipmentModal(true);
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Package size={22} color="#f59e0b" />
-          </TouchableOpacity>
+          <View style={styles.quickActionWrapper}>
+            <TouchableOpacity
+              style={[styles.quickActionButton, styles.equipmentActionButton]}
+              onPress={() => {
+                setShowEquipmentModal(true);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Package size={22} color="#f59e0b" />
+            </TouchableOpacity>
+            <Text style={styles.quickActionLabel}>Tools</Text>
+          </View>
           </View>
         )}
 
@@ -2477,13 +2492,17 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
+    paddingVertical: 12,
+    gap: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     flexWrap: 'wrap',
     justifyContent: 'center',
+  },
+  quickActionWrapper: {
+    alignItems: 'center',
+    gap: 4,
   },
   quickActionButton: {
     width: 48,
@@ -2492,6 +2511,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 2,
+  },
+  quickActionLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#64748b',
+    textAlign: 'center',
   },
   timerActionButton: {
     backgroundColor: '#fff7ed',
