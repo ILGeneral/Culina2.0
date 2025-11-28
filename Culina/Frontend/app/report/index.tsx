@@ -13,8 +13,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Send } from "lucide-react-native";
-import { httpsCallable } from "firebase/functions";
-import { functions, auth } from "@/lib/firebaseConfig";
+import { auth as firebaseAuth } from "@/lib/firebaseConfig";
 import Constants from "expo-constants";
 import DropDownPicker from "react-native-dropdown-picker";
 import AnimatedPageWrapper from "../components/AnimatedPageWrapper";
@@ -36,7 +35,7 @@ export default function ReportIssueScreen() {
     { label: "Other", value: "other" },
   ]);
 
-  const user = auth.currentUser;
+  const user = firebaseAuth.currentUser;
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
   const deviceInfo = `${Platform.OS} ${Platform.Version}`;
   const userEmail = user?.email ?? "Unknown User";
@@ -53,51 +52,45 @@ export default function ReportIssueScreen() {
 
     try {
       setSubmitting(true);
-      
-      // Log the function call
-      console.log("Attempting to call submitReport function...");
-      
-      // Get the functions instance with the correct region if needed
-      const functionsInstance = functions;
-      // If your functions are in a specific region, use:
-      // const functionsInstance = getFunctions(app, 'your-region');
-      
-      // Call the Firebase Cloud Function
-      const submitReport = httpsCallable(functionsInstance, "submitReport");
-      console.log("Function reference created, calling...");
-      
-      const result = await submitReport({
+
+      // Write directly to Firestore (works on free Spark plan)
+      const { db } = await import("@/lib/firebaseConfig");
+      const { collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+
+      console.log("Submitting report directly to Firestore...");
+
+      const reportsCollection = collection(db, "reports");
+      const docRef = await addDoc(reportsCollection, {
+        reporterId: user.uid,
         type: reportType,
-        description,
+        description: description.trim(),
         appVersion,
         device: deviceInfo,
         userEmail,
-        timestamp: new Date().toISOString()
+        emailSent: false,
+        createdAt: serverTimestamp(),
       });
-      
+
       // Log success and show confirmation
-      console.log("Report submitted successfully:", result);
+      console.log("Report submitted successfully with ID:", docRef.id);
       Alert.alert("Report Sent!", "Thank you for your feedback! We'll review it soon.");
-      
+
       // Reset form and navigate back
       setDescription('');
       setReportType(null);
       router.back();
     } catch (error: any) {
-      console.error("Error details:", {
+      console.error("Error submitting report:", {
         code: error.code,
         message: error.message,
-        details: error.details,
         stack: error.stack
       });
 
       // Handle specific error cases
-      if (error.code === 'unauthenticated') {
+      if (error.code === 'permission-denied') {
+        Alert.alert("Permission Error", "You don't have permission to submit reports. Please contact support.");
+      } else if (error.code === 'unauthenticated') {
         Alert.alert("Authentication Error", "Please log in to submit a report.");
-      } else if (error.code === 'invalid-argument') {
-        Alert.alert("Invalid Input", error.message || "Please check your input and try again.");
-      } else if (error.code === 'internal') {
-        Alert.alert("Submission Error", "Failed to submit report. Please try again later.");
       } else {
         // Generic error fallback - show actual error message
         Alert.alert(

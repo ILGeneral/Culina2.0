@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   initializeAuth,
   getAuth,
+  Auth,
   // @ts-ignore - React Native persistence may not be in all type definitions
   getReactNativePersistence
 } from "firebase/auth";
@@ -24,7 +25,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Auth with AsyncStorage persistence for React Native
-let auth;
+let auth: Auth;
 try {
   // Try to initialize with React Native persistence if available
   if (typeof getReactNativePersistence === 'function') {

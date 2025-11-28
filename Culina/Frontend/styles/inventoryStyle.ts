@@ -544,13 +544,17 @@ const inventoryStyle = StyleSheet.create({
   unitChipTxt: { color: "#111827", fontWeight: "600" },
   unitChipTxtOn: { color: "#fff" },
   unitPickerContainer: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderColor: "transparent",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    overflow: "hidden",
   },
   unitPicker: {
-    height: 48,
+    height: 64,
     color: "#0f172a",
+    fontSize: 16,
   },
   btnRow: { flexDirection: "row", gap: 12, marginTop: 20 },
   formBtn: {
