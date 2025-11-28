@@ -90,16 +90,20 @@ export default function ReportIssueScreen() {
         details: error.details,
         stack: error.stack
       });
-      
+
       // Handle specific error cases
       if (error.code === 'unauthenticated') {
         Alert.alert("Authentication Error", "Please log in to submit a report.");
-      } else if (error.code === 'not-found') {
-        Alert.alert("Feature Coming Soon", "The report submission feature is currently being set up. Please contact support directly via email for now.");
       } else if (error.code === 'invalid-argument') {
         Alert.alert("Invalid Input", error.message || "Please check your input and try again.");
+      } else if (error.code === 'internal') {
+        Alert.alert("Submission Error", "Failed to submit report. Please try again later.");
       } else {
-        Alert.alert("Feature Coming Soon", "The report submission feature is currently being set up. Please contact support directly via email for now.");
+        // Generic error fallback - show actual error message
+        Alert.alert(
+          "Submission Error",
+          error.message || "An unexpected error occurred. Please try again."
+        );
       }
     } finally {
       setSubmitting(false);

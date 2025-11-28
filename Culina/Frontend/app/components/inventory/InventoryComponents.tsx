@@ -253,3 +253,11 @@ export const PressableCard: React.FC<PressableCardProps> = ({ onPress, children 
     </Animated.View>
   );
 };
+
+// Default export to satisfy routing requirements
+export default {
+  SkeletonCard,
+  Toast,
+  SectionHeader,
+  PressableCard,
+};

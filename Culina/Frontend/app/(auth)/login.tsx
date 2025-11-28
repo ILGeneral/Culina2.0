@@ -10,7 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { Mail, Lock, Eye, EyeOff, CheckSquare, Square } from "lucide-react-native";
@@ -27,41 +27,59 @@ export default function Login() {
 
   // Check if user is already logged in on mount and load saved credentials if Remember Me was checked
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     const checkLoginStatus = async () => {
       try {
-        // Check if user is already authenticated with Firebase
-        if (auth.currentUser) {
-          const userDocRef = doc(db, "users", auth.currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
+        // Use onAuthStateChanged to properly wait for Firebase Auth to initialize
+        unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+          if (currentUser) {
+            // User is signed in, redirect appropriately
+            try {
+              const userDocRef = doc(db, "users", currentUser.uid);
+              const userDoc = await getDoc(userDocRef);
 
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const hasCompletedOnboarding = userData?.hasCompletedOnboarding ?? false;
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const hasCompletedOnboarding = userData?.hasCompletedOnboarding ?? false;
 
-            if (hasCompletedOnboarding) {
-              router.replace("/(tabs)/home");
-            } else {
-              router.replace("/(auth)/onboarding");
+                if (hasCompletedOnboarding) {
+                  router.replace("/(tabs)/home");
+                } else {
+                  router.replace("/(auth)/onboarding");
+                }
+              } else {
+                router.replace("/(auth)/onboarding");
+              }
+            } catch (error) {
+              console.error("Error fetching user data:", error);
+            }
+          } else {
+            // User is signed out, load saved credentials if Remember Me was checked
+            const savedEmail = await AsyncStorage.getItem("@saved_email");
+            const savedPassword = await AsyncStorage.getItem("@saved_password");
+            const rememberMeStatus = await AsyncStorage.getItem("@remember_me");
+
+            if (savedEmail && savedPassword && rememberMeStatus === "true") {
+              setEmail(savedEmail);
+              setPassword(savedPassword);
+              setRememberMe(true);
             }
           }
-        }
-
-        // Load saved email if Remember Me was previously checked
-        const savedEmail = await AsyncStorage.getItem("@saved_email");
-        const savedPassword = await AsyncStorage.getItem("@saved_password");
-        const rememberMeStatus = await AsyncStorage.getItem("@remember_me");
-
-        if (savedEmail && savedPassword && rememberMeStatus === "true") {
-          setEmail(savedEmail);
-          setPassword(savedPassword);
-          setRememberMe(true);
-        }
+        });
       } catch (error) {
         console.error("Error checking login status:", error);
       }
     };
 
     checkLoginStatus();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const handleLogin = async () => {

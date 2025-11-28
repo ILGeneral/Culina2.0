@@ -188,6 +188,90 @@ const CAT: Record<Exclude<Filter, "All">, string[]> = {
   ],
 };
 
+// —— Inventory Item Component (must be outside main component to use hooks) ——
+const InventoryItem = ({
+  item,
+  onEdit,
+  onDelete,
+  renderRightActions
+}: {
+  item: any;
+  onEdit: (item: any) => void;
+  onDelete: (item: any) => void;
+  renderRightActions: (item: any) => React.ReactNode;
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const expirationStatus = getExpirationStatus(item);
+  const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
+
+  // Determine card style based on expiration status
+  const getCardStyle = () => {
+    if (expirationStatus.status === 'critical') {
+      return [styles.itemCard, styles.itemCardExpired];
+    } else if (expirationStatus.status === 'warning') {
+      return [styles.itemCard, styles.itemCardExpiringSoon];
+    } else if (expirationStatus.status === 'fresh') {
+      return [styles.itemCard, styles.itemCardFresh];
+    }
+    return styles.itemCard;
+  };
+
+  return (
+    <Swipeable
+      renderRightActions={() => renderRightActions(item)}
+      overshootRight={false}
+    >
+      <PressableCard onPress={() => onEdit(item)}>
+        <View style={getCardStyle()}>
+      {item.imageUrl && !imageError ? (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={styles.itemImg}
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+          <placeholder.Icon size={36} color={placeholder.color} />
+        </View>
+      )}
+      <View style={styles.itemInfo}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          {expirationStatus.status !== 'unknown' && (
+            <View style={{
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 4,
+              backgroundColor: expirationStatus.backgroundColor,
+            }}>
+              <Text style={{
+                fontSize: 10,
+                fontWeight: '600',
+                color: expirationStatus.color,
+              }}>
+                {expirationStatus.icon} {expirationStatus.text}
+              </Text>
+            </View>
+          )}
+        </View>
+        <Text style={styles.itemQty}>
+          {item.quantity} {item.unit}
+        </Text>
+        {item.quantity < 5 && (
+          <Text style={styles.lowStockLabel}>Low Stock!</Text>
+        )}
+        {item.expirationDate && expirationStatus.status !== 'unknown' && (
+          <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+            Expires: {formatExpirationDate(item.expirationDate)}
+          </Text>
+        )}
+      </View>
+        </View>
+      </PressableCard>
+    </Swipeable>
+  );
+};
+
 // —— main ——
 export default function InventoryScreen() {
   const [items, setItems] = useState<any[]>([]);
@@ -647,75 +731,13 @@ export default function InventoryScreen() {
   };
 
   const renderItem = ({ item }: { item: any }) => {
-    const expirationStatus = getExpirationStatus(item);
-    const [imageError, setImageError] = React.useState(false);
-    const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
-
-    // Determine card style based on expiration status
-    const getCardStyle = () => {
-      if (expirationStatus.status === 'critical') {
-        return [styles.itemCard, styles.itemCardExpired];
-      } else if (expirationStatus.status === 'warning') {
-        return [styles.itemCard, styles.itemCardExpiringSoon];
-      } else if (expirationStatus.status === 'fresh') {
-        return [styles.itemCard, styles.itemCardFresh];
-      }
-      return styles.itemCard;
-    };
-
     return (
-      <Swipeable
-        renderRightActions={() => renderRightActions(item)}
-        overshootRight={false}
-      >
-        <PressableCard onPress={() => edit(item)}>
-          <View style={getCardStyle()}>
-        {item.imageUrl && !imageError ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={styles.itemImg}
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
-            <placeholder.Icon size={36} color={placeholder.color} />
-          </View>
-        )}
-        <View style={styles.itemInfo}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            {expirationStatus.status !== 'unknown' && (
-              <View style={{
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 4,
-                backgroundColor: expirationStatus.backgroundColor,
-              }}>
-                <Text style={{
-                  fontSize: 10,
-                  fontWeight: '600',
-                  color: expirationStatus.color,
-                }}>
-                  {expirationStatus.icon} {expirationStatus.text}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.itemQty}>
-            {item.quantity} {item.unit}
-          </Text>
-          {item.quantity < 5 && (
-            <Text style={styles.lowStockLabel}>Low Stock!</Text>
-          )}
-          {item.expirationDate && expirationStatus.status !== 'unknown' && (
-            <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-              Expires: {formatExpirationDate(item.expirationDate)}
-            </Text>
-          )}
-        </View>
-          </View>
-        </PressableCard>
-      </Swipeable>
+      <InventoryItem
+        item={item}
+        onEdit={edit}
+        onDelete={del}
+        renderRightActions={renderRightActions}
+      />
     );
   };
 
