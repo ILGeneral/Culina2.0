@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -29,10 +29,10 @@ import Animated, {
   FadeInUp,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import { saveRecipeToCollection } from "@/lib/utils/saveRecipe";
+import { saveRecipeToCollection, isRecipeSaved } from "@/lib/utils/saveRecipe";
 import { auth } from "@/lib/firebaseConfig";
 import { generatedStyles as styles, HERO_HEIGHT } from "@/styles/recipe/generatedStyles";
-import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
+import { EQUIPMENT_DB, detectEquipment } from "@/lib/equipmentDetector";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -159,6 +159,37 @@ const GeneratedRecipeDetailsScreen = () => {
   });
 
   const recipe = useMemo(() => extractRecipe(params.data), [params.data]);
+
+  // Detect equipment from instructions and ingredients if not already present
+  const detectedEquipmentKeys = useMemo(() => {
+    if (!recipe || recipe.equipment?.length) return recipe?.equipment || [];
+
+    const equipment = detectEquipment(
+      recipe.instructions || [],
+      recipe.ingredients
+    );
+
+    // Return just the keys (e.g., 'pot', 'pan') for consistency with recipe.equipment format
+    return equipment.map(eq => {
+      // Find the key in EQUIPMENT_DB that matches this equipment
+      const key = Object.entries(EQUIPMENT_DB).find(([_, value]) => value === eq)?.[0];
+      return key;
+    }).filter(Boolean) as string[];
+  }, [recipe]);
+
+  // Check if recipe is already saved on mount
+  useEffect(() => {
+    const checkIfSaved = async () => {
+      if (!recipe || !auth.currentUser) return;
+
+      const savedRecipeId = await isRecipeSaved(recipe.title, auth.currentUser.uid);
+      if (savedRecipeId) {
+        setSaved(true);
+      }
+    };
+
+    checkIfSaved();
+  }, [recipe]);
 
   const handleSavePress = async () => {
     if (!recipe || !auth.currentUser) return;
@@ -381,14 +412,14 @@ const GeneratedRecipeDetailsScreen = () => {
           )}
 
           {/* Equipment Section */}
-          {!!recipe.equipment?.length && (
+          {!!detectedEquipmentKeys.length && (
             <Animated.View entering={FadeInUp.delay(250).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20 }]}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Equipment</Text>
                 </View>
                 <View style={styles.equipmentContainer}>
-                  {recipe.equipment.map((equipmentKey, idx) => {
+                  {detectedEquipmentKeys.map((equipmentKey, idx) => {
                     const equipmentItem = EQUIPMENT_DB[equipmentKey];
                     if (!equipmentItem) return null;
                     return (

@@ -325,6 +325,11 @@ INSTRUCTION WRITING RULES:
 - Keep steps focused on one main action each
 - Use encouraging language that builds confidence
 - Minimum 4 steps, maximum 8 steps per recipe
+- CRITICAL: ONLY mention ingredients that are EXPLICITLY listed in the ingredients array for that recipe
+- DO NOT mention any ingredient, seasoning, or component in the instructions that is not in the ingredients list
+- If you want to mention salt, pepper, oil, butter, or ANY other ingredient in the instructions, it MUST be in the ingredients array first
+- Before writing each instruction step, verify that every ingredient you mention exists in the ingredients array
+- NEVER assume "common" ingredients - if it's not in the ingredients list, DO NOT mention it in instructions
 
 EXAMPLE RECIPES (for reference only - DO NOT copy these):
 
@@ -390,6 +395,9 @@ BEFORE YOU RESPOND - VERIFY CHECKLIST:
 □ Total time (prep + cook) is reasonable
 □ Tags follow the format: [meal-type, cooking-style, dietary-attribute]
 □ JSON is valid with no syntax errors
+□ CRITICAL: Every ingredient mentioned in instructions appears in the ingredients array - NO EXCEPTIONS
+□ Read through each instruction step and verify every mentioned ingredient is in the ingredients list
+□ If instructions mention salt, pepper, oil, or any seasoning, they MUST be in the ingredients array
 
 Only output your response if ALL items are checked.
 

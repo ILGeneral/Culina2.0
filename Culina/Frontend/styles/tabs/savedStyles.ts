@@ -270,4 +270,11 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
+  deleteHint: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
 });

@@ -305,6 +305,7 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
               </View>
             )}
           </Animated.View>
+          <Text style={styles.deleteHint}>Hold to delete or swipe left</Text>
         </View>
       </TouchableOpacity>
       </Swipeable>

@@ -27,6 +27,17 @@ export async function submitRating(
       return { success: false, error: 'User not authenticated' };
     }
 
+    // Check if user is trying to rate their own recipe
+    const recipeDoc = await getDoc(doc(db, 'sharedRecipes', sharedRecipeId));
+    if (!recipeDoc.exists()) {
+      return { success: false, error: 'Recipe not found' };
+    }
+
+    const recipeData = recipeDoc.data();
+    if (recipeData?.userId === user.uid) {
+      return { success: false, error: 'You cannot rate your own recipe' };
+    }
+
     // Get user profile data
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const userData = userDoc.data();
