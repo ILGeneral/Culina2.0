@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  TextInput,
 } from "react-native";
 import { styles } from "@/styles/recipe/recipeDetailStyles";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -146,6 +147,7 @@ export default function RecipeDetailsScreen() {
   const [authorImageError, setAuthorImageError] = useState(false);
   const [servingMultiplier, setServingMultiplier] = useState(1);
   const [showScalingModal, setShowScalingModal] = useState(false);
+  const [customScaleInput, setCustomScaleInput] = useState("");
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -247,7 +249,21 @@ export default function RecipeDetailsScreen() {
   const handleScaleRecipe = (multiplier: number) => {
     setServingMultiplier(multiplier);
     setShowScalingModal(false);
+    setCustomScaleInput("");
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleCustomScale = () => {
+    const value = parseFloat(customScaleInput);
+    if (!isNaN(value) && value > 0 && value <= 10) {
+      setServingMultiplier(value);
+      setShowScalingModal(false);
+      setCustomScaleInput("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Alert.alert("Invalid Input", "Please enter a number between 0.1 and 10");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
   };
 
   // Parse ingredient quantity from string using the robust ingredientMatcher utility
@@ -1147,31 +1163,51 @@ export default function RecipeDetailsScreen() {
           activeOpacity={1}
           onPress={() => setShowScalingModal(false)}
         >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Scale Recipe</Text>
-            <Text style={styles.modalSubtitle}>Adjust serving size</Text>
-            <View style={styles.scaleOptions}>
-              {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
-                <TouchableOpacity
-                  key={multiplier}
-                  style={[
-                    styles.scaleOption,
-                    servingMultiplier === multiplier && styles.scaleOptionActive,
-                  ]}
-                  onPress={() => handleScaleRecipe(multiplier)}
-                >
-                  <Text
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Scale Recipe</Text>
+              <Text style={styles.modalSubtitle}>Adjust serving size</Text>
+              <View style={styles.scaleOptions}>
+                {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
+                  <TouchableOpacity
+                    key={multiplier}
                     style={[
-                      styles.scaleOptionText,
-                      servingMultiplier === multiplier && styles.scaleOptionTextActive,
+                      styles.scaleOption,
+                      servingMultiplier === multiplier && styles.scaleOptionActive,
                     ]}
+                    onPress={() => handleScaleRecipe(multiplier)}
                   >
-                    {multiplier}x
-                  </Text>
+                    <Text
+                      style={[
+                        styles.scaleOptionText,
+                        servingMultiplier === multiplier && styles.scaleOptionTextActive,
+                      ]}
+                    >
+                      {multiplier}x
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.customScaleLabel}>Or enter custom multiplier:</Text>
+              <View style={styles.customScaleContainer}>
+                <TextInput
+                  style={styles.customScaleInput}
+                  value={customScaleInput}
+                  onChangeText={setCustomScaleInput}
+                  placeholder="e.g., 2.5"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="decimal-pad"
+                  maxLength={5}
+                />
+                <TouchableOpacity
+                  style={styles.customScaleButton}
+                  onPress={handleCustomScale}
+                >
+                  <Text style={styles.customScaleButtonText}>Apply</Text>
                 </TouchableOpacity>
-              ))}
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </AnimatedPageWrapper>

@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
@@ -16,8 +18,11 @@ import {
   BookmarkPlus,
   ChevronDown,
   Leaf,
+  Scale,
+  ChefHat,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
+import CookingMode from "@/components/CookingMode";
 import type { Recipe } from "@/types/recipe";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -99,6 +104,10 @@ const GeneratedRecipeDetailsScreen = () => {
   const [saved, setSaved] = useState(false);
   const [openIngredients, setOpenIngredients] = useState(true);
   const [openInstructions, setOpenInstructions] = useState(true);
+  const [servingMultiplier, setServingMultiplier] = useState(1);
+  const [showScalingModal, setShowScalingModal] = useState(false);
+  const [customScaleInput, setCustomScaleInput] = useState("");
+  const [cookingMode, setCookingMode] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -226,6 +235,39 @@ const GeneratedRecipeDetailsScreen = () => {
       console.error("Save error:", error);
       Alert.alert("Error", "Failed to save recipe. Please try again.");
     }
+  };
+
+  const handleScaleRecipe = (multiplier: number) => {
+    setServingMultiplier(multiplier);
+    setShowScalingModal(false);
+    setCustomScaleInput("");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const handleCustomScale = () => {
+    const value = parseFloat(customScaleInput);
+    if (!isNaN(value) && value > 0 && value <= 10) {
+      setServingMultiplier(value);
+      setShowScalingModal(false);
+      setCustomScaleInput("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Alert.alert("Invalid Input", "Please enter a number between 0.1 and 10");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  const scaleQuantity = (qty?: string): string => {
+    if (!qty) return "";
+    const num = parseFloat(qty);
+    if (isNaN(num)) return qty;
+    const scaled = num * servingMultiplier;
+    return scaled % 1 === 0 ? scaled.toString() : scaled.toFixed(1);
+  };
+
+  const handleStartCooking = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setCookingMode(true);
   };
 
   if (!recipe) {
@@ -366,10 +408,19 @@ const GeneratedRecipeDetailsScreen = () => {
           {!!recipe.ingredients?.length && (
             <Animated.View entering={FadeInUp.delay(200).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20 }]}>
-                <TouchableOpacity style={styles.cardHeader} onPress={() => setOpenIngredients((s) => !s)}>
-                  <Text style={styles.cardTitle}>Ingredients</Text>
-                  <ChevronDown color="#0F172A" style={{ transform: [{ rotate: openIngredients ? "180deg" : "0deg" }] }} />
-                </TouchableOpacity>
+                <View style={styles.cardHeader}>
+                  <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }} onPress={() => setOpenIngredients((s) => !s)}>
+                    <Text style={styles.cardTitle}>Ingredients</Text>
+                    <ChevronDown color="#0F172A" size={20} style={{ marginLeft: 8, transform: [{ rotate: openIngredients ? "180deg" : "0deg" }] }} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.scaleButton}
+                    onPress={() => setShowScalingModal(true)}
+                  >
+                    <Scale size={18} color="#0284c7" />
+                    <Text style={styles.scaleButtonText}>{servingMultiplier}x</Text>
+                  </TouchableOpacity>
+                </View>
                 {openIngredients && (
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
@@ -386,13 +437,14 @@ const GeneratedRecipeDetailsScreen = () => {
                         return false;
                       };
 
+                      const scaledQty = scaleQuantity(qty);
                       let suffix = '';
-                      if (qty && unit) {
-                        const qtyLower = qty.toLowerCase();
+                      if (scaledQty && unit) {
+                        const qtyLower = scaledQty.toLowerCase();
                         const unitLower = unit.toLowerCase();
-                        suffix = unitInQty(qtyLower, unitLower) ? qty : `${qty} ${unit}`;
+                        suffix = unitInQty(qtyLower, unitLower) ? scaledQty : `${scaledQty} ${unit}`;
                       } else {
-                        suffix = [qty, unit].filter(Boolean).join(" ");
+                        suffix = [scaledQty, unit].filter(Boolean).join(" ");
                       }
 
                       return (
@@ -456,8 +508,98 @@ const GeneratedRecipeDetailsScreen = () => {
               </View>
             </Animated.View>
           )}
+
+          {/* Start Cooking Button */}
+          {!!recipe.instructions?.length && (
+            <View style={styles.ctaContainer}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleStartCooking}
+              >
+                <ChefHat color="white" size={20} />
+                <Text style={styles.primaryButtonText}>Start Cooking</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </Animated.ScrollView>
+
+      {/* Scaling Modal */}
+      <Modal
+        visible={showScalingModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowScalingModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowScalingModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Scale Recipe</Text>
+              <Text style={styles.modalSubtitle}>Adjust serving size</Text>
+              <View style={styles.scaleOptions}>
+                {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
+                  <TouchableOpacity
+                    key={multiplier}
+                    style={[
+                      styles.scaleOption,
+                      servingMultiplier === multiplier && styles.scaleOptionActive,
+                    ]}
+                    onPress={() => handleScaleRecipe(multiplier)}
+                  >
+                    <Text
+                      style={[
+                        styles.scaleOptionText,
+                        servingMultiplier === multiplier && styles.scaleOptionTextActive,
+                      ]}
+                    >
+                      {multiplier}x
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.customScaleLabel}>Or enter custom multiplier:</Text>
+              <View style={styles.customScaleContainer}>
+                <TextInput
+                  style={styles.customScaleInput}
+                  value={customScaleInput}
+                  onChangeText={setCustomScaleInput}
+                  placeholder="e.g., 2.5"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="decimal-pad"
+                  maxLength={5}
+                />
+                <TouchableOpacity
+                  style={styles.customScaleButton}
+                  onPress={handleCustomScale}
+                >
+                  <Text style={styles.customScaleButtonText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Cooking Mode Modal */}
+      <Modal
+        visible={cookingMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setCookingMode(false)}
+      >
+        {recipe?.instructions && (
+          <CookingMode
+            instructions={recipe.instructions}
+            recipeTitle={recipe.title}
+            onClose={() => setCookingMode(false)}
+            ingredients={recipe.ingredients}
+          />
+        )}
+      </Modal>
     </AnimatedPageWrapper>
   );
 };
