@@ -406,33 +406,81 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
 
     console.log(`Using temperature ${temperature} for ${ingredientCount} ingredients`);
 
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY?.trim()}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: temperature,
-        max_tokens: 6000, // Allow for more recipes
-        response_format: { type: 'json_object' },
-      }),
-    });
+    // Retry logic with exponential backoff for rate limits
+    let groqResponse;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount <= maxRetries) {
+      try {
+        groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.GROQ_API_KEY?.trim()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: temperature,
+            max_tokens: 5000, // Reduced from 6000 to avoid hitting token limits
+            response_format: { type: 'json_object' },
+          }),
+        });
+
+        // If 429 (rate limit), retry with backoff
+        if (groqResponse.status === 429 && retryCount < maxRetries) {
+          const errorText = await groqResponse.text();
+          console.log(`Rate limit hit (attempt ${retryCount + 1}/${maxRetries}). Retrying...`);
+
+          // Parse retry-after header or wait time from error message
+          let waitTime = Math.pow(2, retryCount) * 500; // Exponential backoff: 500ms, 1s, 2s
+
+          try {
+            const errorJson = JSON.parse(errorText);
+            const errorMsg = errorJson?.error?.message || '';
+            // Extract wait time from error message like "Please try again in 370ms"
+            const waitMatch = errorMsg.match(/try again in (\d+)ms/);
+            if (waitMatch) {
+              waitTime = parseInt(waitMatch[1]) + 100; // Add 100ms buffer
+            }
+          } catch (e) {
+            // Use default exponential backoff if parsing fails
+          }
+
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          retryCount++;
+          continue; // Retry the request
+        }
+
+        // If not 429 or exceeded retries, break the loop
+        break;
+
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw new Error('Failed to connect to Groq API');
+      }
+    }
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
       console.error('Groq API error:', errorText);
       console.error('Groq response status:', groqResponse.status);
-      
-      // Try to parse the error to get more details
+
+      // Provide user-friendly error messages
       try {
         const errorJson = JSON.parse(errorText);
         const errorMessage = errorJson?.error?.message || errorText;
-        throw new Error(`Groq API error: ${errorMessage}`);
+        const errorType = errorJson?.error?.type;
+
+        if (errorType === 'tokens' || errorMessage.includes('Rate limit')) {
+          throw new Error('The AI service is currently busy. Please try again in a few seconds.');
+        }
+
+        throw new Error(`Recipe generation failed: ${errorMessage}`);
       } catch (parseError) {
-        throw new Error(`Groq API error (${groqResponse.status}): ${errorText}`);
+        throw new Error(`Recipe generation failed (${groqResponse.status}). Please try again.`);
       }
     }
 
