@@ -240,4 +240,105 @@ export const makerStyles = StyleSheet.create({
     flex: 1,
     gap: 20,
   },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: Colors.neutral.medium,
+    marginBottom: 12,
+    marginTop: -8,
+  },
+  equipmentGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  equipmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.neutral.light,
+    backgroundColor: Colors.neutral.white,
+  },
+  equipmentChipSelected: {
+    borderColor: Colors.primary.main,
+    backgroundColor: Colors.primary.lightest,
+  },
+  equipmentIcon: {
+    fontSize: 18,
+  },
+  equipmentName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.neutral.dark,
+  },
+  equipmentNameSelected: {
+    color: Colors.primary.main,
+  },
+  // Difficulty Selection
+  difficultyContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 8,
+  },
+  difficultyChip: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.neutral.light,
+    backgroundColor: Colors.neutral.white,
+    alignItems: "center",
+  },
+  difficultyChipSelected: {
+    borderColor: Colors.primary.main,
+    backgroundColor: Colors.primary.lightest,
+  },
+  difficultyChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.neutral.dark,
+  },
+  difficultyChipTextSelected: {
+    color: Colors.primary.main,
+  },
+  // Tags Selection
+  tagCategoryLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.neutral.medium,
+    marginTop: 16,
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  tagsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  tagChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.neutral.light,
+    backgroundColor: Colors.neutral.white,
+  },
+  tagChipSelected: {
+    borderColor: Colors.primary.main,
+    backgroundColor: Colors.primary.lightest,
+  },
+  tagChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.neutral.dark,
+  },
+  tagChipTextSelected: {
+    color: Colors.primary.main,
+  },
 });

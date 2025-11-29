@@ -26,6 +26,7 @@ import {
   Share2,
   Pencil,
   Star,
+  Scale,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import CookingMode from "@/components/CookingMode";
@@ -48,6 +49,7 @@ import { StarRating } from "@/components/ratings/StarRating";
 import { RatingModal } from "@/components/ratings/RatingModal";
 import { getUserRating } from "@/lib/utils/rateRecipe";
 import type { Rating } from "@/types/rating";
+import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -142,6 +144,8 @@ export default function RecipeDetailsScreen() {
   const [userRating, setUserRating] = useState<Rating | null>(null);
   const [imageError, setImageError] = useState(false);
   const [authorImageError, setAuthorImageError] = useState(false);
+  const [servingMultiplier, setServingMultiplier] = useState(1);
+  const [showScalingModal, setShowScalingModal] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
@@ -230,6 +234,20 @@ export default function RecipeDetailsScreen() {
   const handleStartCooking = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setCookingMode(true);
+  };
+
+  const scaleQuantity = (originalQty: string | undefined): string => {
+    if (!originalQty) return '';
+    const num = parseFloat(originalQty);
+    if (isNaN(num)) return originalQty;
+    const scaled = num * servingMultiplier;
+    return scaled % 1 === 0 ? scaled.toString() : scaled.toFixed(1);
+  };
+
+  const handleScaleRecipe = (multiplier: number) => {
+    setServingMultiplier(multiplier);
+    setShowScalingModal(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   // Parse ingredient quantity from string using the robust ingredientMatcher utility
@@ -959,10 +977,30 @@ export default function RecipeDetailsScreen() {
           {!!recipe.ingredients?.length && (
             <Animated.View entering={FadeInUp.delay(200).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20 }]}>
-                <TouchableOpacity style={styles.cardHeader} onPress={() => setOpenIngredients((s) => !s)}>
-                  <Text style={styles.cardTitle}>Ingredients</Text>
-                  <ChevronDown color="#0F172A" style={{ transform: [{ rotate: openIngredients ? "180deg" : "0deg" }] }} />
-                </TouchableOpacity>
+                <View style={styles.cardHeader}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => setOpenIngredients((s) => !s)}
+                  >
+                    <Text style={styles.cardTitle}>Ingredients</Text>
+                    {servingMultiplier !== 1 && (
+                      <Text style={{ marginLeft: 8, fontSize: 14, color: '#0284c7', fontWeight: '600' }}>
+                        ({servingMultiplier}x)
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity
+                      style={styles.scaleButton}
+                      onPress={() => setShowScalingModal(true)}
+                    >
+                      <Scale size={18} color="#0284c7" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setOpenIngredients((s) => !s)}>
+                      <ChevronDown color="#0F172A" style={{ transform: [{ rotate: openIngredients ? "180deg" : "0deg" }] }} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
                 {openIngredients && (
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
@@ -970,6 +1008,9 @@ export default function RecipeDetailsScreen() {
                       const ingName = normalized.name;
                       const qty = normalized.qty;
                       const unit = normalized.unit;
+
+                      // Scale the quantity
+                      const scaledQty = scaleQuantity(qty);
 
                       // Helper to check if unit is in qty (handles plural/singular)
                       const unitInQty = (q: string, u: string): boolean => {
@@ -982,13 +1023,13 @@ export default function RecipeDetailsScreen() {
 
                       // Check if unit is already in qty to avoid duplication
                       let suffix = '';
-                      if (qty && unit) {
-                        const qtyLower = qty.toLowerCase();
+                      if (scaledQty && unit) {
+                        const qtyLower = scaledQty.toLowerCase();
                         const unitLower = unit.toLowerCase();
                         // If unit is already in qty, just use qty
-                        suffix = unitInQty(qtyLower, unitLower) ? qty : `${qty} ${unit}`;
+                        suffix = unitInQty(qtyLower, unitLower) ? scaledQty : `${scaledQty} ${unit}`;
                       } else {
-                        suffix = [qty, unit].filter(Boolean).join(" ");
+                        suffix = [scaledQty, unit].filter(Boolean).join(" ");
                       }
 
                       return (
@@ -1003,6 +1044,29 @@ export default function RecipeDetailsScreen() {
                     })}
                   </View>
                 )}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Equipment Section */}
+          {!!recipe.equipment?.length && (
+            <Animated.View entering={FadeInUp.delay(250).duration(500).springify()}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Equipment</Text>
+                </View>
+                <View style={styles.equipmentContainer}>
+                  {recipe.equipment.map((equipmentKey, idx) => {
+                    const equipmentItem = EQUIPMENT_DB[equipmentKey];
+                    if (!equipmentItem) return null;
+                    return (
+                      <View key={idx} style={styles.equipmentChip}>
+                        <Text style={styles.equipmentIcon}>{equipmentItem.icon}</Text>
+                        <Text style={styles.equipmentName}>{equipmentItem.name}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             </Animated.View>
           )}
@@ -1070,6 +1134,46 @@ export default function RecipeDetailsScreen() {
           existingVerified={userRating?.verified}
         />
       )}
+
+      {/* Scaling Modal */}
+      <Modal
+        visible={showScalingModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowScalingModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowScalingModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Scale Recipe</Text>
+            <Text style={styles.modalSubtitle}>Adjust serving size</Text>
+            <View style={styles.scaleOptions}>
+              {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
+                <TouchableOpacity
+                  key={multiplier}
+                  style={[
+                    styles.scaleOption,
+                    servingMultiplier === multiplier && styles.scaleOptionActive,
+                  ]}
+                  onPress={() => handleScaleRecipe(multiplier)}
+                >
+                  <Text
+                    style={[
+                      styles.scaleOptionText,
+                      servingMultiplier === multiplier && styles.scaleOptionTextActive,
+                    ]}
+                  >
+                    {multiplier}x
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </AnimatedPageWrapper>
   );
 }

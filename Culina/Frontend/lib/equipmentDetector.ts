@@ -15,7 +15,7 @@ export type EquipmentDatabase = {
 };
 
 // Comprehensive equipment database with icons
-const EQUIPMENT_DB: EquipmentDatabase = {
+export const EQUIPMENT_DB: EquipmentDatabase = {
   // Cookware
   'pot': { name: 'Pot', icon: '🍲', category: 'cookware', isEssential: true },
   'pan': { name: 'Pan', icon: '🍳', category: 'cookware', isEssential: true },

@@ -498,4 +498,29 @@ export const recipeDatabaseDetailStyles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  equipmentContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 12,
+  },
+  equipmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#F0F9FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  equipmentIcon: {
+    fontSize: 16,
+  },
+  equipmentName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1E40AF",
+  },
 });

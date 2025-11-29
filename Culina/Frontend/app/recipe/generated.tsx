@@ -5,7 +5,6 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Pressable,
   Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -17,7 +16,6 @@ import {
   BookmarkPlus,
   ChevronDown,
   Leaf,
-  Check,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import type { Recipe } from "@/types/recipe";
@@ -34,6 +32,7 @@ import * as Haptics from "expo-haptics";
 import { saveRecipeToCollection } from "@/lib/utils/saveRecipe";
 import { auth } from "@/lib/firebaseConfig";
 import { generatedStyles as styles, HERO_HEIGHT } from "@/styles/recipe/generatedStyles";
+import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -100,10 +99,38 @@ const GeneratedRecipeDetailsScreen = () => {
   const [saved, setSaved] = useState(false);
   const [openIngredients, setOpenIngredients] = useState(true);
   const [openInstructions, setOpenInstructions] = useState(true);
-  const [checkedIngredients, setCheckedIngredients] = useState<number[]>([]);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
+
+  const getTagCategory = (tag: string): 'mealType' | 'cookingStyle' | 'dietary' | 'default' => {
+    const tagLower = tag.toLowerCase();
+
+    // Meal type tags (breakfast, lunch, dinner, snack, dessert)
+    if (['breakfast', 'lunch', 'dinner', 'snack', 'dessert', 'brunch', 'appetizer'].includes(tagLower)) {
+      return 'mealType';
+    }
+
+    // Cooking style tags (baked, fried, grilled, steamed, etc.)
+    if (['baked', 'fried', 'grilled', 'steamed', 'roasted', 'boiled', 'sautéed', 'raw', 'no-cook'].includes(tagLower)) {
+      return 'cookingStyle';
+    }
+
+    // Dietary tags (vegan, vegetarian, gluten-free, etc.)
+    if (['vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'keto', 'paleo', 'low-carb', 'high-protein'].includes(tagLower)) {
+      return 'dietary';
+    }
+
+    return 'default';
+  };
+
+  const getDifficultyStyles = (difficulty: string) => {
+    const lower = difficulty.toLowerCase();
+    if (lower === 'easy') return { badge: styles.difficultyEasy, text: styles.difficultyTextEasy };
+    if (lower === 'medium') return { badge: styles.difficultyMedium, text: styles.difficultyTextMedium };
+    if (lower === 'hard') return { badge: styles.difficultyHard, text: styles.difficultyTextHard };
+    return { badge: styles.difficultyMedium, text: styles.difficultyTextMedium };
+  };
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -170,20 +197,6 @@ const GeneratedRecipeDetailsScreen = () => {
     }
   };
 
-  const toggleIngredient = (index: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCheckedIngredients((prev) => (prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]));
-  };
-
-  const chips = useMemo(() => {
-    if (!recipe) return [];
-    return [
-      recipe.estimatedCalories ? { icon: <Flame color="#128AFA" size={18} />, text: `${recipe.estimatedCalories} kcal` } : null,
-      recipe.servings ? { icon: <Users color="#128AFA" size={18} />, text: `Serves ${recipe.servings}` } : null,
-      recipe.source ? { icon: <Leaf color="#128AFA" size={18} />, text: recipe.source } : null,
-    ].filter(Boolean) as { icon: React.ReactNode; text: string }[];
-  }, [recipe]);
-
   if (!recipe) {
     return (
       <View style={styles.centerScreen}>
@@ -233,14 +246,86 @@ const GeneratedRecipeDetailsScreen = () => {
         <View style={styles.contentArea}>
           <Animated.View entering={FadeInUp.delay(100).duration(500).springify()}>
             <View style={styles.card}>
-              <View style={styles.chipsContainer}>
-                {chips.map((chip, idx) => (
-                  <View key={idx} style={styles.chip}>
-                    {chip.icon}
-                    <Text style={styles.chipText}>{chip.text}</Text>
+              {/* Source Badge */}
+              {recipe.source && (
+                <View style={styles.sourceBadge}>
+                  <Leaf color="#10b981" size={14} />
+                  <Text style={styles.sourceText}>
+                    {recipe.source}
+                  </Text>
+                </View>
+              )}
+
+              {/* Difficulty Badge */}
+              {recipe.difficulty && (
+                <View style={[styles.difficultyBadge, getDifficultyStyles(recipe.difficulty).badge]}>
+                  <Text style={[styles.difficultyText, getDifficultyStyles(recipe.difficulty).text]}>
+                    {recipe.difficulty}
+                  </Text>
+                </View>
+              )}
+
+              {/* Metrics Grid */}
+              <View style={styles.metricsGrid}>
+                {recipe.prepTime && (
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricIconContainer}>
+                      <Clock color="#128AFA" size={24} />
+                    </View>
+                    <Text style={styles.metricValue}>{recipe.prepTime}</Text>
+                    <Text style={styles.metricLabel}>Prep Time</Text>
                   </View>
-                ))}
+                )}
+                {recipe.cookTime && (
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricIconContainer}>
+                      <Flame color="#128AFA" size={24} />
+                    </View>
+                    <Text style={styles.metricValue}>{recipe.cookTime}</Text>
+                    <Text style={styles.metricLabel}>Cook Time</Text>
+                  </View>
+                )}
+                {recipe.servings && (
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricIconContainer}>
+                      <Users color="#128AFA" size={24} />
+                    </View>
+                    <Text style={styles.metricValue}>{recipe.servings}</Text>
+                    <Text style={styles.metricLabel}>Servings</Text>
+                  </View>
+                )}
+                {recipe.estimatedCalories && (
+                  <View style={styles.metricCard}>
+                    <View style={styles.metricIconContainer}>
+                      <Flame color="#128AFA" size={24} />
+                    </View>
+                    <Text style={styles.metricValue}>{recipe.estimatedCalories}</Text>
+                    <Text style={styles.metricLabel}>Calories</Text>
+                  </View>
+                )}
               </View>
+
+              {/* Colored Tags */}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <View style={styles.tagsContainer}>
+                  {recipe.tags.slice(0, 3).map((tag, idx) => {
+                    const category = getTagCategory(tag);
+                    const tagStyle = category === 'mealType' ? styles.tagMealType :
+                                    category === 'cookingStyle' ? styles.tagCookingStyle :
+                                    category === 'dietary' ? styles.tagDietary : styles.tag;
+                    const textStyle = category === 'mealType' ? styles.tagMealTypeText :
+                                     category === 'cookingStyle' ? styles.tagCookingStyleText :
+                                     category === 'dietary' ? styles.tagDietaryText : styles.tagText;
+
+                    return (
+                      <View key={idx} style={[styles.tag, tagStyle]}>
+                        <Text style={[styles.tagText, textStyle]}>{tag}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
               {!!recipe.description && (
                 <Text style={styles.descriptionText}>{recipe.description}</Text>
               )}
@@ -257,7 +342,6 @@ const GeneratedRecipeDetailsScreen = () => {
                 {openIngredients && (
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
-                      const isChecked = checkedIngredients.includes(idx);
                       const normalized = normalizeIngredientEntry(ing);
                       const ingName = normalized.name;
                       const qty = normalized.qty;
@@ -281,19 +365,40 @@ const GeneratedRecipeDetailsScreen = () => {
                       }
 
                       return (
-                        <Pressable key={idx} style={styles.ingredientRow} onPress={() => toggleIngredient(idx)}>
-                          <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                            {isChecked && <Check color="white" size={16} />}
-                          </View>
-                          <Text style={[styles.ingredientText, isChecked && styles.ingredientTextChecked]}>
+                        <View key={idx} style={styles.ingredientRow}>
+                          <View style={styles.ingredientBullet} />
+                          <Text style={styles.ingredientText}>
                             {ingName}
                             {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
                           </Text>
-                        </Pressable>
+                        </View>
                       );
                     })}
                   </View>
                 )}
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Equipment Section */}
+          {!!recipe.equipment?.length && (
+            <Animated.View entering={FadeInUp.delay(250).duration(500).springify()}>
+              <View style={[styles.card, { marginTop: 20 }]}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>Equipment</Text>
+                </View>
+                <View style={styles.equipmentContainer}>
+                  {recipe.equipment.map((equipmentKey, idx) => {
+                    const equipmentItem = EQUIPMENT_DB[equipmentKey];
+                    if (!equipmentItem) return null;
+                    return (
+                      <View key={idx} style={styles.equipmentChip}>
+                        <Text style={styles.equipmentIcon}>{equipmentItem.icon}</Text>
+                        <Text style={styles.equipmentName}>{equipmentItem.name}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
               </View>
             </Animated.View>
           )}

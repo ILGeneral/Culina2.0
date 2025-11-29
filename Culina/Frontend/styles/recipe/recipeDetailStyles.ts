@@ -600,4 +600,91 @@ export const styles = StyleSheet.create({
   sourceBadgeTextHuman: {
     color: '#15803D',
   },
+  // Scale Button
+  scaleButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  scaleOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  scaleOption: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  scaleOptionActive: {
+    borderColor: '#0284c7',
+    backgroundColor: '#EFF6FF',
+  },
+  scaleOptionText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  scaleOptionTextActive: {
+    color: '#0284c7',
+  },
+  // Equipment Display
+  equipmentContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingTop: 16,
+  },
+  equipmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  equipmentIcon: {
+    fontSize: 16,
+  },
+  equipmentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E40AF',
+  },
 });

@@ -21,6 +21,7 @@ import { useInventory } from "@/hooks/useInventory";
 import { matchRecipeWithInventory } from "@/lib/ingredientMatcher";
 import { suggestIngredientSubstitutes, type SuggestIngredientSubstitutesResponse } from "@/lib/suggestIngredientSubstitutes";
 import { recipeDatabaseDetailStyles as styles } from "@/styles/recipe-database/recipeDatabaseDetailStyles";
+import { detectEquipment, EQUIPMENT_DB } from "@/lib/equipmentDetector";
 
 type RecipeProvider = "spoonacular" | "mealdb";
 
@@ -291,6 +292,12 @@ export default function RecipeDatabaseDetailsScreen() {
     if (!recipe || !inventory.length) return null;
     return matchRecipeWithInventory(recipe.ingredients, inventory);
   }, [recipe, inventory]);
+
+  const detectedEquipment = useMemo(() => {
+    if (!recipe) return [];
+    const instructionStrings = recipe.instructions.map(step => step.step);
+    return detectEquipment(instructionStrings, recipe.ingredients);
+  }, [recipe]);
 
   const handleSuggestSubstitute = useCallback(
     async (targetIngredient: string) => {
@@ -637,6 +644,20 @@ export default function RecipeDatabaseDetailsScreen() {
               <Text style={styles.ingredientHint}>
                 Tap any ingredient to find substitutes from your inventory
               </Text>
+            </View>
+          )}
+
+          {detectedEquipment.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Equipment</Text>
+              <View style={styles.equipmentContainer}>
+                {detectedEquipment.map((equipment, idx) => (
+                  <View key={idx} style={styles.equipmentChip}>
+                    <Text style={styles.equipmentIcon}>{equipment.icon}</Text>
+                    <Text style={styles.equipmentName}>{equipment.name}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
 

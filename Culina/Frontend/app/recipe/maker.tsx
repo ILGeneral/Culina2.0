@@ -13,7 +13,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
+import { ArrowLeft, Plus, Trash2, ChevronDown } from "lucide-react-native";
 import Background from "@/components/Background";
 import { auth, db } from "@/lib/firebaseConfig";
 import {
@@ -26,6 +26,7 @@ import {
 } from "firebase/firestore";
 import { shareRecipe } from "@/lib/utils/shareRecipe";
 import { makerStyles as styles } from "@/styles/recipe/makerStyles";
+import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
 
 type IngredientForm = {
   name: string;
@@ -116,6 +117,15 @@ const parseIngredientString = (ingredientStr: string): IngredientForm => {
   return { name: trimmed, qty: "", unit: "" };
 };
 
+// Available tags organized by category
+const AVAILABLE_TAGS = {
+  mealType: ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Dessert', 'Brunch', 'Appetizer'],
+  cookingStyle: ['Baked', 'Fried', 'Grilled', 'Steamed', 'Roasted', 'Boiled', 'Sautéed', 'Raw', 'No-Cook'],
+  dietary: ['Vegan', 'Vegetarian', 'Gluten-Free', 'Dairy-Free', 'Keto', 'Paleo', 'Low-Carb', 'High-Protein'],
+};
+
+const DIFFICULTY_LEVELS: Array<'Easy' | 'Medium' | 'Hard'> = ['Easy', 'Medium', 'Hard'];
+
 export default function RecipeMakerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -128,6 +138,14 @@ export default function RecipeMakerScreen() {
     { name: "", qty: "", unit: "" },
   ]);
   const [steps, setSteps] = useState<string[]>([""]);
+  const [equipment, setEquipment] = useState<string[]>([]);
+  const [equipmentSearch, setEquipmentSearch] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState<'Easy' | 'Medium' | 'Hard' | ''>('');
+  const [ingredientsOpen, setIngredientsOpen] = useState(true);
+  const [instructionsOpen, setInstructionsOpen] = useState(true);
+  const [tagsOpen, setTagsOpen] = useState(true);
+  const [equipmentOpen, setEquipmentOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [initializing, setInitializing] = useState(isEditing);
@@ -233,6 +251,20 @@ export default function RecipeMakerScreen() {
           ? data.instructions.filter((step: any) => typeof step === "string")
           : [];
         setSteps(loadedSteps.length > 0 ? loadedSteps : [""]);
+
+        const loadedEquipment = Array.isArray(data.equipment)
+          ? data.equipment.filter((item: any) => typeof item === "string")
+          : [];
+        setEquipment(loadedEquipment);
+
+        const loadedTags = Array.isArray(data.tags)
+          ? data.tags.filter((item: any) => typeof item === "string")
+          : [];
+        setTags(loadedTags);
+
+        if (data.difficulty && ['Easy', 'Medium', 'Hard'].includes(data.difficulty)) {
+          setDifficulty(data.difficulty as 'Easy' | 'Medium' | 'Hard');
+        }
       } finally {
         if (isMountedRef.current) {
           setInitializing(false);
@@ -285,6 +317,31 @@ export default function RecipeMakerScreen() {
 
   const updateStep = (index: number, value: string) => {
     setSteps((prev) => prev.map((item, idx) => (idx === index ? value : item)));
+  };
+
+  const toggleEquipment = (equipmentKey: string) => {
+    setEquipment((prev) => {
+      if (prev.includes(equipmentKey)) {
+        return prev.filter((item) => item !== equipmentKey);
+      } else {
+        return [...prev, equipmentKey];
+      }
+    });
+  };
+
+  const toggleTag = (tag: string) => {
+    setTags((prev) => {
+      if (prev.includes(tag)) {
+        return prev.filter((item) => item !== tag);
+      } else {
+        // Limit to 4 tags
+        if (prev.length >= 4) {
+          Alert.alert("Tag Limit", "You can select up to 4 tags.");
+          return prev;
+        }
+        return [...prev, tag];
+      }
+    });
   };
 
   const buildRecipePayload = () => {
@@ -342,6 +399,9 @@ export default function RecipeMakerScreen() {
       description: trimmedDescription.length > 0 ? trimmedDescription : undefined,
       ingredients: cleanedIngredients,
       instructions: cleanedSteps,
+      equipment: equipment.length > 0 ? equipment : undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      difficulty: difficulty || undefined,
       source: determineSource(),
     };
   };
@@ -351,6 +411,9 @@ export default function RecipeMakerScreen() {
     setDescription("");
     setIngredients([{ name: "", qty: "", unit: "" }]);
     setSteps([""]);
+    setEquipment([]);
+    setTags([]);
+    setDifficulty('');
   };
 
   const handleSave = async (shouldShare: boolean) => {
@@ -484,6 +547,123 @@ export default function RecipeMakerScreen() {
                       />
                     </View>
 
+                    {/* Difficulty Selection */}
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Difficulty</Text>
+                      <View style={styles.difficultyContainer}>
+                        {DIFFICULTY_LEVELS.map((level) => (
+                          <TouchableOpacity
+                            key={level}
+                            style={[
+                              styles.difficultyChip,
+                              difficulty === level && styles.difficultyChipSelected,
+                            ]}
+                            onPress={() => setDifficulty(level)}
+                          >
+                            <Text
+                              style={[
+                                styles.difficultyChipText,
+                                difficulty === level && styles.difficultyChipTextSelected,
+                              ]}
+                            >
+                              {level}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    {/* Tags Selection */}
+                    <View style={styles.section}>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center' }}
+                        onPress={() => setTagsOpen(!tagsOpen)}
+                      >
+                        <Text style={styles.sectionTitle}>Tags (Max 4)</Text>
+                        <ChevronDown
+                          color="#0F172A"
+                          size={20}
+                          style={{
+                            marginLeft: 8,
+                            transform: [{ rotate: tagsOpen ? '180deg' : '0deg' }],
+                          }}
+                        />
+                      </TouchableOpacity>
+
+                      {tagsOpen && (
+                        <>
+                          <Text style={styles.tagCategoryLabel}>Meal Type</Text>
+                          <View style={styles.tagsGrid}>
+                        {AVAILABLE_TAGS.mealType.map((tag) => (
+                          <TouchableOpacity
+                            key={tag}
+                            style={[
+                              styles.tagChip,
+                              tags.includes(tag) && styles.tagChipSelected,
+                            ]}
+                            onPress={() => toggleTag(tag)}
+                          >
+                            <Text
+                              style={[
+                                styles.tagChipText,
+                                tags.includes(tag) && styles.tagChipTextSelected,
+                              ]}
+                            >
+                              {tag}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <Text style={styles.tagCategoryLabel}>Cooking Style</Text>
+                      <View style={styles.tagsGrid}>
+                        {AVAILABLE_TAGS.cookingStyle.map((tag) => (
+                          <TouchableOpacity
+                            key={tag}
+                            style={[
+                              styles.tagChip,
+                              tags.includes(tag) && styles.tagChipSelected,
+                            ]}
+                            onPress={() => toggleTag(tag)}
+                          >
+                            <Text
+                              style={[
+                                styles.tagChipText,
+                                tags.includes(tag) && styles.tagChipTextSelected,
+                              ]}
+                            >
+                              {tag}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                          <Text style={styles.tagCategoryLabel}>Dietary</Text>
+                          <View style={styles.tagsGrid}>
+                            {AVAILABLE_TAGS.dietary.map((tag) => (
+                              <TouchableOpacity
+                                key={tag}
+                                style={[
+                                  styles.tagChip,
+                                  tags.includes(tag) && styles.tagChipSelected,
+                                ]}
+                                onPress={() => toggleTag(tag)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.tagChipText,
+                                    tags.includes(tag) && styles.tagChipTextSelected,
+                                  ]}
+                                >
+                                  {tag}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </>
+                      )}
+                    </View>
+
                     <View style={styles.section}>
                       <Text style={styles.label}>Description</Text>
                       <TextInput
@@ -500,14 +680,27 @@ export default function RecipeMakerScreen() {
 
                     <View style={styles.section}>
                       <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Ingredients *</Text>
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                          onPress={() => setIngredientsOpen(!ingredientsOpen)}
+                        >
+                          <Text style={styles.sectionTitle}>Ingredients *</Text>
+                          <ChevronDown
+                            color="#0F172A"
+                            size={20}
+                            style={{
+                              marginLeft: 8,
+                              transform: [{ rotate: ingredientsOpen ? '180deg' : '0deg' }],
+                            }}
+                          />
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
                           <Plus color="#128AFAFF" size={18} />
                           <Text style={styles.addButtonText}>Add Ingredient</Text>
                         </TouchableOpacity>
                       </View>
 
-                      {ingredients.map((item, index) => (
+                      {ingredientsOpen && ingredients.map((item, index) => (
                         <View key={`ingredient-${index}`} style={styles.ingredientRow}>
                           <TextInput
                             style={[styles.input, styles.ingredientName]}
@@ -559,20 +752,87 @@ export default function RecipeMakerScreen() {
                         </View>
                       ))}
                     </View>
+
+                    {/* Equipment Section */}
+                    <View style={styles.section}>
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                        onPress={() => setEquipmentOpen(!equipmentOpen)}
+                      >
+                        <Text style={styles.sectionTitle}>Equipment</Text>
+                        <ChevronDown
+                          color="#0F172A"
+                          size={20}
+                          style={{
+                            marginLeft: 8,
+                            transform: [{ rotate: equipmentOpen ? '180deg' : '0deg' }],
+                          }}
+                        />
+                      </TouchableOpacity>
+
+                      {equipmentOpen && (<>
+                        <TextInput
+                          style={[styles.input, { marginBottom: 12 }]}
+                          placeholder="Search equipment..."
+                          placeholderTextColor="#94a3b8"
+                          value={equipmentSearch}
+                          onChangeText={setEquipmentSearch}
+                        />
+                        <View style={styles.equipmentGrid}>
+                          {Object.entries(EQUIPMENT_DB)
+                            .filter(([key, equipmentItem]) =>
+                              equipmentItem.name.toLowerCase().includes(equipmentSearch.toLowerCase())
+                            )
+                            .map(([key, equipmentItem]) => (
+                            <TouchableOpacity
+                              key={key}
+                              style={[
+                                styles.equipmentChip,
+                                equipment.includes(key) && styles.equipmentChipSelected,
+                              ]}
+                              onPress={() => toggleEquipment(key)}
+                            >
+                              <Text style={styles.equipmentIcon}>{equipmentItem.icon}</Text>
+                              <Text
+                                style={[
+                                  styles.equipmentName,
+                                  equipment.includes(key) && styles.equipmentNameSelected,
+                                ]}
+                              >
+                                {equipmentItem.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>)}
+                    </View>
                   </View>
 
                   {/* Right Column: Instructions */}
                   <View style={styles.landscapeColumn}>
                     <View style={styles.section}>
                       <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Instructions *</Text>
+                        <TouchableOpacity
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                          onPress={() => setInstructionsOpen(!instructionsOpen)}
+                        >
+                          <Text style={styles.sectionTitle}>Instructions *</Text>
+                          <ChevronDown
+                            color="#0F172A"
+                            size={20}
+                            style={{
+                              marginLeft: 8,
+                              transform: [{ rotate: instructionsOpen ? '180deg' : '0deg' }],
+                            }}
+                          />
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.addButton} onPress={addStep}>
                           <Plus color="#128AFAFF" size={18} />
                           <Text style={styles.addButtonText}>Add Step</Text>
                         </TouchableOpacity>
                       </View>
 
-                      {steps.map((step, index) => (
+                      {instructionsOpen && steps.map((step, index) => (
                         <View key={`step-${index}`} style={styles.stepRow}>
                           <View style={styles.stepNumberContainer}>
                             <Text style={styles.stepNumber}>{index + 1}.</Text>
@@ -634,6 +894,121 @@ export default function RecipeMakerScreen() {
                   />
                 </View>
 
+                {/* Difficulty Selection */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Difficulty</Text>
+                  <View style={styles.difficultyContainer}>
+                    {DIFFICULTY_LEVELS.map((level) => (
+                      <TouchableOpacity
+                        key={level}
+                        style={[
+                          styles.difficultyChip,
+                          difficulty === level && styles.difficultyChipSelected,
+                        ]}
+                        onPress={() => setDifficulty(level)}
+                      >
+                        <Text
+                          style={[
+                            styles.difficultyChipText,
+                            difficulty === level && styles.difficultyChipTextSelected,
+                          ]}
+                        >
+                          {level}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Tags Selection */}
+                <View style={styles.section}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                    onPress={() => setTagsOpen(!tagsOpen)}
+                  >
+                    <Text style={styles.sectionTitle}>Tags (Max 4)</Text>
+                    <ChevronDown
+                      color="#0F172A"
+                      size={20}
+                      style={{
+                        marginLeft: 8,
+                        transform: [{ rotate: tagsOpen ? '180deg' : '0deg' }],
+                      }}
+                    />
+                  </TouchableOpacity>
+
+                  {tagsOpen && (<>
+                    <Text style={styles.tagCategoryLabel}>Meal Type</Text>
+                    <View style={styles.tagsGrid}>
+                      {AVAILABLE_TAGS.mealType.map((tag) => (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[
+                            styles.tagChip,
+                            tags.includes(tag) && styles.tagChipSelected,
+                          ]}
+                          onPress={() => toggleTag(tag)}
+                        >
+                          <Text
+                            style={[
+                              styles.tagChipText,
+                              tags.includes(tag) && styles.tagChipTextSelected,
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.tagCategoryLabel}>Cooking Style</Text>
+                    <View style={styles.tagsGrid}>
+                      {AVAILABLE_TAGS.cookingStyle.map((tag) => (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[
+                            styles.tagChip,
+                            tags.includes(tag) && styles.tagChipSelected,
+                          ]}
+                          onPress={() => toggleTag(tag)}
+                        >
+                          <Text
+                            style={[
+                              styles.tagChipText,
+                              tags.includes(tag) && styles.tagChipTextSelected,
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.tagCategoryLabel}>Dietary</Text>
+                    <View style={styles.tagsGrid}>
+                      {AVAILABLE_TAGS.dietary.map((tag) => (
+                        <TouchableOpacity
+                          key={tag}
+                          style={[
+                            styles.tagChip,
+                            tags.includes(tag) && styles.tagChipSelected,
+                          ]}
+                          onPress={() => toggleTag(tag)}
+                        >
+                          <Text
+                            style={[
+                              styles.tagChipText,
+                              tags.includes(tag) && styles.tagChipTextSelected,
+                            ]}
+                          >
+                            {tag}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>)}
+                </View>
+
                 <View style={styles.section}>
                   <Text style={styles.label}>Description</Text>
                   <TextInput
@@ -650,14 +1025,27 @@ export default function RecipeMakerScreen() {
 
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Ingredients *</Text>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                      onPress={() => setIngredientsOpen(!ingredientsOpen)}
+                    >
+                      <Text style={styles.sectionTitle}>Ingredients *</Text>
+                      <ChevronDown
+                        color="#0F172A"
+                        size={20}
+                        style={{
+                          marginLeft: 8,
+                          transform: [{ rotate: ingredientsOpen ? '180deg' : '0deg' }],
+                        }}
+                      />
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.addButton} onPress={addIngredient}>
                       <Plus color="#128AFAFF" size={18} />
                       <Text style={styles.addButtonText}>Add Ingredient</Text>
                     </TouchableOpacity>
                   </View>
 
-                  {ingredients.map((item, index) => (
+                  {ingredientsOpen && ingredients.map((item, index) => (
                     <View key={`ingredient-${index}`} style={styles.ingredientRow}>
                       <TextInput
                         style={[styles.input, styles.ingredientName]}
@@ -710,16 +1098,83 @@ export default function RecipeMakerScreen() {
                   ))}
                 </View>
 
+                {/* Equipment Section */}
+                <View style={styles.section}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                    onPress={() => setEquipmentOpen(!equipmentOpen)}
+                  >
+                    <Text style={styles.sectionTitle}>Equipment</Text>
+                    <ChevronDown
+                      color="#0F172A"
+                      size={20}
+                      style={{
+                        marginLeft: 8,
+                        transform: [{ rotate: equipmentOpen ? '180deg' : '0deg' }],
+                      }}
+                    />
+                  </TouchableOpacity>
+
+                  {equipmentOpen && (<>
+                    <TextInput
+                      style={[styles.input, { marginBottom: 12 }]}
+                      placeholder="Search equipment..."
+                      placeholderTextColor="#94a3b8"
+                      value={equipmentSearch}
+                      onChangeText={setEquipmentSearch}
+                    />
+                    <View style={styles.equipmentGrid}>
+                      {Object.entries(EQUIPMENT_DB)
+                        .filter(([key, equipmentItem]) =>
+                          equipmentItem.name.toLowerCase().includes(equipmentSearch.toLowerCase())
+                        )
+                        .map(([key, equipmentItem]) => (
+                        <TouchableOpacity
+                          key={key}
+                          style={[
+                            styles.equipmentChip,
+                            equipment.includes(key) && styles.equipmentChipSelected,
+                          ]}
+                          onPress={() => toggleEquipment(key)}
+                        >
+                          <Text style={styles.equipmentIcon}>{equipmentItem.icon}</Text>
+                          <Text
+                            style={[
+                              styles.equipmentName,
+                              equipment.includes(key) && styles.equipmentNameSelected,
+                            ]}
+                          >
+                            {equipmentItem.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>)}
+                </View>
+
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Instructions *</Text>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                      onPress={() => setInstructionsOpen(!instructionsOpen)}
+                    >
+                      <Text style={styles.sectionTitle}>Instructions *</Text>
+                      <ChevronDown
+                        color="#0F172A"
+                        size={20}
+                        style={{
+                          marginLeft: 8,
+                          transform: [{ rotate: instructionsOpen ? '180deg' : '0deg' }],
+                        }}
+                      />
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.addButton} onPress={addStep}>
                       <Plus color="#128AFAFF" size={18} />
                       <Text style={styles.addButtonText}>Add Step</Text>
                     </TouchableOpacity>
                   </View>
 
-                  {steps.map((step, index) => (
+                  {instructionsOpen && steps.map((step, index) => (
                     <View key={`step-${index}`} style={styles.stepRow}>
                       <View style={styles.stepNumberContainer}>
                         <Text style={styles.stepNumber}>{index + 1}.</Text>

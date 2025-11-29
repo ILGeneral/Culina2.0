@@ -7,9 +7,10 @@ export interface Recipe {
   estimatedCalories: number; // Required - AI always calculates calories
   prepTime: string; // e.g., "10 mins"
   cookTime: string; // e.g., "15 mins"
-  difficulty: 'Easy' | 'Medium' | 'Hard'; 
+  difficulty: 'Easy' | 'Medium' | 'Hard';
   cuisine?: string;
   tags: string[]; // AI generates 3-4 tags: [meal-type, cooking-style, dietary-attribute]
+  equipment?: string[]; // Array of equipment names from EQUIPMENT_DB
   imageUrl?: string;
   createdAt?: any;
   updatedAt?: any;
