@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-native";
 import * as Speech from "expo-speech";
 import { auth } from "@/lib/firebaseConfig";
+import { useFocusEffect } from "expo-router";
 import Animated, {
   FadeIn,
   useSharedValue,
@@ -68,8 +69,19 @@ const ChatBotScreen = () => {
   useEffect(() => {
     return () => {
       Speech.stop();
+      setSpeaking(false);
     };
   }, []);
+
+  // Stop TTS when navigating away from the screen
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        Speech.stop();
+        setSpeaking(false);
+      };
+    }, [])
+  );
 
   // Pulse animation for speaking or new messages
   useEffect(() => {

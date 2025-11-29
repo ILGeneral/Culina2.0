@@ -121,12 +121,6 @@ const inventoryStyle = StyleSheet.create({
     color: "#64748b",
     letterSpacing: 0.2,
   },
-  lowStockLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#ef4444",
-    marginTop: 2,
-  },
   addToCartBtn: {
     padding: 8,
     marginLeft: 8,

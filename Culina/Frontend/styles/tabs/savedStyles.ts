@@ -245,31 +245,6 @@ export const styles = StyleSheet.create({
   datePill: {
     backgroundColor: '#f1f5f9',
   },
-  swipeActionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
-    paddingRight: 8,
-  },
-  swipeAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 100,
-    borderRadius: 16,
-    marginVertical: 8,
-  },
-  shareAction: {
-    backgroundColor: '#0ea5e9',
-  },
-  deleteAction: {
-    backgroundColor: '#ef4444',
-  },
-  swipeActionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 4,
-  },
   deleteHint: {
     fontSize: 12,
     color: '#94a3b8',

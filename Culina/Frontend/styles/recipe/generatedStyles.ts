@@ -429,17 +429,18 @@ export const generatedStyles = StyleSheet.create({
   },
   scaleOptions: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center",
   },
   scaleOption: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    backgroundColor: "#F1F5F9",
     borderWidth: 2,
     borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    minWidth: 70,
     alignItems: "center",
   },
   scaleOptionActive: {
@@ -447,8 +448,8 @@ export const generatedStyles = StyleSheet.create({
     borderColor: "#128AFA",
   },
   scaleOptionText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#64748B",
   },
   scaleOptionTextActive: {

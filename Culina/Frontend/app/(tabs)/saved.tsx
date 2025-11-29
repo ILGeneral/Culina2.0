@@ -25,7 +25,6 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
-import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import Background from '@/components/Background';
 import type { Recipe } from '@/types/recipe';
@@ -180,35 +179,11 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
     onPress();
   };
 
-  const renderRightActions = () => (
-    <View style={styles.swipeActionsContainer}>
-      <TouchableOpacity
-        style={[styles.swipeAction, styles.shareAction]}
-        onPress={handleShare}
-      >
-        <Share2 size={24} color="#fff" />
-        <Text style={styles.swipeActionText}>Share</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.swipeAction, styles.deleteAction]}
-        onPress={handleDelete}
-      >
-        <Trash2 size={24} color="#fff" />
-        <Text style={styles.swipeActionText}>Delete</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <Animated.View
       entering={FadeInUp.delay(index * 100).duration(400).springify()}
     >
-      <Swipeable
-        renderRightActions={renderRightActions}
-        overshootRight={false}
-        friction={2}
-      >
-        <TouchableOpacity
+      <TouchableOpacity
           onPress={handlePress}
           onLongPress={handleDelete}
           delayLongPress={500}
@@ -305,10 +280,9 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
               </View>
             )}
           </Animated.View>
-          <Text style={styles.deleteHint}>Hold to delete or swipe left</Text>
+          <Text style={styles.deleteHint}>Hold to delete</Text>
         </View>
       </TouchableOpacity>
-      </Swipeable>
     </Animated.View>
   );
 };

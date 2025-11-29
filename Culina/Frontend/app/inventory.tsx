@@ -41,7 +41,7 @@ import Background from "@/components/Background";
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
 import InventoryHeader from "@/app/components/inventory/InventoryHeader";
 import { SkeletonCard, Toast, SectionHeader, PressableCard } from "@/app/components/inventory/InventoryComponents";
-import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed } from "lucide-react-native";
+import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed, Fish } from "lucide-react-native";
 import { getExpirationStatus, filterExpiringSoon, formatExpirationDate } from "@/lib/utils/expirationHelpers";
 import { Timestamp } from "firebase/firestore";
 
@@ -159,7 +159,7 @@ const UNIT_OPTIONS = [
 ] as const;
 
 type Unit = (typeof UNIT_OPTIONS)[number];
-type Filter = "All" | "Meat" | "Vegetables" | "Fruits";
+type Filter = "All" | "Meat" | "Vegetables" | "Fruits" | "Fish";
 
 const CAT: Record<Exclude<Filter, "All">, string[]> = {
   Meat: ["chicken", "beef", "pork", "bacon", "turkey", "ham", "sausage", "lamb"],
@@ -185,6 +185,28 @@ const CAT: Record<Exclude<Filter, "All">, string[]> = {
     "strawberry",
     "lemon",
     "lime",
+  ],
+  Fish: [
+    "salmon",
+    "tuna",
+    "cod",
+    "tilapia",
+    "shrimp",
+    "crab",
+    "lobster",
+    "clam",
+    "oyster",
+    "squid",
+    "sardine",
+    "mackerel",
+    "trout",
+    "halibut",
+    "catfish",
+    "anchovy",
+    "herring",
+    "bass",
+    "snapper",
+    "mussels",
   ],
 };
 
@@ -257,9 +279,6 @@ const InventoryItem = ({
         <Text style={styles.itemQty}>
           {item.quantity} {item.unit}
         </Text>
-        {item.quantity < 5 && (
-          <Text style={styles.lowStockLabel}>Low Stock!</Text>
-        )}
         {item.expirationDate && expirationStatus.status !== 'unknown' && (
           <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
             Expires: {formatExpirationDate(item.expirationDate)}
@@ -781,7 +800,7 @@ export default function InventoryScreen() {
               contentContainerStyle={styles.filterScroll}
             >
               {(
-                ["All", "Meat", "Vegetables", "Fruits"] as Filter[]
+                ["All", "Meat", "Vegetables", "Fruits", "Fish"] as Filter[]
               ).map((f) => (
                 <TouchableOpacity
                   key={f}
@@ -866,6 +885,8 @@ export default function InventoryScreen() {
                   <Carrot size={48} color="#9ca3af" />
                 ) : filter === "Fruits" ? (
                   <Apple size={48} color="#9ca3af" />
+                ) : filter === "Fish" ? (
+                  <Fish size={48} color="#9ca3af" />
                 ) : (
                   <Ionicons name="leaf-outline" size={48} color="#9ca3af" />
                 )}

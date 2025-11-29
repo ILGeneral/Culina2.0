@@ -491,7 +491,11 @@ const GeneratedRecipeDetailsScreen = () => {
               <View style={[styles.card, { marginTop: 20, marginBottom: 20 }]}>
                 <TouchableOpacity style={styles.cardHeader} onPress={() => setOpenInstructions((s) => !s)}>
                   <Text style={styles.cardTitle}>Instructions</Text>
-                  <ChevronDown color="#0F172A" style={{ transform: [{ rotate: openInstructions ? "180deg" : "0deg" }] }} />
+                  <ChevronDown
+                    color="#0F172A"
+                    size={20}
+                    style={{ marginLeft: 8, transform: [{ rotate: openInstructions ? "180deg" : "0deg" }] }}
+                  />
                 </TouchableOpacity>
                 {openInstructions && (
                   <View style={styles.instructionsContainer}>
