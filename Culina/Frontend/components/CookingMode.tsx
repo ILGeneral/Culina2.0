@@ -12,7 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Scale, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle, BookOpen, Camera, Award } from 'lucide-react-native';
+import { X, ChevronLeft, ChevronRight, Check, Timer, Play, Pause, RotateCcw, Package, Plus, Minus, Trash2, StickyNote, Mic, MicOff, Volume2, Bell, BellOff, Calculator, ArrowRightLeft, Edit3, PlayCircle } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutUp, FadeIn, ZoomIn, BounceIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -175,7 +175,6 @@ export default function CookingMode({
 
   // Recipe scaling state
   const [servingMultiplier, setServingMultiplier] = useState(1);
-  const [showScalingModal, setShowScalingModal] = useState(false);
 
   // Voice command state
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -698,12 +697,6 @@ export default function CookingMode({
     return scaled % 1 === 0 ? scaled.toString() : scaled.toFixed(1);
   };
 
-  const handleScaleRecipe = (multiplier: number) => {
-    setServingMultiplier(multiplier);
-    setShowScalingModal(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
   // ========== VOICE COMMAND MANAGEMENT ==========
   const speakFeedback = async (text: string) => {
     if (!voiceFeedbackEnabled) return;
@@ -1083,16 +1076,6 @@ export default function CookingMode({
 
           <View style={styles.quickActionWrapper}>
             <TouchableOpacity
-              style={[styles.quickActionButton, styles.scaleActionButton]}
-              onPress={() => setShowScalingModal(true)}
-            >
-              <Scale size={22} color="#0284c7" />
-            </TouchableOpacity>
-            <Text style={styles.quickActionLabel}>Scale</Text>
-          </View>
-
-          <View style={styles.quickActionWrapper}>
-            <TouchableOpacity
               style={[
                 styles.quickActionButton,
                 remindersEnabled ? styles.reminderActionButtonActive : styles.reminderActionButton
@@ -1406,14 +1389,6 @@ export default function CookingMode({
                     <Text style={styles.sidebarActionText}>
                       {stepNotes[currentStep] ? 'Edit Note' : 'Note'}
                     </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.sidebarActionButton}
-                    onPress={() => setShowScalingModal(true)}
-                  >
-                    <Scale size={16} color="#0284c7" />
-                    <Text style={styles.sidebarActionText}>Scale</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1850,53 +1825,6 @@ export default function CookingMode({
                   <Text style={styles.modalButtonTextConfirm}>Save Note</Text>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
-          </View>
-        </Modal>
-
-        {/* Scaling Modal */}
-        <Modal
-          visible={showScalingModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowScalingModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <Animated.View
-              entering={BounceIn.duration(400)}
-              style={styles.modalContent}
-            >
-              <Text style={styles.modalTitle}>Scale Recipe</Text>
-              <Text style={styles.modalSubtitle}>Adjust serving size</Text>
-
-              <View style={styles.scaleOptions}>
-                {[0.5, 1, 1.5, 2, 3].map((multiplier) => (
-                  <TouchableOpacity
-                    key={multiplier}
-                    style={[
-                      styles.scaleOption,
-                      servingMultiplier === multiplier && styles.scaleOptionActive,
-                    ]}
-                    onPress={() => handleScaleRecipe(multiplier)}
-                  >
-                    <Text
-                      style={[
-                        styles.scaleOptionText,
-                        servingMultiplier === multiplier && styles.scaleOptionTextActive,
-                      ]}
-                    >
-                      {multiplier}x
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel, { width: '100%' }]}
-                onPress={() => setShowScalingModal(false)}
-              >
-                <Text style={styles.modalButtonTextCancel}>Close</Text>
-              </TouchableOpacity>
             </Animated.View>
           </View>
         </Modal>
@@ -2526,10 +2454,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fdf4',
     borderColor: '#bbf7d0',
   },
-  scaleActionButton: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
   reminderActionButton: {
     backgroundColor: '#f5f3ff',
     borderColor: '#e9d5ff',
@@ -2851,36 +2775,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '400',
     color: '#9ca3af',
-  },
-  // Scaling Styles
-  scaleOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-    justifyContent: 'center',
-  },
-  scaleOption: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  scaleOptionActive: {
-    borderColor: '#0284c7',
-    backgroundColor: '#eff6ff',
-  },
-  scaleOptionText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#64748b',
-  },
-  scaleOptionTextActive: {
-    color: '#0284c7',
   },
   // Voice Control Styles
   voiceControlBar: {
