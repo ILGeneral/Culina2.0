@@ -310,6 +310,69 @@ const ChatBotScreen = () => {
     transform: [{ translateY: typingDot3.value }],
   }));
 
+  // Enhanced text renderer for formatted messages
+  const renderFormattedText = (content: string, isUser: boolean) => {
+    const lines = content.split('\n');
+    const elements: React.ReactElement[] = [];
+
+    lines.forEach((line, index) => {
+      // Skip empty lines
+      if (!line.trim()) {
+        elements.push(<View key={`space-${index}`} style={{ height: 8 }} />);
+        return;
+      }
+
+      const textStyle = isUser ? chatBotStyles.userText : chatBotStyles.botText;
+
+      // Bold headers (e.g., **Title:**)
+      if (line.includes('**')) {
+        const parts = line.split('**');
+        elements.push(
+          <Text key={`line-${index}`} style={textStyle}>
+            {parts.map((part, i) =>
+              i % 2 === 1 ? (
+                <Text key={`bold-${i}`} style={{ fontWeight: '700', fontSize: 16 }}>{part}</Text>
+              ) : (
+                <Text key={`normal-${i}`}>{part}</Text>
+              )
+            )}
+          </Text>
+        );
+      }
+      // Bullet points
+      else if (line.trim().startsWith('•')) {
+        elements.push(
+          <View key={`bullet-${index}`} style={{ flexDirection: 'row', marginLeft: 8, marginVertical: 2 }}>
+            <Text style={[textStyle, { marginRight: 8 }]}>•</Text>
+            <Text style={[textStyle, { flex: 1 }]}>{line.trim().substring(1).trim()}</Text>
+          </View>
+        );
+      }
+      // Numbered lists
+      else if (/^\d+\./.test(line.trim())) {
+        const match = line.trim().match(/^(\d+\.)\s*(.*)$/);
+        if (match) {
+          elements.push(
+            <View key={`number-${index}`} style={{ flexDirection: 'row', marginLeft: 8, marginVertical: 2 }}>
+              <Text style={[textStyle, { marginRight: 8, fontWeight: '600' }]}>{match[1]}</Text>
+              <Text style={[textStyle, { flex: 1 }]}>{match[2]}</Text>
+            </View>
+          );
+        }
+      }
+      // Regular text
+      else {
+        elements.push(
+          <Text key={`line-${index}`} style={[textStyle, { marginVertical: 2 }]}>
+            {line}
+          </Text>
+        );
+      }
+    });
+
+    return <View>{elements}</View>;
+  };
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === "user";
     return (
@@ -321,12 +384,7 @@ const ChatBotScreen = () => {
           chatBotStyles.bubble,
           isUser ? chatBotStyles.userBubble : chatBotStyles.botBubble
         ]}>
-          <Text style={[
-            chatBotStyles.messageText,
-            isUser ? chatBotStyles.userText : chatBotStyles.botText
-          ]}>
-            {item.content}
-          </Text>
+          {renderFormattedText(item.content, isUser)}
         </View>
       </View>
     );
