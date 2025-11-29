@@ -307,8 +307,7 @@ const GeneratedRecipeDetailsScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContainer,
-          // Add bottom padding if instructions exist to prevent content from being hidden behind the fixed button
-          recipe.instructions?.length && { paddingBottom: 100 }
+        recipe.instructions?.length ? { paddingBottom: 100 } : undefined
         ]}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
