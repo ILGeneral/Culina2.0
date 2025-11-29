@@ -305,7 +305,11 @@ const GeneratedRecipeDetailsScreen = () => {
 
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          // Add bottom padding if instructions exist to prevent content from being hidden behind the fixed button
+          recipe.instructions?.length && { paddingBottom: 100 }
+        ]}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >
@@ -489,44 +493,37 @@ const GeneratedRecipeDetailsScreen = () => {
           {!!recipe.instructions?.length && (
             <Animated.View entering={FadeInUp.delay(300).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20, marginBottom: 20 }]}>
-                <TouchableOpacity style={styles.cardHeader} onPress={() => setOpenInstructions((s) => !s)}>
+                <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Instructions</Text>
-                  <ChevronDown
-                    color="#0F172A"
-                    size={20}
-                    style={{ marginLeft: 8, transform: [{ rotate: openInstructions ? "180deg" : "0deg" }] }}
-                  />
-                </TouchableOpacity>
-                {openInstructions && (
-                  <View style={styles.instructionsContainer}>
-                    {recipe.instructions.map((step, idx) => (
-                      <View key={idx} style={styles.instructionStep}>
-                        <View style={styles.stepNumber}>
-                          <Text style={styles.stepNumberText}>{idx + 1}</Text>
-                        </View>
-                        <Text style={styles.stepText}>{step}</Text>
+                </View>
+                <View style={styles.instructionsContainer}>
+                  {recipe.instructions.map((step, idx) => (
+                    <View key={idx} style={styles.instructionStep}>
+                      <View style={styles.stepNumber}>
+                        <Text style={styles.stepNumberText}>{idx + 1}</Text>
                       </View>
-                    ))}
-                  </View>
-                )}
+                      <Text style={styles.stepText}>{step}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             </Animated.View>
           )}
-
-          {/* Start Cooking Button */}
-          {!!recipe.instructions?.length && (
-            <View style={styles.ctaContainer}>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={handleStartCooking}
-              >
-                <ChefHat color="white" size={20} />
-                <Text style={styles.primaryButtonText}>Start Cooking</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
       </Animated.ScrollView>
+
+      {/* Fixed Start Cooking Button */}
+      {!!recipe.instructions?.length && (
+        <View style={localStyles.fixedButtonContainer}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleStartCooking}
+          >
+            <ChefHat color="white" size={20} />
+            <Text style={styles.primaryButtonText}>Start Cooking</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Scaling Modal */}
       <Modal
@@ -607,5 +604,29 @@ const GeneratedRecipeDetailsScreen = () => {
     </AnimatedPageWrapper>
   );
 };
+
+// Local styles for the fixed button
+const localStyles = StyleSheet.create({
+  fixedButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 24,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+});
 
 export default GeneratedRecipeDetailsScreen;
