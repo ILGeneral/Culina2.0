@@ -3,7 +3,7 @@
     "name": "culina",
     "slug": "culina",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/Logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
