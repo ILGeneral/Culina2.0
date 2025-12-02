@@ -206,13 +206,15 @@ export default function HomeScreen() {
                   style={[styles.tab, activeTab === 'my' && styles.tabActive]}
                   onPress={() => setActiveTab('my')}
                 >
-                  <BookMarked
-                    size={20}
-                    color={activeTab === 'my' ? '#128AFAFF' : '#64748b'}
-                  />
-                  <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
-                    My Shared
-                  </Text>
+                  <View style={styles.tabContent}>
+                    <BookMarked
+                      size={20}
+                      color={activeTab === 'my' ? '#128AFAFF' : '#64748b'}
+                    />
+                    <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
+                      My Shared
+                    </Text>
+                  </View>
                   {mySharedRecipes.length > 0 && (
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>{mySharedRecipes.length}</Text>
@@ -224,13 +226,15 @@ export default function HomeScreen() {
                   style={[styles.tab, activeTab === 'community' && styles.tabActive]}
                   onPress={() => setActiveTab('community')}
                 >
-                  <Globe
-                    size={20}
-                    color={activeTab === 'community' ? '#128AFAFF' : '#64748b'}
-                  />
-                  <Text style={[styles.tabText, activeTab === 'community' && styles.tabTextActive]}>
-                    Community
-                  </Text>
+                  <View style={styles.tabContent}>
+                    <Globe
+                      size={20}
+                      color={activeTab === 'community' ? '#128AFAFF' : '#64748b'}
+                    />
+                    <Text style={[styles.tabText, activeTab === 'community' && styles.tabTextActive]}>
+                      Community
+                    </Text>
+                  </View>
                   {communityRecipes.length > 0 && (
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>{communityRecipes.length}</Text>

@@ -719,26 +719,21 @@ export default function RecipeMakerScreen() {
                             inputMode="decimal"
                           />
                           <View style={styles.unitContainer}>
-                            <View style={[styles.input, styles.unitPickerContainer]}>
-                              <Picker
-                                selectedValue={item.unit}
-                                onValueChange={(value) => updateIngredient(index, "unit", value)}
-                                mode="dropdown"
-                                dropdownIconColor="#128AFAFF"
-                                style={styles.unitPicker}
-                              >
-                                {UNIT_OPTIONS.map((option) => (
-                                  <Picker.Item
-                                    key={option}
-                                    label={option}
-                                    value={option}
-                                  />
-                                ))}
-                              </Picker>
-                            </View>
-                            {item.unit && (
-                              <Text style={styles.unitLabel}>{item.unit}</Text>
-                            )}
+                            <Picker
+                              selectedValue={item.unit || "g"}
+                              onValueChange={(value) => updateIngredient(index, "unit", value)}
+                              mode="dropdown"
+                              dropdownIconColor="#128AFAFF"
+                              style={styles.unitPicker}
+                            >
+                              {UNIT_OPTIONS.map((option) => (
+                                <Picker.Item
+                                  key={option}
+                                  label={option}
+                                  value={option}
+                                />
+                              ))}
+                            </Picker>
                           </View>
 
                           {ingredients.length > 1 && (
@@ -1064,26 +1059,21 @@ export default function RecipeMakerScreen() {
                         inputMode="decimal"
                       />
                       <View style={styles.unitContainer}>
-                        <View style={[styles.input, styles.unitPickerContainer]}>
-                          <Picker
-                            selectedValue={item.unit}
-                            onValueChange={(value) => updateIngredient(index, "unit", value)}
-                            mode="dropdown"
-                            dropdownIconColor="#128AFAFF"
-                            style={styles.unitPicker}
-                          >
-                            {UNIT_OPTIONS.map((option) => (
-                              <Picker.Item
-                                key={option}
-                                label={option}
-                                value={option}
-                              />
-                            ))}
-                          </Picker>
-                        </View>
-                        {item.unit && (
-                          <Text style={styles.unitLabel}>{item.unit}</Text>
-                        )}
+                        <Picker
+                          selectedValue={item.unit || "g"}
+                          onValueChange={(value) => updateIngredient(index, "unit", value)}
+                          mode="dropdown"
+                          dropdownIconColor="#128AFAFF"
+                          style={styles.unitPicker}
+                        >
+                          {UNIT_OPTIONS.map((option) => (
+                            <Picker.Item
+                              key={option}
+                              label={option}
+                              value={option}
+                            />
+                          ))}
+                        </Picker>
                       </View>
 
                       {ingredients.length > 1 && (

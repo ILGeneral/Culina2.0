@@ -411,21 +411,21 @@ const ChatBotScreen = () => {
       resizeMode="cover"
     >
       <SafeAreaView style={chatBotStyles.safeArea} edges={["top"]}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={chatBotStyles.flex}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={chatBotStyles.contentContainer}>
-              <View style={chatBotStyles.culinaWrapper} pointerEvents="none">
-                <Image
-                  source={currentPose}
-                  style={chatBotStyles.culinaModel}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={chatBotStyles.overlay}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={chatBotStyles.contentContainer}>
+            <View style={chatBotStyles.culinaWrapper} pointerEvents="none">
+              <Image
+                source={currentPose}
+                style={chatBotStyles.culinaModel}
+                resizeMode="contain"
+              />
+            </View>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={chatBotStyles.overlay}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+            >
+              <View style={chatBotStyles.overlayContent}>
                 <View style={chatBotStyles.controlsContainer}>
                   <TouchableOpacity
                     onPress={toggleVoice}
@@ -535,9 +535,9 @@ const ChatBotScreen = () => {
                   </View>
                 </View>
               </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
       </SafeAreaView>
     </ImageBackground>
   );

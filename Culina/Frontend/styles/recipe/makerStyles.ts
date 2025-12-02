@@ -118,27 +118,16 @@ export const makerStyles = StyleSheet.create({
     width: 70,
   },
   unitContainer: {
-    position: "relative",
     width: 80,
-  },
-  unitPickerContainer: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderColor: "transparent",
-    width: 80,
+    borderWidth: 2,
+    borderColor: Colors.neutral.gray,
+    borderRadius: 14,
+    backgroundColor: Colors.neutral.lightest,
+    justifyContent: "center",
   },
   unitPicker: {
     height: 48,
     color: "#0f172a",
-  },
-  unitLabel: {
-    position: "absolute",
-    top: 14,
-    left: 12,
-    fontSize: 16,
-    color: Colors.neutral.black,
-    fontWeight: "600",
-    pointerEvents: "none",
   },
   removeButton: {
     padding: 10,

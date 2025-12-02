@@ -22,8 +22,12 @@ const chatBotStyles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingBottom: 0,
     paddingTop: 0,
-    backgroundColor: "#00000033",
     zIndex: 1,
+  },
+  overlayContent: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "#00000033",
   },
   controlsContainer: {
     position: "absolute",
