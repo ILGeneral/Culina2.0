@@ -199,10 +199,7 @@ export default function RecipeMakerScreen() {
         }
 
         const data = snapshot.data() as Record<string, any>;
-        
-        // Debug: Log the raw ingredients data
-        console.log("Raw ingredients data:", JSON.stringify(data.ingredients, null, 2));
-        
+
         setCurrentRecipe(data);
         setOriginalSource(typeof data.source === "string" ? data.source : undefined);
         setTitle(typeof data.title === "string" ? data.title : "");
@@ -212,25 +209,17 @@ export default function RecipeMakerScreen() {
           ? data.ingredients.map((item: any) => {
               // Case 1: Item is a plain string
               if (typeof item === "string") {
-                console.log("Parsing string ingredient:", item);
-                const parsed = parseIngredientString(item);
-                console.log("Parsed result:", parsed);
-                return parsed;
+                return parseIngredientString(item);
               }
               
               // Case 2: Item is an object
               const itemQty = typeof item?.qty === "string" ? item.qty.trim() : "";
               const itemUnit = typeof item?.unit === "string" ? item.unit.trim() : "";
               const itemName = typeof item?.name === "string" ? item.name.trim() : "";
-              
-              console.log("Object ingredient:", { name: itemName, qty: itemQty, unit: itemUnit });
-              
+
               // If qty and unit are empty but name has content, parse the name
               if ((!itemQty && !itemUnit) && itemName) {
-                console.log("Parsing name field:", itemName);
-                const parsed = parseIngredientString(itemName);
-                console.log("Parsed from name:", parsed);
-                return parsed;
+                return parseIngredientString(itemName);
               }
               
               // Otherwise return as-is
@@ -241,8 +230,7 @@ export default function RecipeMakerScreen() {
               };
             })
           : [];
-        
-        console.log("Final loaded ingredients:", JSON.stringify(loadedIngredients, null, 2));
+
         setIngredients(
           loadedIngredients.length > 0 ? loadedIngredients : [{ name: "", qty: "", unit: "" }]
         );

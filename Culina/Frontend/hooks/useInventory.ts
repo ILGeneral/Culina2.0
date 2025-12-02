@@ -64,9 +64,6 @@ export function useInventory() {
             ...d.data(),
           })) as Ingredient[];
 
-          console.log(`[useInventory] Snapshot updated: ${items.length} items`);
-          console.log('[useInventory] Current inventory:', items.map(i => `${i.name}: ${i.quantity}`));
-
           setInventory(items);
           setLoading(false);
         },
@@ -104,14 +101,12 @@ export function useInventory() {
   const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
     if (!userId) throw new Error("Not authenticated");
 
-    console.log(`[useInventory] Updating ingredient ${id} with:`, updates);
     const ref = doc(db, "users", userId, "ingredients", id);
     try {
       await updateDoc(ref, {
         ...updates,
         updatedAt: new Date(),
       });
-      console.log(`[useInventory] Successfully updated ingredient ${id}`);
     } catch (error) {
       console.error(`[useInventory] Error updating ingredient ${id}:`, error);
       throw error;
@@ -122,11 +117,9 @@ export function useInventory() {
   const deleteIngredient = async (id: string) => {
     if (!userId) throw new Error("Not authenticated");
 
-    console.log(`[useInventory] Deleting ingredient ${id}`);
     const ref = doc(db, "users", userId, "ingredients", id);
     try {
       await deleteDoc(ref);
-      console.log(`[useInventory] Successfully deleted ingredient ${id}`);
     } catch (error) {
       console.error(`[useInventory] Error deleting ingredient ${id}:`, error);
       throw error;
