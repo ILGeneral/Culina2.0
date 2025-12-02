@@ -22,6 +22,7 @@ import { Send, Volume2, VolumeX, ChevronUp, ChevronDown } from "lucide-react-nat
 import * as Speech from "expo-speech";
 import { auth } from "@/lib/firebaseConfig";
 import { useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
   FadeIn,
   useSharedValue,
@@ -47,6 +48,9 @@ const CULINA_POSES: ImageSourcePropType[] = [
   require("@/assets/chatbotAssets/culinaModels/culinaPose3.png"),
 ];
 
+const CHAT_STORAGE_KEY = '@culina/chatbot_messages';
+const MAX_STORED_MESSAGES = 50; // Limit stored messages to prevent excessive storage usage
+
 const ChatBotScreen = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([{
     id: "welcome",
@@ -59,6 +63,7 @@ const ChatBotScreen = () => {
   const [speaking, setSpeaking] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [currentPose, setCurrentPose] = useState<ImageSourcePropType>(CULINA_POSES[0]);
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   // Animation values
@@ -67,6 +72,56 @@ const ChatBotScreen = () => {
   const typingDot1 = useSharedValue(0);
   const typingDot2 = useSharedValue(0);
   const typingDot3 = useSharedValue(0);
+
+  // Load messages from AsyncStorage on mount
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setMessagesLoaded(true);
+          return;
+        }
+
+        const storageKey = `${CHAT_STORAGE_KEY}_${user.uid}`;
+        const storedMessages = await AsyncStorage.getItem(storageKey);
+
+        if (storedMessages) {
+          const parsed = JSON.parse(storedMessages) as ChatMessage[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chat messages:', error);
+      } finally {
+        setMessagesLoaded(true);
+      }
+    };
+
+    loadMessages();
+  }, []);
+
+  // Save messages to AsyncStorage whenever they change
+  useEffect(() => {
+    if (!messagesLoaded) return; // Don't save until initial load is complete
+
+    const saveMessages = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const storageKey = `${CHAT_STORAGE_KEY}_${user.uid}`;
+        // Keep only the most recent messages to prevent excessive storage usage
+        const messagesToStore = messages.slice(-MAX_STORED_MESSAGES);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(messagesToStore));
+      } catch (error) {
+        console.error('Failed to save chat messages:', error);
+      }
+    };
+
+    saveMessages();
+  }, [messages, messagesLoaded]);
 
   useEffect(() => {
     return () => {
