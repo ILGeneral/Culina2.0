@@ -8,6 +8,9 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
@@ -124,71 +127,79 @@ export default function Login() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-      <View style={styles.inner}>
-      <Image
-        source={require("@/assets/login/culinalogo.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.title}>Welcome to Culina!</Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.inner}>
+              <Image
+                source={require("@/assets/login/culinalogo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.title}>Welcome to Culina!</Text>
 
-      <View style={styles.inputContainer}>
-        <Mail size={20} color="#6b7280" style={styles.inputIcon} />
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          style={styles.inputWithIcon}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-      </View>
+              <View style={styles.inputContainer}>
+                <Mail size={20} color="#6b7280" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.inputWithIcon}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
 
-      <View style={styles.inputContainer}>
-        <Lock size={20} color="#6b7280" style={styles.inputIcon} />
-        <TextInput
-          placeholder="Password"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
-          style={styles.inputWithIcon}
-        />
-        <TouchableOpacity
-          onPress={() => setShowPassword(!showPassword)}
-          style={styles.eyeIcon}
-        >
-          {showPassword ? (
-            <EyeOff size={20} color="#6b7280" />
-          ) : (
-            <Eye size={20} color="#6b7280" />
-          )}
-        </TouchableOpacity>
-      </View>
+              <View style={styles.inputContainer}>
+                <Lock size={20} color="#6b7280" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Password"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  style={styles.inputWithIcon}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color="#6b7280" />
+                  ) : (
+                    <Eye size={20} color="#6b7280" />
+                  )}
+                </TouchableOpacity>
+              </View>
 
-      <TouchableOpacity
-        onPress={() => setRememberMe(!rememberMe)}
-        style={styles.rememberMeContainer}
-      >
-        {rememberMe ? (
-          <CheckSquare size={20} color="#128AFA" />
-        ) : (
-          <Square size={20} color="#6b7280" />
-        )}
-        <Text style={styles.rememberMeText}>Remember Me</Text>
-      </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setRememberMe(!rememberMe)}
+                style={styles.rememberMeContainer}
+              >
+                {rememberMe ? (
+                  <CheckSquare size={20} color="#128AFA" />
+                ) : (
+                  <Square size={20} color="#6b7280" />
+                )}
+                <Text style={styles.rememberMeText}>Remember Me</Text>
+              </TouchableOpacity>
 
-      <TouchableOpacity onPress={handleLogin} style={styles.button}>
-        <Text style={styles.buttonText}>Login</Text>
-      </TouchableOpacity>
+              <TouchableOpacity onPress={handleLogin} style={styles.button}>
+                <Text style={styles.buttonText}>Login</Text>
+              </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}>
-        <Text style={styles.linkText}>
-          Don't have an account? <Text style={styles.linkHighlight}>Sign up!</Text>
-        </Text>
-      </TouchableOpacity>
-      </View>
+              <TouchableOpacity onPress={() => router.push("/(auth)/register" as unknown as never)}>
+                <Text style={styles.linkText}>
+                  Don't have an account? <Text style={styles.linkHighlight}>Sign up!</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </Background>
   );

@@ -89,7 +89,7 @@ const parseDateInput = (input: string): Date | null => {
 
   const date = new Date(year, month - 1, day);
 
-  // Check if the date is valid (e.g., not Feb 30)
+  // Check if the date is valid 
   if (date.getMonth() !== month - 1 || date.getDate() !== day) {
     return null;
   }
@@ -120,22 +120,22 @@ const getPlaceholderIcon = (ingredientName: string, ingredientType?: string | nu
   // Fallback to keyword matching for custom ingredients
   const lowerName = ingredientName.toLowerCase();
 
-  // Check if it's meat
+  // Meat
   if (["chicken", "beef", "pork", "bacon", "turkey", "ham", "sausage", "lamb", "meat", "steak", "fish", "salmon", "tuna", "shrimp", "duck", "veal"].some(m => lowerName.includes(m))) {
     return { Icon: Beef, color: "#DC2626" }; // Red for meat
   }
 
-  // Check if it's vegetables
+  // Vegetables
   if (["tomato", "onion", "garlic", "carrot", "potato", "broccoli", "spinach", "lettuce", "cucumber", "pepper", "celery", "cabbage", "kale", "vegetable", "eggplant", "zucchini", "asparagus"].some(v => lowerName.includes(v))) {
     return { Icon: Carrot, color: "#16A34A" }; // Green for vegetables
   }
 
-  // Check if it's fruits
+  // Fruits
   if (["apple", "banana", "mango", "orange", "grape", "pineapple", "strawberry", "lemon", "lime", "berry", "fruit", "peach", "pear", "watermelon", "cherry", "plum", "kiwi"].some(f => lowerName.includes(f))) {
     return { Icon: Apple, color: "#DC2626" }; // Red for fruits
   }
 
-  // Default icon for other ingredients
+  // Misc Ingredients
   return { Icon: UtensilsCrossed, color: "#6B7280" }; // Gray for other
 };
 
