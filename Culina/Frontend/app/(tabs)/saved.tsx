@@ -354,7 +354,14 @@ export default function SavedRecipesScreen() {
         setRecipes(fetched);
         setLoading(false);
       },
-      (error) => {
+      (error: any) => {
+        // Silently handle permission-denied errors (occurs when user logs out)
+        if (error?.code === 'permission-denied') {
+          console.log('User logged out, cleaning up recipes listener');
+          setRecipes([]);
+          setLoading(false);
+          return;
+        }
         console.error('Saved recipes snapshot error:', error);
         Alert.alert('Error', 'Failed to fetch recipes.');
         setLoading(false);
@@ -362,25 +369,37 @@ export default function SavedRecipesScreen() {
     );
 
     const invRef = collection(db, 'users', uid, 'ingredients');
-    unsubscribeInventory = onSnapshot(invRef, (snapshot) => {
-      const counts: Record<string, number> = {};
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data() as { name?: string; quantity?: number };
-        if (!data?.name) return;
-        const baseKey = data.name.toLowerCase();
-        const qty = typeof data.quantity === 'number' ? data.quantity : 0;
-        counts[baseKey] = qty;
-        const normalized = formatNameOnly(data.name).toLowerCase();
-        if (normalized && normalized !== baseKey) {
-          counts[normalized] = qty;
-        }
-        if (baseKey.endsWith('s')) {
-          counts[baseKey.slice(0, -1)] = qty;
-        }
-      });
+    unsubscribeInventory = onSnapshot(
+      invRef,
+      (snapshot) => {
+        const counts: Record<string, number> = {};
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data() as { name?: string; quantity?: number };
+          if (!data?.name) return;
+          const baseKey = data.name.toLowerCase();
+          const qty = typeof data.quantity === 'number' ? data.quantity : 0;
+          counts[baseKey] = qty;
+          const normalized = formatNameOnly(data.name).toLowerCase();
+          if (normalized && normalized !== baseKey) {
+            counts[normalized] = qty;
+          }
+          if (baseKey.endsWith('s')) {
+            counts[baseKey.slice(0, -1)] = qty;
+          }
+        });
 
-      setInventoryCounts(counts);
-    });
+        setInventoryCounts(counts);
+      },
+      (error: any) => {
+        // Silently handle permission-denied errors (occurs when user logs out)
+        if (error?.code === 'permission-denied') {
+          console.log('User logged out, cleaning up inventory listener');
+          setInventoryCounts({});
+          return;
+        }
+        console.error('Inventory snapshot error:', error);
+      }
+    );
 
     return () => {
       unsubscribeInventory?.();

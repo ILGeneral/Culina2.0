@@ -67,8 +67,17 @@ export function useInventory() {
           setInventory(items);
           setLoading(false);
         },
-        (error) => {
+        (error: any) => {
           if (!isMounted) return;
+
+          // Silently handle permission-denied errors (occurs when user logs out)
+          if (error?.code === 'permission-denied') {
+            console.log('User logged out, cleaning up inventory listener');
+            setInventory([]);
+            setLoading(false);
+            return;
+          }
+
           console.error("Inventory snapshot error:", error);
           setLoading(false);
         }
