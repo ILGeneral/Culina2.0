@@ -72,6 +72,7 @@ export async function submitRating(
         userProfilePicture: userProfilePicture || null,
         rating,
         review: review || null,
+        verified: false, // Add verified field (required by Firestore rules)
         helpfulCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
