@@ -18,7 +18,6 @@ const loadIngredientList = async (): Promise<MealDbIngredient[]> => {
     listPromise = fetch("https://www.themealdb.com/api/json/v1/1/list.php?i=list")
       .then(async (response) => {
         if (!response.ok) {
-          console.warn("MealDB ingredient list failed", response.status, response.statusText);
           return [] as MealDbIngredient[];
         }
 
@@ -50,8 +49,7 @@ const loadIngredientList = async (): Promise<MealDbIngredient[]> => {
         allIngredients = Array.from(uniqueByName.values());
         return allIngredients;
       })
-      .catch((error) => {
-        console.warn("MealDB ingredient list error", error);
+      .catch(() => {
         return [] as MealDbIngredient[];
       })
       .finally(() => {
@@ -67,8 +65,8 @@ export const hasMealDbIngredientsLoaded = () => Array.isArray(allIngredients) &&
 export const prefetchMealDbIngredients = async () => {
   try {
     await loadIngredientList();
-  } catch (error) {
-    console.warn("MealDB ingredient prefetch error", error);
+  } catch {
+    // Silently fail 
   }
 };
 
@@ -194,8 +192,7 @@ export const searchMealDbIngredients = async (
     }
 
     return Array.from(combinedSet.values()).slice(0, normalizedLimit);
-  } catch (error) {
-    console.warn("MealDB ingredient fallback error", error);
+  } catch {
     return [];
   }
 };

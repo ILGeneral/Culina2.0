@@ -272,19 +272,13 @@ export const generateRecipe = async (
     // Get Firebase Auth token
     const auth = getAuth();
     const user = auth.currentUser;
-    
+
     if (!user) {
       throw new Error('Not authenticated - please log in');
     }
-    
-    console.log('Getting auth token...');
+
     const token = await user.getIdToken();
-    console.log('Token obtained');
-    
-    console.log('Calling backend API...');
-    console.log('Ingredients:', ingredients);
-    console.log('Preferences:', preferences);
-    
+
     // Call Vercel backend API with updated model
     const payload: GenerateRecipePayload = {
       model: 'llama-3.1-8b-instant',
@@ -301,10 +295,7 @@ export const generateRecipe = async (
       body: JSON.stringify(payload),
     });
 
-    console.log(' Response status:', response.status);
-    
     const responseText = await response.text();
-    console.log(' Raw response:', responseText.substring(0, 200));
 
     if (!response.ok) {
       throw new Error(`Backend error (${response.status}): ${responseText}`);
@@ -320,12 +311,9 @@ export const generateRecipe = async (
 
     const normalized = normalizeResponse(data);
 
-    console.log(" Recipes generated:", normalized.recipes.length);
-
     return normalized;
   } catch (err: any) {
-    console.error(" Recipe generation failed:", err);
-    console.error("Error message:", err.message);
+    console.error("Recipe generation failed:", err);
     throw err;
   }
 };
@@ -338,7 +326,6 @@ const normalizeResponse = (data: unknown): GenerateRecipesResponse => {
   // Check if backend returned a single recipe object
   const maybeSingleRecipe = (data as { recipe?: unknown }).recipe;
   if (maybeSingleRecipe && typeof maybeSingleRecipe === 'object') {
-    console.log('Backend returned single recipe, wrapping in array');
     return { recipes: [maybeSingleRecipe as Recipe] };
   }
 
@@ -351,7 +338,6 @@ const normalizeResponse = (data: unknown): GenerateRecipesResponse => {
   if (maybeRecipes.length === 0) {
     throw new Error('Backend returned empty recipes array');
   }
-  console.log(`Received ${maybeRecipes.length} recipe(s)`);
 
   const normalizedRecipes = maybeRecipes
     .map((item) => normalizeRecipeData(item as Recipe))
