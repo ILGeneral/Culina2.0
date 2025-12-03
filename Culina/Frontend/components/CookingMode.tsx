@@ -17,7 +17,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import * as ImagePicker from 'expo-image-picker';
 import { detectTechniques, type TechniqueGuide } from '@/lib/cookingTechniques';
 import TechniqueGuideModal from './TechniqueGuideModal';
 import { detectEquipment, groupEquipmentByCategory, type Equipment } from '@/lib/equipmentDetector';
