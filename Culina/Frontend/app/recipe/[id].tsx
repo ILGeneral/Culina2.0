@@ -9,7 +9,6 @@ import {
   Alert,
   Modal,
   TextInput,
-  ScrollView,
 } from "react-native";
 import { styles } from "@/styles/recipe/recipeDetailStyles";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -29,8 +28,7 @@ import {
   Pencil,
   Star,
   Scale,
-  Plus,
-  X,
+  Sparkles,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import CookingMode from "@/components/CookingMode";
@@ -49,12 +47,11 @@ import { useInventory } from "@/hooks/useInventory";
 import { parseIngredient } from "@/lib/ingredientMatcher";
 import { shareRecipe, unshareRecipe, isRecipeShared } from "@/lib/utils/shareRecipe";
 import { normalizeRecipeSource, isAISource } from "@/lib/utils/recipeSource";
-import { StarRating } from "@/components/ratings/StarRating";
 import { RatingModal } from "@/components/ratings/RatingModal";
-import { searchMealDbIngredients, type MealDbIngredient, prefetchMealDbIngredients } from "@/lib/mealdb";
 import { getUserRating } from "@/lib/utils/rateRecipe";
 import type { Rating } from "@/types/rating";
 import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
+import { suggestIngredientSubstitutes, type IngredientSubstitute } from "@/lib/suggestIngredientSubstitutes";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -153,18 +150,17 @@ export default function RecipeDetailsScreen() {
   const [showScalingModal, setShowScalingModal] = useState(false);
   const [customScaleInput, setCustomScaleInput] = useState("");
 
-  // Ingredient suggestion modal state
-  const [showIngredientModal, setShowIngredientModal] = useState(false);
-  const [selectedIngredient, setSelectedIngredient] = useState<{name: string; qty?: string; unit?: string} | null>(null);
-  const [ingredientSuggestions, setIngredientSuggestions] = useState<MealDbIngredient[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  // Alternative ingredient state - now tracking per ingredient
+  const [expandedIngredientIndex, setExpandedIngredientIndex] = useState<number | null>(null);
+  const [alternativeSuggestions, setAlternativeSuggestions] = useState<IngredientSubstitute[]>([]);
+  const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
   const shareButtonScale = useSharedValue(1);
 
   // Use inventory hook for deduction
-  const { inventory, updateIngredient, deleteIngredient, addIngredient } = useInventory();
+  const { inventory, updateIngredient, deleteIngredient } = useInventory();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -276,51 +272,44 @@ export default function RecipeDetailsScreen() {
     }
   };
 
-  // Handle adding ingredient to inventory with suggestions
-  const handleAddIngredient = async (ingredient: {name: string; qty?: string; unit?: string}) => {
-    setSelectedIngredient(ingredient);
-    setShowIngredientModal(true);
-    setLoadingSuggestions(true);
+  // Handle showing alternative ingredients
+  const handleShowAlternatives = async (ingredientName: string, index: number) => {
+    if (!recipe) return;
+
+    // If clicking the same ingredient, toggle it closed
+    if (expandedIngredientIndex === index) {
+      setExpandedIngredientIndex(null);
+      setAlternativeSuggestions([]);
+      return;
+    }
+
+    // Expand this ingredient
+    setExpandedIngredientIndex(index);
+    setLoadingAlternatives(true);
+    setAlternativeSuggestions([]);
 
     try {
-      await prefetchMealDbIngredients();
-      const suggestions = await searchMealDbIngredients(ingredient.name, 5);
-      setIngredientSuggestions(suggestions);
-    } catch (error) {
-      console.error("Failed to load suggestions:", error);
-      setIngredientSuggestions([]);
-    } finally {
-      setLoadingSuggestions(false);
-    }
-  };
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-  const handleSelectSuggestion = (suggestion: MealDbIngredient) => {
-    Alert.alert(
-      "Add to Inventory",
-      `Add ${suggestion.name} to your pantry?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Add",
-          onPress: async () => {
-            try {
-              await addIngredient({
-                name: suggestion.name,
-                quantity: parseFloat(selectedIngredient?.qty || "1") || 1,
-                unit: selectedIngredient?.unit || "pcs",
-                type: suggestion.type || undefined,
-              });
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Success", `${suggestion.name} added to your pantry!`);
-              setShowIngredientModal(false);
-            } catch (error) {
-              console.error("Failed to add ingredient:", error);
-              Alert.alert("Error", "Failed to add ingredient to pantry");
-            }
-          }
-        }
-      ]
-    );
+      const response = await suggestIngredientSubstitutes({
+        recipeTitle: recipe.title,
+        recipeDescription: recipe.description,
+        targetIngredient: ingredientName,
+        inventory: inventory,
+      });
+
+      setAlternativeSuggestions(response.suggestions);
+
+      if (response.suggestions.length > 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.error("Failed to load alternatives:", error);
+      Alert.alert("Error", "Failed to load alternative ingredients. Please try again.");
+      setAlternativeSuggestions([]);
+    } finally {
+      setLoadingAlternatives(false);
+    }
   };
 
   // Parse ingredient quantity from string using the robust ingredientMatcher utility
@@ -1001,52 +990,6 @@ export default function RecipeDetailsScreen() {
             </View>
           </Animated.View>
 
-          {/* Rating Section - Collapsed - Only show for shared recipes */}
-          {source === 'shared' && (
-            <Animated.View entering={FadeInUp.delay(150).duration(500).springify()}>
-              <TouchableOpacity
-                style={styles.collapsedRatingCard}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push({
-                    pathname: `/recipe/[id]/ratings` as any,
-                    params: {
-                      id: String(id),
-                      title: recipe.title,
-                      averageRating: recipe.ratings?.averageRating || 0,
-                      totalRatings: recipe.ratings?.totalRatings || 0,
-                      ratingDistribution: JSON.stringify(recipe.ratings?.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }),
-                    },
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.collapsedRatingContent}>
-                  <View style={styles.collapsedRatingLeft}>
-                    <Text style={styles.collapsedRatingTitle}>Community Ratings</Text>
-                    {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
-                      <View style={styles.collapsedRatingInfo}>
-                        <StarRating
-                          rating={recipe.ratings.averageRating}
-                          size={18}
-                          showLabel
-                        />
-                        <Text style={styles.collapsedRatingCount}>
-                          ({recipe.ratings.totalRatings})
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.noRatingsText}>No ratings yet</Text>
-                    )}
-                  </View>
-                  <View style={styles.collapsedRatingButton}>
-                    <Text style={styles.collapsedRatingButtonText}>See Ratings</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-
           {!!recipe.ingredients?.length && (
             <Animated.View entering={FadeInUp.delay(200).duration(500).springify()}>
               <View style={[styles.card, { marginTop: 20 }]}>
@@ -1105,23 +1048,63 @@ export default function RecipeDetailsScreen() {
                         suffix = [scaledQty, unit].filter(Boolean).join(" ");
                       }
 
+                      const isExpanded = expandedIngredientIndex === idx;
+
                       return (
-                        <View key={idx} style={styles.ingredientRow}>
-                          <View style={styles.ingredientBullet} />
-                          <Text style={[styles.ingredientText, { flex: 1 }]}>
-                            {ingName}
-                            {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
-                          </Text>
-                          <TouchableOpacity
-                            style={{
-                              padding: 8,
-                              borderRadius: 8,
-                              backgroundColor: '#128AFA15',
-                            }}
-                            onPress={() => handleAddIngredient({ name: ingName, qty: scaledQty, unit })}
-                          >
-                            <Plus size={18} color="#128AFAFF" />
-                          </TouchableOpacity>
+                        <View key={idx}>
+                          <View style={styles.ingredientRow}>
+                            <View style={styles.ingredientBullet} />
+                            <Text style={[styles.ingredientText, { flex: 1 }]}>
+                              {ingName}
+                              {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
+                            </Text>
+                            <TouchableOpacity
+                              style={{
+                                padding: 8,
+                                borderRadius: 8,
+                                backgroundColor: isExpanded ? '#F59E0B30' : '#F59E0B15',
+                              }}
+                              onPress={() => handleShowAlternatives(ingName, idx)}
+                            >
+                              <Sparkles size={18} color="#F59E0B" />
+                            </TouchableOpacity>
+                          </View>
+
+                          {/* Show alternatives below this ingredient when expanded */}
+                          {isExpanded && (
+                            <View style={styles.alternativesContainer}>
+                              {loadingAlternatives ? (
+                                <View style={styles.alternativesLoading}>
+                                  <ActivityIndicator size="small" color="#F59E0B" />
+                                  <Text style={styles.alternativesLoadingText}>Finding alternatives...</Text>
+                                </View>
+                              ) : alternativeSuggestions.length > 0 ? (
+                                <>
+                                  <Text style={styles.alternativesTitle}>Alternative ingredients:</Text>
+                                  {alternativeSuggestions.map((suggestion, altIdx) => (
+                                    <View key={altIdx} style={styles.alternativeItem}>
+                                      <View style={styles.alternativeIconContainer}>
+                                        <Sparkles size={16} color="#F59E0B" />
+                                      </View>
+                                      <View style={styles.alternativeContent}>
+                                        <View style={styles.alternativeHeader}>
+                                          <Text style={styles.alternativeName}>{suggestion.ingredient}</Text>
+                                          {suggestion.inInventory && (
+                                            <View style={styles.inInventoryBadge}>
+                                              <Text style={styles.inInventoryText}>In Pantry</Text>
+                                            </View>
+                                          )}
+                                        </View>
+                                        <Text style={styles.alternativeReason}>{suggestion.reason}</Text>
+                                      </View>
+                                    </View>
+                                  ))}
+                                </>
+                              ) : (
+                                <Text style={styles.noAlternativesText}>No alternatives found.</Text>
+                              )}
+                            </View>
+                          )}
                         </View>
                       );
                     })}
@@ -1214,7 +1197,6 @@ export default function RecipeDetailsScreen() {
           recipeName={recipe.title}
           existingRating={userRating?.rating || 0}
           existingReview={userRating?.review}
-          existingVerified={userRating?.verified}
         />
       )}
 
@@ -1273,90 +1255,6 @@ export default function RecipeDetailsScreen() {
                   <Text style={styles.customScaleButtonText}>Apply</Text>
                 </TouchableOpacity>
               </View>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Ingredient Suggestion Modal */}
-      <Modal
-        visible={showIngredientModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowIngredientModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowIngredientModal(false)}
-        >
-          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Add to Inventory</Text>
-                <TouchableOpacity
-                  onPress={() => setShowIngredientModal(false)}
-                  style={styles.modalCloseButton}
-                >
-                  <X size={24} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.modalSubtitle}>
-                {selectedIngredient?.name}
-                {selectedIngredient?.qty && selectedIngredient?.unit
-                  ? ` (${selectedIngredient.qty} ${selectedIngredient.unit})`
-                  : ''
-                }
-              </Text>
-
-              {loadingSuggestions ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#128AFAFF" />
-                  <Text style={styles.loadingText}>Finding suggestions...</Text>
-                </View>
-              ) : ingredientSuggestions.length > 0 ? (
-                <>
-                  <Text style={styles.suggestionsTitle}>Similar ingredients:</Text>
-                  <ScrollView style={styles.suggestionsList}>
-                    {ingredientSuggestions.map((suggestion, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.suggestionItem}
-                        onPress={() => handleSelectSuggestion(suggestion)}
-                      >
-                        <View style={styles.suggestionContent}>
-                          <Text style={styles.suggestionName}>{suggestion.name}</Text>
-                          {suggestion.type && (
-                            <Text style={styles.suggestionType}>{suggestion.type}</Text>
-                          )}
-                        </View>
-                        <Plus size={20} color="#128AFAFF" />
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </>
-              ) : (
-                <View style={styles.noSuggestionsContainer}>
-                  <Text style={styles.noSuggestionsText}>
-                    No suggestions found. Add the original ingredient?
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.addOriginalButton}
-                    onPress={() => {
-                      if (selectedIngredient) {
-                        handleSelectSuggestion({
-                          name: selectedIngredient.name,
-                          type: undefined,
-                        });
-                      }
-                    }}
-                  >
-                    <Plus size={20} color="#fff" />
-                    <Text style={styles.addOriginalButtonText}>Add "{selectedIngredient?.name}"</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
           </TouchableOpacity>
         </TouchableOpacity>

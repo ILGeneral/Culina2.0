@@ -24,7 +24,6 @@ interface RatingModalProps {
   recipeName: string;
   existingRating?: number;
   existingReview?: string;
-  existingVerified?: boolean;
 }
 
 export function RatingModal({
@@ -34,11 +33,9 @@ export function RatingModal({
   recipeName,
   existingRating = 0,
   existingReview = '',
-  existingVerified = false,
 }: RatingModalProps) {
   const [rating, setRating] = useState(existingRating);
   const [review, setReview] = useState(existingReview);
-  const [verified, setVerified] = useState(existingVerified);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset state when modal opens with new data
@@ -46,9 +43,8 @@ export function RatingModal({
     if (visible) {
       setRating(existingRating);
       setReview(existingReview);
-      setVerified(existingVerified);
     }
-  }, [visible, existingRating, existingReview, existingVerified]);
+  }, [visible, existingRating, existingReview]);
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -63,8 +59,7 @@ export function RatingModal({
     const result = await submitRating(
       sharedRecipeId,
       rating,
-      review.trim() || undefined,
-      verified
+      review.trim() || undefined
     );
 
     setSubmitting(false);
@@ -167,23 +162,6 @@ export function RatingModal({
                 />
                 <Text style={styles.characterCount}>{review.length}/500</Text>
               </View>
-
-              {/* Verified Checkbox */}
-              <TouchableOpacity
-                style={styles.verifiedCheckbox}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setVerified(!verified);
-                }}
-                disabled={submitting}
-              >
-                <View style={[styles.checkbox, verified && styles.checkboxChecked]}>
-                  {verified && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.checkboxLabel}>
-                  I actually cooked this recipe
-                </Text>
-              </TouchableOpacity>
             </ScrollView>
 
             {/* Action Buttons */}

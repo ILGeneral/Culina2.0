@@ -18,13 +18,11 @@ import Animated, {
 } from "react-native-reanimated";
 
 type SortOption = 'recent' | 'rating' | 'ratingCount';
-type FilterOption = 'all' | '4plus' | '3plus';
 
 export default function HomeScreen() {
   const { mySharedRecipes, communityRecipes, loading, error, loadingMore, hasMore, loadMoreCommunityRecipes } = useSharedRecipes();
   const [activeTab, setActiveTab] = useState<'my' | 'community'>('my');
   const [sortBy, setSortBy] = useState<SortOption>('recent');
-  const [filterRating, setFilterRating] = useState<FilterOption>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [showNavigation, setShowNavigation] = useState(true);
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
@@ -81,16 +79,6 @@ export default function HomeScreen() {
   const displayedRecipes = useMemo(() => {
     let recipes = activeTab === 'my' ? mySharedRecipes : communityRecipes;
 
-    // Apply rating filter
-    if (filterRating !== 'all') {
-      recipes = recipes.filter((recipe) => {
-        const avgRating = recipe.ratings?.averageRating || 0;
-        if (filterRating === '4plus') return avgRating >= 4;
-        if (filterRating === '3plus') return avgRating >= 3;
-        return true;
-      });
-    }
-
     // Apply sorting
     recipes = [...recipes].sort((a, b) => {
       if (sortBy === 'rating') {
@@ -108,7 +96,7 @@ export default function HomeScreen() {
     });
 
     return recipes;
-  }, [activeTab, mySharedRecipes, communityRecipes, sortBy, filterRating]);
+  }, [activeTab, mySharedRecipes, communityRecipes, sortBy]);
 
   if (loading) {
     return (
@@ -284,40 +272,6 @@ export default function HomeScreen() {
                 </View>
               </View>
 
-              {/* Filter Options */}
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Filter by Rating</Text>
-                <View style={styles.filterButtons}>
-                  <TouchableOpacity
-                    style={[styles.filterButton, filterRating === 'all' && styles.filterButtonActive]}
-                    onPress={() => setFilterRating('all')}
-                  >
-                    <Text style={[styles.filterButtonText, filterRating === 'all' && styles.filterButtonTextActive]}>
-                      All
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.filterButton, filterRating === '4plus' && styles.filterButtonActive]}
-                    onPress={() => setFilterRating('4plus')}
-                  >
-                    <Star size={16} color={filterRating === '4plus' ? '#fff' : '#FFD700'} fill={filterRating === '4plus' ? '#fff' : '#FFD700'} />
-                    <Text style={[styles.filterButtonText, filterRating === '4plus' && styles.filterButtonTextActive]}>
-                      4+ Stars
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.filterButton, filterRating === '3plus' && styles.filterButtonActive]}
-                    onPress={() => setFilterRating('3plus')}
-                  >
-                    <Star size={16} color={filterRating === '3plus' ? '#fff' : '#FFD700'} fill={filterRating === '3plus' ? '#fff' : '#FFD700'} />
-                    <Text style={[styles.filterButtonText, filterRating === '3plus' && styles.filterButtonTextActive]}>
-                      3+ Stars
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
             </View>
           )}
               </View>

@@ -115,6 +115,7 @@ type AnimatedRecipeCardProps = {
     ratings?: {
       averageRating: number;
       totalRatings: number;
+      ratingDistribution?: { 1: number; 2: number; 3: number; 4: number; 5: number };
     };
   };
   index: number;
@@ -149,6 +150,21 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
       params: {
         id: recipe.id,
         title: recipe.title,
+      },
+    });
+  };
+
+  const handleRatingsPress = () => {
+    if (!recipe?.id) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: `/recipe/[id]/ratings` as any,
+      params: {
+        id: recipe.id,
+        title: recipe.title,
+        averageRating: recipe.ratings?.averageRating || 0,
+        totalRatings: recipe.ratings?.totalRatings || 0,
+        ratingDistribution: JSON.stringify(recipe.ratings?.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }),
       },
     });
   };
@@ -220,43 +236,59 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
           </Animated.View>
 
           {recipe.isShared && (
-            <>
-              <View style={styles.footerRow}>
-                {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
-                  <View style={styles.ratingContainer}>
-                    <StarRating
-                      rating={recipe.ratings.averageRating}
-                      size={16}
-                      showLabel
-                      showCount
-                      count={recipe.ratings.totalRatings}
-                    />
-                  </View>
-                ) : (
+            <View style={styles.interactionSection}>
+              {/* Ratings Display */}
+              {recipe.ratings && recipe.ratings.totalRatings > 0 ? (
+                <TouchableOpacity
+                  style={styles.ratingsDisplayRow}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRatingsPress();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <StarRating
+                    rating={recipe.ratings.averageRating}
+                    size={16}
+                    showLabel
+                    showCount
+                    count={recipe.ratings.totalRatings}
+                  />
+                  <Text style={styles.seeRatingsText}>• See all</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.ratingsDisplayRow}>
                   <Text style={styles.noRatingText}>No ratings yet</Text>
-                )}
-                <TouchableOpacity style={styles.commentButton} onPress={handleCommentPress} activeOpacity={0.8}>
+                </View>
+              )}
+
+              {/* Action Buttons Row */}
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleCommentPress}
+                  activeOpacity={0.8}
+                >
                   <MessageCircle size={16} color="#0f172a" />
-                  <Text style={styles.commentText}>
-                    {commentCount > 0 ? `${commentCount} Comment${commentCount === 1 ? "" : "s"}` : "View Comments"}
+                  <Text style={styles.actionButtonText}>
+                    {commentCount > 0 ? `${commentCount}` : "Comments"}
                   </Text>
                 </TouchableOpacity>
-              </View>
 
-              {/* Quick Rate Button */}
-              <TouchableOpacity
-                style={styles.quickRateButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowRatingModal(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <Star size={16} color="#0ea5e9" />
-                <Text style={styles.quickRateText}>Rate Recipe</Text>
-              </TouchableOpacity>
-            </>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rateActionButton]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowRatingModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Star size={16} color="#0ea5e9" fill="#0ea5e9" />
+                  <Text style={[styles.actionButtonText, styles.rateButtonText]}>Rate</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
         </View>
       </TouchableOpacity>

@@ -18,8 +18,7 @@ import { Rating } from '../../types/rating';
 export async function submitRating(
   sharedRecipeId: string,
   rating: number,
-  review?: string,
-  verified?: boolean
+  review?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = auth.currentUser;
@@ -60,7 +59,6 @@ export async function submitRating(
       await updateDoc(doc(db, 'ratings', existingDoc.id), {
         rating,
         review: review || null,
-        verified: verified || false,
         userName,
         userProfilePicture: userProfilePicture || null,
         updatedAt: serverTimestamp(),
@@ -74,7 +72,6 @@ export async function submitRating(
         userProfilePicture: userProfilePicture || null,
         rating,
         review: review || null,
-        verified: verified || false,
         helpfulCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

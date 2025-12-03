@@ -289,7 +289,6 @@ export default function RatingsScreen() {
         recipeName={String(title)}
         existingRating={userRating?.rating || 0}
         existingReview={userRating?.review || ''}
-        existingVerified={userRating?.verified || false}
       />
     </SafeAreaView>
   );

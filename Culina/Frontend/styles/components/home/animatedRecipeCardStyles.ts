@@ -82,51 +82,57 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#0f172a",
   },
-  footerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  interactionSection: {
     marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+    gap: 12,
   },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  noRatingText: {
-    fontSize: 13,
-    color: "#94a3af",
-    fontStyle: "italic",
-  },
-  commentButton: {
+  ratingsDisplayRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(18,138,250,0.12)",
-    borderRadius: 999,
+    paddingBottom: 4,
   },
-  commentText: {
+  noRatingText: {
+    fontSize: 13,
+    color: "#94a3b8",
+    fontStyle: "italic",
+  },
+  seeRatingsText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#128AFA",
+    marginLeft: 4,
+  },
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#f8fafc",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  rateActionButton: {
+    backgroundColor: "#e0f2fe",
+    borderColor: "#bae6fd",
+  },
+  actionButtonText: {
     fontSize: 13,
     fontWeight: "600",
     color: "#0f172a",
   },
-  quickRateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#e0f2fe",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "#0ea5e9",
-  },
-  quickRateText: {
-    fontSize: 14,
-    fontWeight: "600",
+  rateButtonText: {
     color: "#0ea5e9",
   },
 });
