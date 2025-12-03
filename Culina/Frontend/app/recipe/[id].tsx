@@ -26,7 +26,6 @@ import {
   ChefHat,
   Share2,
   Pencil,
-  Star,
   Scale,
   Sparkles,
 } from "lucide-react-native";
@@ -160,7 +159,7 @@ export default function RecipeDetailsScreen() {
   const shareButtonScale = useSharedValue(1);
 
   // Use inventory hook for deduction
-  const { inventory, updateIngredient, deleteIngredient } = useInventory();
+  const { inventory } = useInventory();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -346,9 +345,6 @@ export default function RecipeDetailsScreen() {
       }
     }
 
-    console.log(`[parseIngredientQuantity] Input:`, ingredientEntry);
-    console.log(`[parseIngredientQuantity] Extracted name: "${ingredientName}", quantity: ${quantity}`);
-
     return {
       name: ingredientName,
       quantity: quantity || 1
@@ -392,59 +388,36 @@ export default function RecipeDetailsScreen() {
     }
 
     let deductedCount = 0;
-    let errors: string[] = [];
     const notFoundIngredients: string[] = [];
     const batch = writeBatch(db);
-
-    console.log('=== Starting Ingredient Deduction (Batch Mode) ===');
-    console.log('Recipe Ingredients:', ingredients);
-    console.log('Current Inventory Items:', inventory.map(i => `${i.name} (qty: ${i.quantity})`));
 
     try {
       // First pass: validate and prepare batch operations
       for (const recipeIngredient of ingredients) {
         const { name: ingredientName, quantity: recipeQuantity } = parseIngredientQuantity(recipeIngredient);
 
-        console.log(`\nTrying to match: "${ingredientName}" (qty: ${recipeQuantity})`);
-
         // Find matching ingredient in inventory
         const matchedInventoryItem = findMatchingInventoryItem(ingredientName);
 
         if (matchedInventoryItem && matchedInventoryItem.id) {
-          console.log(`  ✓ Matched with: "${matchedInventoryItem.name}" (available: ${matchedInventoryItem.quantity})`);
-
           const newQuantity = Math.max(0, matchedInventoryItem.quantity - recipeQuantity);
-          console.log(`  → Calculating: ${matchedInventoryItem.quantity} - ${recipeQuantity} = ${newQuantity}`);
-
           const itemRef = doc(db, 'users', auth.currentUser.uid, 'ingredients', matchedInventoryItem.id);
 
           if (newQuantity === 0) {
-            // Add delete operation to batch
-            console.log(`  → Adding to batch: DELETE ingredient ID: ${matchedInventoryItem.id}`);
             batch.delete(itemRef);
           } else {
-            // Add update operation to batch
-            console.log(`  → Adding to batch: UPDATE ingredient ID: ${matchedInventoryItem.id} to quantity: ${newQuantity}`);
             batch.update(itemRef, { quantity: newQuantity });
           }
           deductedCount++;
         } else {
-          console.log(`  ✗ No match found in inventory`);
           notFoundIngredients.push(ingredientName);
         }
       }
 
       // Execute all operations atomically
       if (deductedCount > 0) {
-        console.log(`\n→ Committing batch with ${deductedCount} operations...`);
         await batch.commit();
-        console.log('✓ Batch committed successfully');
       }
-
-      console.log('\n=== Deduction Summary ===');
-      console.log(`Deducted: ${deductedCount}`);
-      console.log(`Errors: ${errors.length}`);
-      console.log(`Not Found: ${notFoundIngredients.length}`);
 
       if (deductedCount > 0) {
         let message = `Successfully deducted ${deductedCount} ingredient${deductedCount > 1 ? 's' : ''} from your pantry.`;
@@ -547,32 +520,25 @@ export default function RecipeDetailsScreen() {
 
   useEffect(() => {
     const fetchRecipe = async () => {
-      console.log("1. Starting fetchRecipe...");
       if (!id) {
-        console.log("ERROR: No ID provided in the route.");
         setLoading(false);
         return;
       }
       try {
         const uid = auth.currentUser?.uid;
         if (!uid) {
-          console.error("2. ERROR: User is not authenticated. Stopping fetch.");
+          console.error("User not authenticated");
           setLoading(false);
           return;
         }
-        console.log(`2. Authenticated with UID: ${uid} for Recipe ID: ${id}`);
 
         // Check if this is a shared recipe (from URL param or will try sharedRecipes first)
         if (source === 'shared') {
-          console.log('3. Fetching from sharedRecipes collection (source param)...');
           const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
           const sharedSnap = await getDoc(sharedRecipeRef);
 
-          console.log('4. Fetched from sharedRecipes. Exists:', sharedSnap.exists());
-
           if (sharedSnap.exists()) {
             const data = sharedSnap.data();
-            console.log('5. SUCCESS: Found in sharedRecipes collection.', data);
             setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
 
             // Check if this recipe is already saved in user's collection
@@ -587,7 +553,6 @@ export default function RecipeDetailsScreen() {
             setLoading(false);
             return;
           } else {
-            console.log('5. Recipe not found in sharedRecipes collection.');
             setLoading(false);
             return;
           }
@@ -595,13 +560,10 @@ export default function RecipeDetailsScreen() {
 
         // Try user's personal recipes first
         const userRecipeRef = doc(db, "users", uid, "recipes", String(id));
-        console.log("3. Trying to fetch from user's personal recipes...");
         const userRecipeSnap = await getDoc(userRecipeRef);
-        console.log("4. Fetched from user's recipes. Exists:", userRecipeSnap.exists());
 
         if (userRecipeSnap.exists()) {
           const data = userRecipeSnap.data();
-          console.log("5. SUCCESS: Found recipe in user's collection.", data);
           setRecipe({ id: userRecipeSnap.id, ...data } as RecipeDoc);
           setSaved(true);
           setUserRecipeId(userRecipeSnap.id);
@@ -609,13 +571,11 @@ export default function RecipeDetailsScreen() {
         }
 
         // Try sharedRecipes as fallback (in case accessed without source param)
-        console.log("6. Trying sharedRecipes collection as fallback...");
         const sharedRecipeRef = doc(db, 'sharedRecipes', String(id));
         const sharedSnap = await getDoc(sharedRecipeRef);
 
         if (sharedSnap.exists()) {
           const data = sharedSnap.data();
-          console.log("7. SUCCESS: Found in sharedRecipes collection.", data);
           setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
 
           // Check if this recipe is already saved in user's collection
@@ -632,21 +592,15 @@ export default function RecipeDetailsScreen() {
 
         // Final fallback to top-level recipes
         const topLevelRecipeRef = doc(db, "recipes", String(id));
-        console.log("8. Final fallback: Trying to fetch from top-level recipes...");
         const topLevelRecipeSnap = await getDoc(topLevelRecipeRef);
-        console.log("9. Fetched from top-level recipes. Exists:", topLevelRecipeSnap.exists());
 
         if (topLevelRecipeSnap.exists()) {
           const data = topLevelRecipeSnap.data();
-          console.log("10. SUCCESS: Found recipe in top-level collection.", data);
           setRecipe({ id: topLevelRecipeSnap.id, ...data } as RecipeDoc);
-        } else {
-          console.log("11. Recipe not found in any collection.");
         }
       } catch (err) {
-        console.error("FETCH FAILED WITH ERROR:", err);
+        console.error("Failed to fetch recipe:", err);
       } finally {
-        console.log("12. FINALLY: Setting loading to false.");
         setLoading(false);
       }
     };
