@@ -221,12 +221,12 @@ export const makerStyles = StyleSheet.create({
     opacity: 0.5,
   },
   landscapeContainer: {
-    flexDirection: "row",
+    flexDirection: "column", // Changed from "row" to stack sections vertically in landscape
     gap: 20,
     width: "100%",
   },
   landscapeColumn: {
-    flex: 1,
+    width: "100%", // Changed from flex: 1 to full width for vertical stacking
     gap: 20,
   },
   sectionSubtitle: {
