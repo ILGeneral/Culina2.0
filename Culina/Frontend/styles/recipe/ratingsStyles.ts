@@ -33,6 +33,9 @@ export const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  contentContainer: {
+    paddingBottom: 40, // Add bottom padding to prevent content from being cut off
+  },
   overviewCard: {
     backgroundColor: '#fff',
     padding: 24,
