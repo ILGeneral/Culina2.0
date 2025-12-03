@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  ScrollView,
 } from "react-native";
 import { styles } from "@/styles/recipe/recipeDetailStyles";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -28,6 +29,8 @@ import {
   Pencil,
   Star,
   Scale,
+  Plus,
+  X,
 } from "lucide-react-native";
 import AnimatedPageWrapper from "@/app/components/AnimatedPageWrapper";
 import CookingMode from "@/components/CookingMode";
@@ -48,6 +51,7 @@ import { shareRecipe, unshareRecipe, isRecipeShared } from "@/lib/utils/shareRec
 import { normalizeRecipeSource, isAISource } from "@/lib/utils/recipeSource";
 import { StarRating } from "@/components/ratings/StarRating";
 import { RatingModal } from "@/components/ratings/RatingModal";
+import { searchMealDbIngredients, type MealDbIngredient, prefetchMealDbIngredients } from "@/lib/mealdb";
 import { getUserRating } from "@/lib/utils/rateRecipe";
 import type { Rating } from "@/types/rating";
 import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
@@ -149,12 +153,18 @@ export default function RecipeDetailsScreen() {
   const [showScalingModal, setShowScalingModal] = useState(false);
   const [customScaleInput, setCustomScaleInput] = useState("");
 
+  // Ingredient suggestion modal state
+  const [showIngredientModal, setShowIngredientModal] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState<{name: string; qty?: string; unit?: string} | null>(null);
+  const [ingredientSuggestions, setIngredientSuggestions] = useState<MealDbIngredient[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   const scrollY = useSharedValue(0);
   const saveButtonScale = useSharedValue(1);
   const shareButtonScale = useSharedValue(1);
 
   // Use inventory hook for deduction
-  const { inventory, updateIngredient, deleteIngredient } = useInventory();
+  const { inventory, updateIngredient, deleteIngredient, addIngredient } = useInventory();
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -264,6 +274,53 @@ export default function RecipeDetailsScreen() {
       Alert.alert("Invalid Input", "Please enter a number between 0.1 and 10");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
+  };
+
+  // Handle adding ingredient to inventory with suggestions
+  const handleAddIngredient = async (ingredient: {name: string; qty?: string; unit?: string}) => {
+    setSelectedIngredient(ingredient);
+    setShowIngredientModal(true);
+    setLoadingSuggestions(true);
+
+    try {
+      await prefetchMealDbIngredients();
+      const suggestions = await searchMealDbIngredients(ingredient.name, 5);
+      setIngredientSuggestions(suggestions);
+    } catch (error) {
+      console.error("Failed to load suggestions:", error);
+      setIngredientSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion: MealDbIngredient) => {
+    Alert.alert(
+      "Add to Inventory",
+      `Add ${suggestion.name} to your pantry?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Add",
+          onPress: async () => {
+            try {
+              await addIngredient({
+                name: suggestion.name,
+                quantity: parseFloat(selectedIngredient?.qty || "1") || 1,
+                unit: selectedIngredient?.unit || "pcs",
+                type: suggestion.type || undefined,
+              });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert("Success", `${suggestion.name} added to your pantry!`);
+              setShowIngredientModal(false);
+            } catch (error) {
+              console.error("Failed to add ingredient:", error);
+              Alert.alert("Error", "Failed to add ingredient to pantry");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Parse ingredient quantity from string using the robust ingredientMatcher utility
@@ -1051,10 +1108,20 @@ export default function RecipeDetailsScreen() {
                       return (
                         <View key={idx} style={styles.ingredientRow}>
                           <View style={styles.ingredientBullet} />
-                          <Text style={styles.ingredientText}>
+                          <Text style={[styles.ingredientText, { flex: 1 }]}>
                             {ingName}
                             {suffix ? <Text style={styles.ingredientQty}> — {suffix}</Text> : null}
                           </Text>
+                          <TouchableOpacity
+                            style={{
+                              padding: 8,
+                              borderRadius: 8,
+                              backgroundColor: '#128AFA15',
+                            }}
+                            onPress={() => handleAddIngredient({ name: ingName, qty: scaledQty, unit })}
+                          >
+                            <Plus size={18} color="#128AFAFF" />
+                          </TouchableOpacity>
                         </View>
                       );
                     })}
@@ -1206,6 +1273,90 @@ export default function RecipeDetailsScreen() {
                   <Text style={styles.customScaleButtonText}>Apply</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Ingredient Suggestion Modal */}
+      <Modal
+        visible={showIngredientModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowIngredientModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowIngredientModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add to Inventory</Text>
+                <TouchableOpacity
+                  onPress={() => setShowIngredientModal(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={24} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                {selectedIngredient?.name}
+                {selectedIngredient?.qty && selectedIngredient?.unit
+                  ? ` (${selectedIngredient.qty} ${selectedIngredient.unit})`
+                  : ''
+                }
+              </Text>
+
+              {loadingSuggestions ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#128AFAFF" />
+                  <Text style={styles.loadingText}>Finding suggestions...</Text>
+                </View>
+              ) : ingredientSuggestions.length > 0 ? (
+                <>
+                  <Text style={styles.suggestionsTitle}>Similar ingredients:</Text>
+                  <ScrollView style={styles.suggestionsList}>
+                    {ingredientSuggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.suggestionItem}
+                        onPress={() => handleSelectSuggestion(suggestion)}
+                      >
+                        <View style={styles.suggestionContent}>
+                          <Text style={styles.suggestionName}>{suggestion.name}</Text>
+                          {suggestion.type && (
+                            <Text style={styles.suggestionType}>{suggestion.type}</Text>
+                          )}
+                        </View>
+                        <Plus size={20} color="#128AFAFF" />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : (
+                <View style={styles.noSuggestionsContainer}>
+                  <Text style={styles.noSuggestionsText}>
+                    No suggestions found. Add the original ingredient?
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.addOriginalButton}
+                    onPress={() => {
+                      if (selectedIngredient) {
+                        handleSelectSuggestion({
+                          name: selectedIngredient.name,
+                          type: undefined,
+                        });
+                      }
+                    }}
+                  >
+                    <Plus size={20} color="#fff" />
+                    <Text style={styles.addOriginalButtonText}>Add "{selectedIngredient?.name}"</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </TouchableOpacity>
         </TouchableOpacity>

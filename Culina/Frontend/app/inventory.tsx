@@ -291,7 +291,7 @@ const InventoryItem = ({
   );
 };
 
-// —— main ——
+// main 
 export default function InventoryScreen() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -354,7 +354,7 @@ export default function InventoryScreen() {
 
   const user = auth.currentUser;
 
-  // — Firestore listener —
+  // Firestore listener 
   useEffect(() => {
     if (!user?.uid) {
       setLoading(false);
@@ -497,7 +497,7 @@ export default function InventoryScreen() {
     ensurePrefetch();
   };
 
-  // — Save —
+  // Save 
   const save = async () => {
     if (!user?.uid) {
       Alert.alert("Error", "Please log in to save ingredients");

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image } fr
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AnimatedRecipeCard from "@/components/home/AnimatedRecipeCard";
-import { Package, User, Globe, BookMarked, BookOpen, SlidersHorizontal, Star, TrendingUp, Clock, ChevronDown } from "lucide-react-native";
+import { Package, User, Globe, BookMarked, SlidersHorizontal, Star, TrendingUp, Clock, ChevronDown } from "lucide-react-native";
 import Background from "@/components/Background";
 import { useSharedRecipes, SharedRecipe } from "@/hooks/useSharedRecipe";
 import { homeStyles as styles } from "@/styles/tabs/homeStyles";
@@ -189,15 +189,6 @@ export default function HomeScreen() {
                 onPress={() => router.push('/recipe/maker' as any)}
               >
                 <Text style={styles.createButtonText}>Create Your Recipe</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.databaseButton}
-                activeOpacity={0.85}
-                onPress={() => router.push('/recipe-database' as any)}
-              >
-                <BookOpen color="#128AFAFF" size={22} />
-                <Text style={styles.databaseButtonText}>Explore Recipe Database</Text>
               </TouchableOpacity>
 
               {/* Tab Selector */}

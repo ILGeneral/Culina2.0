@@ -5,6 +5,7 @@ const HERO_HEIGHT = 320;
 
 export const styles = StyleSheet.create({
   centerScreen: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.neutral.lightest, paddingHorizontal: 24 },
+  loadingContainer: { alignItems: "center", paddingVertical: 24 },
   loadingText: { marginTop: 8, color: Colors.neutral.darker },
   notFoundText: { color: Colors.neutral.darker, textAlign: "center", fontSize: 18 },
   goBackButton: { marginTop: 24, backgroundColor: Colors.primary.main, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 9999 },
@@ -719,6 +720,77 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
   },
   customScaleButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Ingredient Suggestion Modal
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  suggestionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  suggestionsList: {
+    maxHeight: 300,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  suggestionContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  suggestionName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0f172a',
+    marginBottom: 2,
+  },
+  suggestionType: {
+    fontSize: 12,
+    color: '#64748b',
+    textTransform: 'capitalize',
+  },
+  noSuggestionsContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  noSuggestionsText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  addOriginalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#128AFAFF',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  addOriginalButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
