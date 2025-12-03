@@ -137,11 +137,10 @@ const RecipeCard = ({ recipe, index, onPress, onDelete, onShare, onEdit, invento
 
   const ingredientCount = Array.isArray(recipe.ingredients) ? recipe.ingredients.length : null;
   const sourceLabel = normalizeRecipeSource(recipe.source);
-  const canEdit = isAISource(recipe.source);
+  const canEdit = true; // Allow editing for all recipes (both AI and Human)
 
   const handleEditPress = (event: any) => {
     event?.stopPropagation?.();
-    if (!canEdit) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onEdit?.();
   };
