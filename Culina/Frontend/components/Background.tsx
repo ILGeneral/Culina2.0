@@ -1,6 +1,7 @@
 import React from "react";
-import { View, StyleSheet, ViewStyle } from "react-native";
+import { View, ViewStyle, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { styles } from "@/styles/components/backgroundStyles";
 
 export type BackgroundProps = {
   children?: React.ReactNode;
@@ -22,11 +23,5 @@ const Background: React.FC<BackgroundProps> = ({ children, style }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 
 export default Background;

@@ -1,0 +1,160 @@
+import { StyleSheet } from 'react-native';
+
+export const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  scrollContent: {
+    padding: 24,
+  },
+  recipeName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  ratingSection: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  optional: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#94a3af',
+  },
+  starsContainer: {
+    paddingVertical: 8,
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0ea5e9',
+    marginTop: 12,
+  },
+  reviewSection: {
+    marginBottom: 24,
+  },
+  reviewInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: '#0f172a',
+    minHeight: 100,
+    textAlignVertical: 'top',
+    backgroundColor: '#f8fafc',
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#94a3af',
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  verifiedCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    borderRadius: 6,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  buttons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  submitButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.5,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+});

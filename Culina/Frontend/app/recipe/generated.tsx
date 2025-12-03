@@ -513,7 +513,7 @@ const GeneratedRecipeDetailsScreen = () => {
 
       {/* Fixed Start Cooking Button */}
       {!!recipe.instructions?.length && (
-        <View style={localStyles.fixedButtonContainer}>
+        <View style={styles.fixedButtonContainer}>
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={handleStartCooking}
@@ -603,29 +603,5 @@ const GeneratedRecipeDetailsScreen = () => {
     </AnimatedPageWrapper>
   );
 };
-
-// Local styles for the fixed button
-const localStyles = StyleSheet.create({
-  fixedButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 24,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-});
 
 export default GeneratedRecipeDetailsScreen;
