@@ -66,11 +66,13 @@ const chatBotStyles = StyleSheet.create({
     gap: 12,
   },
   chatPanelCollapsed: {
-    height: 120,
+    minHeight: 120,
+    maxHeight: 120,
     borderRadius: 20,
   },
   chatPanelExpanded: {
     height: "70%",
+    minHeight: 200,
     borderRadius: 20,
   },
   voiceButton: {
@@ -114,7 +116,7 @@ const chatBotStyles = StyleSheet.create({
     gap: 12,
   },
   messagesPlaceholder: {
-    flex: 1,
+    height: 0,
   },
   collapsedMessageContainer: {
     position: "absolute",

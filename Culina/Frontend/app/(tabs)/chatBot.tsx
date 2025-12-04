@@ -548,8 +548,8 @@ const ChatBotScreen = () => {
                     expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
                   ]}
                 >
-                  <View style={expanded ? chatBotStyles.messagesWrapper : chatBotStyles.messagesPlaceholder}>
-                    {expanded && (
+                  {expanded ? (
+                    <View style={chatBotStyles.messagesWrapper}>
                       <FlatList
                         ref={listRef}
                         data={displayedMessages}
@@ -560,8 +560,10 @@ const ChatBotScreen = () => {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                       />
-                    )}
-                  </View>
+                    </View>
+                  ) : (
+                    <View style={chatBotStyles.messagesPlaceholder} />
+                  )}
 
                   <View style={chatBotStyles.inputContainer}>
                     <TextInput
