@@ -122,10 +122,12 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ title, count }) =>
 // ========== PRESSABLE CARD WRAPPER ==========
 interface PressableCardProps {
   onPress: () => void;
+  onLongPress?: () => void;
+  delayLongPress?: number;
   children: React.ReactNode;
 }
 
-export const PressableCard: React.FC<PressableCardProps> = ({ onPress, children }) => {
+export const PressableCard: React.FC<PressableCardProps> = ({ onPress, onLongPress, delayLongPress, children }) => {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -147,6 +149,8 @@ export const PressableCard: React.FC<PressableCardProps> = ({ onPress, children 
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={delayLongPress}
       >
         {children}
       </TouchableOpacity>

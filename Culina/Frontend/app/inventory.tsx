@@ -229,8 +229,6 @@ const InventoryItem = ({
   const [imageError, setImageError] = useState(false);
   const expirationStatus = getExpirationStatus(item);
   const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isLongPressing, setIsLongPressing] = useState(false);
 
   // Determine card style based on expiration status
   const getCardStyle = () => {
@@ -252,24 +250,6 @@ const InventoryItem = ({
     return baseStyles;
   };
 
-  const handlePressIn = () => {
-    if (!isSelectionMode) {
-      setIsLongPressing(true);
-      longPressTimerRef.current = setTimeout(() => {
-        setIsLongPressing(false);
-        onDelete(item);
-      }, 800); // 800ms hold to delete
-    }
-  };
-
-  const handlePressOut = () => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    setIsLongPressing(false);
-  };
-
   const handlePress = () => {
     if (isSelectionMode) {
       onToggleSelect(item);
@@ -278,69 +258,70 @@ const InventoryItem = ({
     }
   };
 
+  const handleLongPress = () => {
+    if (!isSelectionMode) {
+      onDelete(item);
+    }
+  };
+
   return (
-    <View onTouchStart={handlePressIn} onTouchEnd={handlePressOut}>
-      <PressableCard onPress={handlePress}>
-        <View style={getCardStyle()}>
-          {isSelectionMode && (
-            <View style={styles.selectionCheckbox}>
-              <View style={[
-                styles.checkbox,
-                isSelected && styles.checkboxSelected
-              ]}>
-                {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
-              </View>
+    <PressableCard onPress={handlePress} onLongPress={handleLongPress} delayLongPress={500}>
+      <View style={getCardStyle()}>
+        {isSelectionMode && (
+          <View style={styles.selectionCheckbox}>
+            <View style={[
+              styles.checkbox,
+              isSelected && styles.checkboxSelected
+            ]}>
+              {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
             </View>
-          )}
-          {isLongPressing && (
-            <View style={styles.longPressOverlay}>
-              <Ionicons name="trash-outline" size={32} color="#fff" />
-              <Text style={styles.longPressText}>Hold to delete...</Text>
-            </View>
-          )}
-          {item.imageUrl && !imageError ? (
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.itemImg}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
-              <placeholder.Icon size={36} color={placeholder.color} />
-            </View>
-          )}
-          <View style={styles.itemInfo}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              {expirationStatus.status !== 'unknown' && (
-                <View style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                  backgroundColor: expirationStatus.backgroundColor,
+          </View>
+        )}
+        {item.imageUrl && !imageError ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.itemImg}
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+            <placeholder.Icon size={36} color={placeholder.color} />
+          </View>
+        )}
+        <View style={styles.itemInfo}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            {expirationStatus.status !== 'unknown' && (
+              <View style={{
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 4,
+                backgroundColor: expirationStatus.backgroundColor,
+              }}>
+                <Text style={{
+                  fontSize: 10,
+                  fontWeight: '600',
+                  color: expirationStatus.color,
                 }}>
-                  <Text style={{
-                    fontSize: 10,
-                    fontWeight: '600',
-                    color: expirationStatus.color,
-                  }}>
-                    {expirationStatus.icon} {expirationStatus.text}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.itemQty}>
-              {item.quantity} {item.unit}
-            </Text>
-            {item.expirationDate && expirationStatus.status !== 'unknown' && (
-              <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                Expires: {formatExpirationDate(item.expirationDate)}
-              </Text>
+                  {expirationStatus.icon} {expirationStatus.text}
+                </Text>
+              </View>
             )}
           </View>
+          <Text style={styles.itemQty}>
+            {item.quantity} {item.unit}
+          </Text>
+          {item.expirationDate && expirationStatus.status !== 'unknown' && (
+            <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+              Expires: {formatExpirationDate(item.expirationDate)}
+            </Text>
+          )}
         </View>
-      </PressableCard>
-    </View>
+        {!isSelectionMode && (
+          <Text style={styles.deleteHint}>Hold to delete</Text>
+        )}
+      </View>
+    </PressableCard>
   );
 };
 

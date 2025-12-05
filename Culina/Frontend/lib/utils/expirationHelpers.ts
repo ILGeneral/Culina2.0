@@ -56,7 +56,7 @@ export const getExpirationStatus = (ingredient: Ingredient): ExpirationStatus =>
       status: 'critical',
       color: '#D97706',
       backgroundColor: '#FEF3C7',
-      text: 'Expires today',
+      text: 'Critical (Today)',
       icon: '',
       daysRemaining,
     };
@@ -65,7 +65,7 @@ export const getExpirationStatus = (ingredient: Ingredient): ExpirationStatus =>
       status: 'critical',
       color: '#D97706',
       backgroundColor: '#FEF3C7',
-      text: `${daysRemaining}d left`,
+      text: `Critical (${daysRemaining}d)`,
       icon: '',
       daysRemaining,
     };
@@ -74,7 +74,7 @@ export const getExpirationStatus = (ingredient: Ingredient): ExpirationStatus =>
       status: 'warning',
       color: '#CA8A04',
       backgroundColor: '#FEF9C3',
-      text: `${daysRemaining}d left`,
+      text: `Expiring Soon (${daysRemaining}d)`,
       icon: '',
       daysRemaining,
     };

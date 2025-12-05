@@ -864,29 +864,11 @@ const inventoryStyle = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Hold to delete and selection styles
+  // Selection styles
   itemCardSelected: {
     borderWidth: 2,
     borderColor: '#EF4444',
     backgroundColor: '#FEF2F2',
-  },
-  longPressOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(239, 68, 68, 0.9)',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  longPressText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
   },
   selectionCheckbox: {
     position: 'absolute',
@@ -897,6 +879,13 @@ const inventoryStyle = StyleSheet.create({
   checkboxSelected: {
     backgroundColor: '#EF4444',
     borderColor: '#EF4444',
+  },
+  deleteHint: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });
 
