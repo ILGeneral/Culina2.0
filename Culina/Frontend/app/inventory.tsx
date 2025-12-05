@@ -38,7 +38,7 @@ import {
   hasMealDbIngredientsLoaded,
 } from "@/lib/mealdb";
 import Background from "@/components/Background";
-import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import InventoryHeader from "@/app/components/inventory/InventoryHeader";
 import { SkeletonCard, Toast, SectionHeader, PressableCard } from "@/app/components/inventory/InventoryComponents";
 import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed, Fish } from "lucide-react-native";
@@ -215,79 +215,132 @@ const InventoryItem = ({
   item,
   onEdit,
   onDelete,
-  renderRightActions
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
 }: {
   item: any;
   onEdit: (item: any) => void;
   onDelete: (item: any) => void;
-  renderRightActions: (item: any) => React.ReactNode;
+  isSelectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelect: (item: any) => void;
 }) => {
   const [imageError, setImageError] = useState(false);
   const expirationStatus = getExpirationStatus(item);
   const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   // Determine card style based on expiration status
   const getCardStyle = () => {
+    const baseStyles = [];
     if (expirationStatus.status === 'critical') {
-      return [styles.itemCard, styles.itemCardExpired];
+      baseStyles.push(styles.itemCard, styles.itemCardExpired);
     } else if (expirationStatus.status === 'warning') {
-      return [styles.itemCard, styles.itemCardExpiringSoon];
+      baseStyles.push(styles.itemCard, styles.itemCardExpiringSoon);
     } else if (expirationStatus.status === 'fresh') {
-      return [styles.itemCard, styles.itemCardFresh];
+      baseStyles.push(styles.itemCard, styles.itemCardFresh);
+    } else {
+      baseStyles.push(styles.itemCard);
     }
-    return styles.itemCard;
+
+    if (isSelected) {
+      baseStyles.push(styles.itemCardSelected);
+    }
+
+    return baseStyles;
+  };
+
+  const handlePressIn = () => {
+    if (!isSelectionMode) {
+      setIsLongPressing(true);
+      longPressTimerRef.current = setTimeout(() => {
+        setIsLongPressing(false);
+        onDelete(item);
+      }, 800); // 800ms hold to delete
+    }
+  };
+
+  const handlePressOut = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setIsLongPressing(false);
+  };
+
+  const handlePress = () => {
+    if (isSelectionMode) {
+      onToggleSelect(item);
+    } else {
+      onEdit(item);
+    }
   };
 
   return (
-    <Swipeable
-      renderRightActions={() => renderRightActions(item)}
-      overshootRight={false}
-    >
-      <PressableCard onPress={() => onEdit(item)}>
+    <View onTouchStart={handlePressIn} onTouchEnd={handlePressOut}>
+      <PressableCard onPress={handlePress}>
         <View style={getCardStyle()}>
-      {item.imageUrl && !imageError ? (
-        <Image
-          source={{ uri: item.imageUrl }}
-          style={styles.itemImg}
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
-          <placeholder.Icon size={36} color={placeholder.color} />
-        </View>
-      )}
-      <View style={styles.itemInfo}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          {expirationStatus.status !== 'unknown' && (
-            <View style={{
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 4,
-              backgroundColor: expirationStatus.backgroundColor,
-            }}>
-              <Text style={{
-                fontSize: 10,
-                fontWeight: '600',
-                color: expirationStatus.color,
-              }}>
-                {expirationStatus.icon} {expirationStatus.text}
-              </Text>
+          {isSelectionMode && (
+            <View style={styles.selectionCheckbox}>
+              <View style={[
+                styles.checkbox,
+                isSelected && styles.checkboxSelected
+              ]}>
+                {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+              </View>
             </View>
           )}
-        </View>
-        <Text style={styles.itemQty}>
-          {item.quantity} {item.unit}
-        </Text>
-        {item.expirationDate && expirationStatus.status !== 'unknown' && (
-          <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-            Expires: {formatExpirationDate(item.expirationDate)}
-          </Text>
-        )}
-      </View>
+          {isLongPressing && (
+            <View style={styles.longPressOverlay}>
+              <Ionicons name="trash-outline" size={32} color="#fff" />
+              <Text style={styles.longPressText}>Hold to delete...</Text>
+            </View>
+          )}
+          {item.imageUrl && !imageError ? (
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.itemImg}
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <View style={[styles.itemImg, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+              <placeholder.Icon size={36} color={placeholder.color} />
+            </View>
+          )}
+          <View style={styles.itemInfo}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.itemName}>{item.name}</Text>
+              {expirationStatus.status !== 'unknown' && (
+                <View style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: expirationStatus.backgroundColor,
+                }}>
+                  <Text style={{
+                    fontSize: 10,
+                    fontWeight: '600',
+                    color: expirationStatus.color,
+                  }}>
+                    {expirationStatus.icon} {expirationStatus.text}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.itemQty}>
+              {item.quantity} {item.unit}
+            </Text>
+            {item.expirationDate && expirationStatus.status !== 'unknown' && (
+              <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+                Expires: {formatExpirationDate(item.expirationDate)}
+              </Text>
+            )}
+          </View>
         </View>
       </PressableCard>
-    </Swipeable>
+    </View>
   );
 };
 
@@ -333,6 +386,10 @@ export default function InventoryScreen() {
     message: '',
     type: 'success',
   });
+
+  // Bulk delete state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ visible: true, message, type });
@@ -731,25 +788,67 @@ export default function InventoryScreen() {
     return groups;
   }, [filtered]);
 
-  const renderRightActions = (item: any) => {
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#ef4444',
-            justifyContent: 'center',
-            alignItems: 'center',
-            width: 80,
-            height: '100%',
-            borderTopRightRadius: 16,
-            borderBottomRightRadius: 16,
-          }}
-          onPress={() => del(item)}
-        >
-          <Ionicons name="trash-outline" size={24} color="#fff" />
-          <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 4 }}>Delete</Text>
-        </TouchableOpacity>
-      </View>
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    if (selectionMode) {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const toggleItemSelection = (item: any) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(item.id)) {
+      newSelected.delete(item.id);
+    } else {
+      newSelected.add(item.id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const selectAll = () => {
+    const allIds = new Set(filtered.map(item => item.id));
+    setSelectedItems(allIds);
+  };
+
+  const deselectAll = () => {
+    setSelectedItems(new Set());
+  };
+
+  const bulkDelete = async () => {
+    if (!user?.uid) {
+      Alert.alert("Error", "Please log in to delete ingredients");
+      return;
+    }
+
+    if (selectedItems.size === 0) {
+      Alert.alert("No Selection", "Please select items to delete");
+      return;
+    }
+
+    Alert.alert(
+      "Delete Selected",
+      `Delete ${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const deletePromises = Array.from(selectedItems).map(itemId =>
+                deleteDoc(doc(db, "users", user.uid, "ingredients", itemId))
+              );
+              await Promise.all(deletePromises);
+              showToast(`${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} deleted`, 'info');
+              setSelectedItems(new Set());
+              setSelectionMode(false);
+            } catch (err) {
+              console.error("Bulk delete failed:", err);
+              showToast("Failed to delete some items", 'error');
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -759,7 +858,9 @@ export default function InventoryScreen() {
         item={item}
         onEdit={edit}
         onDelete={del}
-        renderRightActions={renderRightActions}
+        isSelectionMode={selectionMode}
+        isSelected={selectedItems.has(item.id)}
+        onToggleSelect={toggleItemSelection}
       />
     );
   };
@@ -777,6 +878,105 @@ export default function InventoryScreen() {
           />
 
           <InventoryHeader onAddPress={manualAdd} />
+
+          {/* Bulk Delete Controls */}
+          {!selectionMode ? (
+            <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  borderWidth: 1.5,
+                  borderColor: '#EF4444',
+                  backgroundColor: '#FFF',
+                  alignSelf: 'flex-start',
+                }}
+                onPress={toggleSelectionMode}
+              >
+                <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#EF4444' }}>
+                  Bulk Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              backgroundColor: '#FEF2F2',
+              borderBottomWidth: 1,
+              borderBottomColor: '#FECACA',
+            }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#991B1B' }}>
+                  {selectedItems.size} selected
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      backgroundColor: '#FFF',
+                      borderWidth: 1,
+                      borderColor: '#DC2626',
+                    }}
+                    onPress={selectAll}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#DC2626' }}>
+                      Select All
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      backgroundColor: '#FFF',
+                      borderWidth: 1,
+                      borderColor: '#9CA3AF',
+                    }}
+                    onPress={deselectAll}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280' }}>
+                      Deselect All
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      backgroundColor: selectedItems.size > 0 ? '#DC2626' : '#D1D5DB',
+                    }}
+                    onPress={bulkDelete}
+                    disabled={selectedItems.size === 0}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
+                      Delete
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
+                      backgroundColor: '#6B7280',
+                    }}
+                    onPress={toggleSelectionMode}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* search + filter */}
           <View style={styles.controlsRow}>

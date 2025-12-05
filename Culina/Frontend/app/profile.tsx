@@ -1,10 +1,11 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -91,6 +92,9 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
 
+  // Refs
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // Animation values
   const scrollY = useSharedValue(0);
   const toastTranslateY = useSharedValue(100);
@@ -123,6 +127,10 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Reset scroll position when screen comes into focus
+      scrollY.value = 0;
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+
       const currentUser = auth.currentUser;
       if (currentUser) {
         setLoading(true);
@@ -131,7 +139,7 @@ export default function ProfileScreen() {
         setLoading(false);
       }
       return () => {};
-    }, [])
+    }, [scrollY])
   );
 
   useEffect(() => {
@@ -277,6 +285,7 @@ export default function ProfileScreen() {
       </Animated.View>
 
       <Animated.ScrollView
+        ref={scrollViewRef}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
