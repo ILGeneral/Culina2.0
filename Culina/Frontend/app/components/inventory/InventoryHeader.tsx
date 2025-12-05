@@ -11,11 +11,39 @@ export default function InventoryHeader({ onAddPress }: Props) {
   const router = useRouter();
 
   return (
-    <View className="flex-row justify-between items-center px-4 pt-5 pb-4 bg-white shadow-sm">
-      <View className="flex-row items-center gap-3">
-        <TouchableOpacity onPress={() => router.back()} className="p-2">
-          <ArrowLeft color="#15803d" size={26} />
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
+        backgroundColor: "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#e2e8f0",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            padding: 8,
+            marginLeft: -8, // Optical alignment
+          }}
+        >
+          <ArrowLeft color="#15803d" size={24} />
         </TouchableOpacity>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: "700",
+            color: "#15803d",
+            letterSpacing: -0.5,
+          }}
+        >
+          Inventory
+        </Text>
       </View>
     </View>
   );
