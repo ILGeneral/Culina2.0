@@ -39,13 +39,12 @@ import {
 } from "@/lib/mealdb";
 import Background from "@/components/Background";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import InventoryHeader from "@/app/components/inventory/InventoryHeader";
 import { SkeletonCard, Toast, SectionHeader, PressableCard } from "@/app/components/inventory/InventoryComponents";
-import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed, Fish } from "lucide-react-native";
+import { Plus, Minus, Calendar, X, Apple, Beef, Carrot, UtensilsCrossed, Fish, Menu } from "lucide-react-native";
 import { getExpirationStatus, filterExpiringSoon, formatExpirationDate } from "@/lib/utils/expirationHelpers";
 import { Timestamp } from "firebase/firestore";
 
-// —— helpers ——
+//  helpers ——
 const capitalize = (s: string) =>
   s
     .toLowerCase()
@@ -371,6 +370,28 @@ export default function InventoryScreen() {
   // Bulk delete state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Hamburger menu state
+  const [menuVisible, setMenuVisible] = useState(false);
+  const menuSlideAnim = useRef(new Animated.Value(100)).current; // Start 100px below
+
+  // Animate menu when visibility changes
+  useEffect(() => {
+    if (menuVisible) {
+      Animated.spring(menuSlideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 10,
+      }).start();
+    } else {
+      Animated.timing(menuSlideAnim, {
+        toValue: 100,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [menuVisible]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ visible: true, message, type });
@@ -858,33 +879,8 @@ export default function InventoryScreen() {
             onHide={hideToast}
           />
 
-          <InventoryHeader onAddPress={manualAdd} />
-
           {/* Bulk Delete Controls */}
-          {!selectionMode ? (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  borderRadius: 20,
-                  borderWidth: 1.5,
-                  borderColor: '#EF4444',
-                  backgroundColor: '#FFF',
-                  alignSelf: 'flex-start',
-                }}
-                onPress={toggleSelectionMode}
-              >
-                <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#EF4444' }}>
-                  Bulk Delete
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+          {selectionMode && (
             <View style={{
               paddingHorizontal: 16,
               paddingVertical: 12,
@@ -1094,10 +1090,53 @@ export default function InventoryScreen() {
             />
           )}
 
-          {/* FAB - Quick Add */}
-          <TouchableOpacity style={styles.fab} onPress={manualAdd}>
-            <Ionicons name="add" size={28} color="#fff" />
+          // Hamburger Menu Button 
+          <TouchableOpacity
+            style={styles.hamburgerButton}
+            onPress={() => setMenuVisible(!menuVisible)}
+          >
+            <Menu size={24} color="#fff" />
           </TouchableOpacity>
+
+          // Hamburger Menu Overlay
+          {menuVisible && (
+            <View style={styles.menuOverlay}>
+              <Pressable
+                style={styles.menuBackdrop}
+                onPress={() => setMenuVisible(false)}
+              />
+              <Animated.View
+                style={[
+                  styles.menuContainer,
+                  {
+                    transform: [{ translateY: menuSlideAnim }]
+                  }
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    manualAdd();
+                  }}
+                >
+                  <Ionicons name="add-circle-outline" size={24} color="#15803d" />
+                  <Text style={styles.menuItemText}>Add Ingredient</Text>
+                </TouchableOpacity>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    toggleSelectionMode();
+                  }}
+                >
+                  <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                  <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Bulk Delete</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+          )}
 
           {/* Add/Edit Form Modal */}
           <Modal visible={formVisible} animationType="slide" transparent>
@@ -1259,10 +1298,10 @@ export default function InventoryScreen() {
                       </Picker>
                     </View>
 
-                    {/* Expiration Date Section */}
+                    //Expiration Date Section 
                     <Text style={styles.label}>Expiration Date (Optional)</Text>
                     <View style={{ gap: 8 }}>
-                      {/* Date picker button */}
+                      // Date picker button 
                       <TouchableOpacity
                         onPress={() => {
                           if (expirationDate) {
@@ -1303,7 +1342,7 @@ export default function InventoryScreen() {
                         Tap to select a date from the calendar
                       </Text>
 
-                      {/* Display selected date */}
+                      // Display selected date
                       {expirationDate && (
                         <View style={{
                           flexDirection: 'row',
@@ -1386,7 +1425,7 @@ export default function InventoryScreen() {
             </KeyboardAvoidingView>
           </Modal>
 
-          {/* Date Picker Modal */}
+          // Date Picker Modal 
           <Modal visible={showDatePicker} animationType="slide" transparent>
             <View style={{
               flex: 1,
@@ -1439,7 +1478,7 @@ export default function InventoryScreen() {
                   paddingTop: 20,
                   paddingHorizontal: 16,
                 }}>
-                  {/* Month Picker - Full Width */}
+                  // Month Picker 
                   <View style={{ marginBottom: 16 }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                       Month
@@ -1469,9 +1508,9 @@ export default function InventoryScreen() {
                     </View>
                   </View>
 
-                  {/* Day and Year Pickers - Side by Side */}
+                  // Day and Year Pickers 
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    {/* Day Picker */}
+                    // Day Picker 
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                         Day
@@ -1501,7 +1540,7 @@ export default function InventoryScreen() {
                       </View>
                     </View>
 
-                    {/* Year Picker */}
+                    // Year Picker 
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                         Year
