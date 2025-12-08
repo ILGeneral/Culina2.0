@@ -456,7 +456,17 @@ export default function RecipeDetailsScreen() {
   // Check if recipe is shared
   useEffect(() => {
     const checkSharedStatus = async () => {
-      if (!id || !auth.currentUser?.uid || !saved) return;
+      if (!id || !auth.currentUser?.uid) return;
+
+      // If viewing from shared recipes and it's the user's own recipe, mark as shared
+      if (source === 'shared' && recipe?.userId === auth.currentUser.uid) {
+        setIsShared(true);
+        return;
+      }
+
+      // Otherwise check if saved recipe is shared
+      if (!saved) return;
+
       try {
         const shared = await isRecipeShared(String(id), auth.currentUser.uid);
         setIsShared(shared);
@@ -465,7 +475,7 @@ export default function RecipeDetailsScreen() {
       }
     };
     checkSharedStatus();
-  }, [id, saved]);
+  }, [id, saved, source, recipe?.userId]);
 
   // Fetch user's rating for this recipe and listen for real-time updates
   useEffect(() => {
@@ -553,8 +563,16 @@ export default function RecipeDetailsScreen() {
             const data = sharedSnap.data();
             setRecipe({ id: sharedSnap.id, ...data } as RecipeDoc);
 
-            // Check if this recipe is already saved in user's collection
-            if (data.title) {
+            // If this is the user's own shared recipe, check if original recipe still exists
+            if (data.userId === uid && data.userRecipeId) {
+              const userRecipeRef = doc(db, "users", uid, "recipes", data.userRecipeId);
+              const userRecipeSnap = await getDoc(userRecipeRef);
+              if (userRecipeSnap.exists()) {
+                setSaved(true);
+                setUserRecipeId(data.userRecipeId);
+              }
+            } else if (data.title) {
+              // For other users' recipes, check if already saved by title
               const savedRecipeId = await isRecipeSaved(data.title, uid);
               if (savedRecipeId) {
                 setSaved(true);
@@ -686,12 +704,6 @@ export default function RecipeDetailsScreen() {
 
   const handleEditPress = () => {
     if (!recipe || !saved || !userRecipeId) return;
-
-    const canEdit = isAISource(recipe.source);
-    if (!canEdit) {
-      Alert.alert('Cannot Edit', 'Only AI-generated recipes can be edited.');
-      return;
-    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({ pathname: "/recipe/maker", params: { recipeId: userRecipeId } });

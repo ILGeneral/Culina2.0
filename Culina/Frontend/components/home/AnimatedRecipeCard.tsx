@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import { View, Text, Image, TouchableOpacity, Alert } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { useRouter } from "expo-router";
-import { Users, Flame, MessageCircle, Star } from "lucide-react-native";
+import { Users, Flame, MessageCircle, Star, Share2, Pencil } from "lucide-react-native";
 import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 import { StarRating } from "../ratings/StarRating";
 import { RatingModal } from "../ratings/RatingModal";
 import * as Haptics from "expo-haptics";
 import { styles } from "@/styles/components/home/animatedRecipeCardStyles";
+import { unshareRecipe } from "@/lib/utils/shareRecipe";
+import { auth } from "@/lib/firebaseConfig";
 
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
@@ -112,6 +114,8 @@ type AnimatedRecipeCardProps = {
     ingredients?: IngredientEntry[];
     source?: string;
     isShared?: boolean;
+    userRecipeId?: string;
+    userId?: string;
     ratings?: {
       averageRating: number;
       totalRatings: number;
@@ -119,11 +123,55 @@ type AnimatedRecipeCardProps = {
     };
   };
   index: number;
+  showUnshareButton?: boolean;
+  showEditButton?: boolean;
+  onRecipeUnshared?: () => void;
 };
 
-export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCardProps) {
+export default function AnimatedRecipeCard({ recipe, index, showUnshareButton = false, showEditButton = false, onRecipeUnshared }: AnimatedRecipeCardProps) {
   const router = useRouter();
   const [showRatingModal, setShowRatingModal] = useState(false);
+
+  const handleEdit = (e: any) => {
+    e.stopPropagation();
+    if (!recipe.userRecipeId) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: `/recipe/maker` as any,
+      params: { recipeId: recipe.userRecipeId }
+    });
+  };
+
+  const handleUnshare = async (e: any) => {
+    e.stopPropagation();
+
+    if (!recipe.userRecipeId || !auth.currentUser) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    Alert.alert(
+      'Unshare Recipe',
+      'Remove this recipe from the community?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unshare',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await unshareRecipe(recipe.userRecipeId!, auth.currentUser!.uid);
+            if (result.success) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('Success', 'Recipe removed from community.');
+              onRecipeUnshared?.();
+            } else {
+              Alert.alert('Error', result.error || 'Failed to unshare recipe.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const previewIngredients = useMemo(() => toPreviewList(recipe.ingredients), [recipe.ingredients]);
   const sharedDate = useMemo(() => formatTimestamp(recipe.sharedAt) || formatTimestamp((recipe as any)?.createdAt), [recipe.sharedAt, (recipe as any)?.createdAt]);
@@ -186,9 +234,33 @@ export default function AnimatedRecipeCard({ recipe, index }: AnimatedRecipeCard
         )}
 
         <View style={styles.content}>
-          <Text style={styles.title} numberOfLines={2}>
-            {recipe.title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={2}>
+              {recipe.title}
+            </Text>
+            {(showEditButton || showUnshareButton) && (
+              <View style={styles.cardActions}>
+                {showEditButton && (
+                  <TouchableOpacity
+                    onPress={handleEdit}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                  >
+                    <Pencil size={20} color="#0284c7" />
+                  </TouchableOpacity>
+                )}
+                {showUnshareButton && (
+                  <TouchableOpacity
+                    onPress={handleUnshare}
+                    style={[styles.iconButton, styles.iconButtonActive]}
+                    activeOpacity={0.7}
+                  >
+                    <Share2 size={20} color="#0ea5e9" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
 
           {!!recipe.description && (
             <Text style={styles.description} numberOfLines={2}>

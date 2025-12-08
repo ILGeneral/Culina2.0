@@ -21,11 +21,31 @@ export const styles = StyleSheet.create({
   content: {
     padding: 20,
   },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
   title: {
+    flex: 1,
     fontSize: 22,
     fontWeight: "bold",
     color: "#1e293b",
-    marginBottom: 8,
+    marginRight: 12,
+  },
+  cardActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "#f1f5f9",
+  },
+  iconButtonActive: {
+    backgroundColor: "#e0f2fe",
   },
   description: {
     color: "#475569",

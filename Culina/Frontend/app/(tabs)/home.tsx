@@ -312,6 +312,12 @@ export default function HomeScreen() {
                   key={recipe.id}
                   recipe={{ ...recipe, isShared: true }}
                   index={index}
+                  showUnshareButton={activeTab === 'my'}
+                  showEditButton={activeTab === 'my'}
+                  onRecipeUnshared={() => {
+                    // Real-time listener will automatically update the list
+                    // No need for manual refresh
+                  }}
                 />
               ))}
 

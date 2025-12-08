@@ -337,46 +337,6 @@ const recipeGenStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  mainIngredientSection: {
-    width: "100%",
-    marginBottom: 24,
-  },
-  mainIngredientLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#0f172a",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  ingredientScroll: {
-    maxHeight: 100,
-  },
-  ingredientScrollContent: {
-    paddingHorizontal: 4,
-    gap: 8,
-    alignItems: "center",
-  },
-  ingredientChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    backgroundColor: "#f1f5f9",
-    borderWidth: 2,
-    borderColor: "#e2e8f0",
-    marginHorizontal: 4,
-  },
-  ingredientChipSelected: {
-    backgroundColor: "#0ea5e9",
-    borderColor: "#0284c7",
-  },
-  ingredientChipText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#475569",
-  },
-  ingredientChipTextSelected: {
-    color: "#fff",
-  },
 });
 
 export default recipeGenStyles;

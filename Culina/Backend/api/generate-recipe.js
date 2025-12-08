@@ -84,15 +84,13 @@ export default async function handler(req, res) {
     const allergies = preferences?.allergies || [];
 
     const model = req.body?.model || 'llama-3.1-8b-instant';
-    const mainIngredient = req.body?.mainIngredient || null;
 
     // Log the preferences being used
     console.log('User preferences:', {
       diet,
       religion,
       caloriePlan,
-      allergies: allergies.length > 0 ? allergies : 'none',
-      mainIngredient: mainIngredient || 'none (surprise me)'
+      allergies: allergies.length > 0 ? allergies : 'none'
     });
 
     // Stricter formatting reqs and Culina's personality
@@ -227,14 +225,7 @@ ${inventoryContext}
 
 NOTE: Use reasonable amounts in recipes. If an ingredient has limited quantity, be mindful not to use it all in one recipe.
 
-${mainIngredient ? `MAIN INGREDIENT FOCUS:
-The user wants recipes that feature "${mainIngredient}" as the primary/star ingredient.
-- Ensure ALL recipes include "${mainIngredient}" prominently
-- "${mainIngredient}" should be a central component, not just a minor addition
-- Build the recipe concept around showcasing "${mainIngredient}"
-- Still maintain diversity in cooking methods and flavors across recipes
-
-` : ''}DIETARY REQUIREMENTS:
+DIETARY REQUIREMENTS:
 ${dietInstructions}
 ${religiousInstructions}
 - Allergies: ${allergyText}${caloriePlanInstructions}

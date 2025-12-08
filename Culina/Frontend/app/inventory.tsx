@@ -1090,7 +1090,7 @@ export default function InventoryScreen() {
             />
           )}
 
-          // Hamburger Menu Button 
+          {/* Hamburger Menu Button */}
           <TouchableOpacity
             style={styles.hamburgerButton}
             onPress={() => setMenuVisible(!menuVisible)}
@@ -1098,7 +1098,7 @@ export default function InventoryScreen() {
             <Menu size={24} color="#fff" />
           </TouchableOpacity>
 
-          // Hamburger Menu Overlay
+          {/* Hamburger Menu Overlay */}
           {menuVisible && (
             <View style={styles.menuOverlay}>
               <Pressable
@@ -1298,10 +1298,10 @@ export default function InventoryScreen() {
                       </Picker>
                     </View>
 
-                    //Expiration Date Section 
+                    {/* Expiration Date Section */}
                     <Text style={styles.label}>Expiration Date (Optional)</Text>
                     <View style={{ gap: 8 }}>
-                      // Date picker button 
+                      {/* Date picker button */}
                       <TouchableOpacity
                         onPress={() => {
                           if (expirationDate) {
@@ -1342,7 +1342,7 @@ export default function InventoryScreen() {
                         Tap to select a date from the calendar
                       </Text>
 
-                      // Display selected date
+                      {/* Display selected date */}
                       {expirationDate && (
                         <View style={{
                           flexDirection: 'row',
@@ -1425,7 +1425,7 @@ export default function InventoryScreen() {
             </KeyboardAvoidingView>
           </Modal>
 
-          // Date Picker Modal 
+          {/* Date Picker Modal */}
           <Modal visible={showDatePicker} animationType="slide" transparent>
             <View style={{
               flex: 1,
@@ -1478,7 +1478,7 @@ export default function InventoryScreen() {
                   paddingTop: 20,
                   paddingHorizontal: 16,
                 }}>
-                  // Month Picker 
+                  {/* Month Picker */}
                   <View style={{ marginBottom: 16 }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                       Month
@@ -1508,9 +1508,9 @@ export default function InventoryScreen() {
                     </View>
                   </View>
 
-                  // Day and Year Pickers 
+                  {/* Day and Year Pickers */}
                   <View style={{ flexDirection: 'row', gap: 12 }}>
-                    // Day Picker 
+                    {/* Day Picker */}
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                         Day
@@ -1540,7 +1540,7 @@ export default function InventoryScreen() {
                       </View>
                     </View>
 
-                    // Year Picker 
+                    {/* Year Picker */}
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
                         Year
