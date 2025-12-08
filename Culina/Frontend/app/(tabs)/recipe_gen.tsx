@@ -19,6 +19,7 @@ import { Users, Flame, BookmarkPlus, RefreshCw } from "lucide-react-native";
 import { normalizeRecipeSource } from "@/lib/utils/recipeSource";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getExpirationStatus } from "@/lib/utils/expirationHelpers";
 
 type UserPrefsDoc = {
   dietaryPreference?: string;
@@ -341,8 +342,23 @@ export default function RecipeGeneratorScreen() {
           const names: string[] = [];
 
           snapshot.docs.forEach((docSnap) => {
-            const data = docSnap.data() as { name?: string; quantity?: number };
+            const data = docSnap.data() as { name?: string; quantity?: number; expirationDate?: any };
             if (!data?.name) return;
+
+            // Filter out expired ingredients (daysRemaining < 0)
+            if (data.expirationDate) {
+              const expirationStatus = getExpirationStatus({
+                expirationDate: data.expirationDate,
+                name: data.name,
+                quantity: data.quantity || 0
+              } as any);
+
+              // Skip expired ingredients (daysRemaining < 0)
+              if (expirationStatus.daysRemaining !== null && expirationStatus.daysRemaining < 0) {
+                return; // Don't include expired ingredients
+              }
+            }
+
             names.push(data.name);
             const baseKey = data.name.toLowerCase();
             const qty = typeof data.quantity === "number" ? data.quantity : 0;

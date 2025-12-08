@@ -51,6 +51,7 @@ import { getUserRating } from "@/lib/utils/rateRecipe";
 import type { Rating } from "@/types/rating";
 import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
 import { suggestIngredientSubstitutes, type IngredientSubstitute } from "@/lib/suggestIngredientSubstitutes";
+import { getExpirationStatus } from "@/lib/utils/expirationHelpers";
 
 type IngredientEntry = string | { name: string; qty?: string; unit?: string };
 
@@ -290,11 +291,22 @@ export default function RecipeDetailsScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+      // Filter out expired ingredients (daysRemaining < 0)
+      const nonExpiredInventory = inventory.filter(item => {
+        if (!item.expirationDate) {
+          return true; // Include items without expiration date
+        }
+
+        const expirationStatus = getExpirationStatus(item);
+        // Only include if not expired (daysRemaining >= 0)
+        return expirationStatus.daysRemaining !== null && expirationStatus.daysRemaining >= 0;
+      });
+
       const response = await suggestIngredientSubstitutes({
         recipeTitle: recipe.title,
         recipeDescription: recipe.description,
         targetIngredient: ingredientName,
-        inventory: inventory,
+        inventory: nonExpiredInventory,
       });
 
       setAlternativeSuggestions(response.suggestions);
