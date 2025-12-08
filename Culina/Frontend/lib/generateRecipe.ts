@@ -9,6 +9,7 @@ interface GenerateRecipePayload {
   model: string;
   ingredients: string[];
   preferences: string[];
+  mainIngredient?: string;
 }
 
 type GenerateRecipesResponse = {
@@ -265,7 +266,8 @@ const normalizeRecipeData = (recipe: Recipe): Recipe => {
 
 export const generateRecipe = async (
   ingredients: string[],
-  preferences: string[] = []
+  preferences: string[] = [],
+  mainIngredient?: string
 ): Promise<GenerateRecipesResponse> => {
 
   try {
@@ -284,6 +286,7 @@ export const generateRecipe = async (
       model: 'llama-3.1-8b-instant',
       ingredients,
       preferences,
+      ...(mainIngredient ? { mainIngredient } : {}),
     };
 
     const response = await fetch(`${API_BASE}/generate-recipe`, {

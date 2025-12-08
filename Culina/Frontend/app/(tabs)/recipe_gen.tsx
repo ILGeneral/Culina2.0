@@ -290,6 +290,7 @@ export default function RecipeGeneratorScreen() {
   const [saving, setSaving] = useState(false);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [inventoryCounts, setInventoryCounts] = useState<Record<string, number>>({});
+  const [selectedMainIngredient, setSelectedMainIngredient] = useState<string | null>(null);
   const user = auth.currentUser;
   const router = useRouter();
 
@@ -316,7 +317,11 @@ export default function RecipeGeneratorScreen() {
 
     try {
       setGenerating(true);
-      const { recipes: generated } = await generateRecipe(ingredients, preferences);
+      const { recipes: generated } = await generateRecipe(
+        ingredients,
+        preferences,
+        selectedMainIngredient || undefined
+      );
       setRecipes(generated);
       await persistRecipes(generated);
     } catch (err: any) {
@@ -325,7 +330,7 @@ export default function RecipeGeneratorScreen() {
     } finally {
       setGenerating(false);
     }
-  }, [ingredients, preferences]);
+  }, [ingredients, preferences, selectedMainIngredient]);
 
   useEffect(() => {
     let unsubscribeInventory: (() => void) | undefined;
@@ -424,7 +429,11 @@ export default function RecipeGeneratorScreen() {
     }
     try {
       setGenerating(true);
-      const data = await generateRecipe(ingredients, preferences);
+      const data = await generateRecipe(
+        ingredients,
+        preferences,
+        selectedMainIngredient || undefined
+      );
       if (!data?.recipes || data.recipes.length === 0) {
         throw new Error("AI could not generate any recipes with your current ingredients and preferences");
       }
@@ -496,6 +505,53 @@ export default function RecipeGeneratorScreen() {
             <Text style={recipeGenStyles.culinaPrompt}>
               Let me help you create recipes with the ingredients you have!
             </Text>
+
+            {/* Main Ingredient Selector */}
+            <View style={recipeGenStyles.mainIngredientSection}>
+              <Text style={recipeGenStyles.mainIngredientLabel}>Pick a main ingredient (optional):</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={recipeGenStyles.ingredientScroll}
+                contentContainerStyle={recipeGenStyles.ingredientScrollContent}
+              >
+                {/* Surprise Me Option */}
+                <TouchableOpacity
+                  style={[
+                    recipeGenStyles.ingredientChip,
+                    selectedMainIngredient === null && recipeGenStyles.ingredientChipSelected
+                  ]}
+                  onPress={() => setSelectedMainIngredient(null)}
+                >
+                  <Text style={[
+                    recipeGenStyles.ingredientChipText,
+                    selectedMainIngredient === null && recipeGenStyles.ingredientChipTextSelected
+                  ]}>
+                    ✨ Surprise me!
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Ingredient Options */}
+                {ingredients.map((ingredient, idx) => (
+                  <TouchableOpacity
+                    key={`${ingredient}-${idx}`}
+                    style={[
+                      recipeGenStyles.ingredientChip,
+                      selectedMainIngredient === ingredient && recipeGenStyles.ingredientChipSelected
+                    ]}
+                    onPress={() => setSelectedMainIngredient(ingredient)}
+                  >
+                    <Text style={[
+                      recipeGenStyles.ingredientChipText,
+                      selectedMainIngredient === ingredient && recipeGenStyles.ingredientChipTextSelected
+                    ]}>
+                      {ingredient}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
             <TouchableOpacity style={recipeGenStyles.button} onPress={generateNewRecipes} disabled={generating}>
               <Text style={recipeGenStyles.buttonText}>
                 {generating ? "🤖 Culina is cooking up ideas..." : "Generate recipes!"}
@@ -529,6 +585,52 @@ export default function RecipeGeneratorScreen() {
                   <RefreshCw size={18} color="#0f172a" />
                 )}
               </TouchableOpacity>
+            </View>
+
+            {/* Main Ingredient Selector for Refresh */}
+            <View style={[recipeGenStyles.mainIngredientSection, { paddingHorizontal: 20 }]}>
+              <Text style={recipeGenStyles.mainIngredientLabel}>Pick a main ingredient (optional):</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={recipeGenStyles.ingredientScroll}
+                contentContainerStyle={recipeGenStyles.ingredientScrollContent}
+              >
+                {/* Surprise Me Option */}
+                <TouchableOpacity
+                  style={[
+                    recipeGenStyles.ingredientChip,
+                    selectedMainIngredient === null && recipeGenStyles.ingredientChipSelected
+                  ]}
+                  onPress={() => setSelectedMainIngredient(null)}
+                >
+                  <Text style={[
+                    recipeGenStyles.ingredientChipText,
+                    selectedMainIngredient === null && recipeGenStyles.ingredientChipTextSelected
+                  ]}>
+                    ✨ Surprise me!
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Ingredient Options */}
+                {ingredients.map((ingredient, idx) => (
+                  <TouchableOpacity
+                    key={`refresh-${ingredient}-${idx}`}
+                    style={[
+                      recipeGenStyles.ingredientChip,
+                      selectedMainIngredient === ingredient && recipeGenStyles.ingredientChipSelected
+                    ]}
+                    onPress={() => setSelectedMainIngredient(ingredient)}
+                  >
+                    <Text style={[
+                      recipeGenStyles.ingredientChipText,
+                      selectedMainIngredient === ingredient && recipeGenStyles.ingredientChipTextSelected
+                    ]}>
+                      {ingredient}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
 
             <ScrollView
