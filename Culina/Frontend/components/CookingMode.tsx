@@ -144,7 +144,7 @@ export default function CookingMode({
 
   // Automatic Next Step mode state
   const [autoModeActive, setAutoModeActive] = useState(false);
-  const [autoModeTimer, setAutoModeTimer] = useState(10);
+  const [autoModeTimer, setAutoModeTimer] = useState(60);
   const [autoModePaused, setAutoModePaused] = useState(false);
   const autoModeIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -326,7 +326,7 @@ export default function CookingMode({
         // Switch to landscape and enable auto mode
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         setAutoModeActive(true);
-        setAutoModeTimer(10); // Reset timer
+        setAutoModeTimer(60); // Reset timer
         setAutoModePaused(false);
       }
     } catch (error) {
@@ -362,7 +362,7 @@ export default function CookingMode({
     } else {
       // Timer reached 0, move to next step
       handleNext();
-      setAutoModeTimer(10); // Reset for next step
+      setAutoModeTimer(60); // Reset for next step
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
@@ -417,9 +417,16 @@ export default function CookingMode({
             }
             setTimerRunning(false);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Timer Complete!', 'Your timer has finished.', [
-              { text: 'OK', onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }
-            ]);
+
+            // If auto-cook mode is active, auto-advance to next step
+            if (autoModeActive) {
+              handleNext();
+              setAutoModeTimer(60); // Reset timer for next step
+            } else {
+              Alert.alert('Timer Complete!', 'Your timer has finished.', [
+                { text: 'OK', onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }
+              ]);
+            }
             return 0;
           }
           return prev - 1;
@@ -521,7 +528,7 @@ export default function CookingMode({
 
       // Reset auto-mode timer when manually marking as complete
       if (autoModeActive) {
-        setAutoModeTimer(10);
+        setAutoModeTimer(60);
       }
 
       // Auto-advance to next step when marking as complete

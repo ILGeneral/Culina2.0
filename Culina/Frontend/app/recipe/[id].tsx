@@ -749,7 +749,7 @@ export default function RecipeDetailsScreen() {
           {recipe.title}
         </Animated.Text>
         <View style={styles.headerActions}>
-          {saved && userRecipeId && isAISource(recipe.source) && (
+          {saved && userRecipeId && (
             <TouchableOpacity onPress={handleEditPress}>
               <View style={styles.headerButton}>
                 <Pencil color="#0284c7" size={20} />
