@@ -324,7 +324,114 @@ const InventoryItem = ({
   );
 };
 
-// main 
+// —— Bulk Delete Item Component ——
+const BulkDeleteItem = ({
+  item,
+  isSelected,
+  placeholder,
+  expirationStatus,
+  onToggle,
+}: {
+  item: any;
+  isSelected: boolean;
+  placeholder: any;
+  expirationStatus: any;
+  onToggle: (item: any) => void;
+}) => {
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <TouchableOpacity
+      onPress={() => onToggle(item)}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        marginBottom: 8,
+        backgroundColor: isSelected ? '#eff6ff' : '#f9fafb',
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: isSelected ? '#128AFA' : '#e5e7eb',
+      }}
+      activeOpacity={0.7}
+    >
+      {/* Checkbox */}
+      <View style={{
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: isSelected ? '#128AFA' : '#d1d5db',
+        backgroundColor: isSelected ? '#128AFA' : '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+      }}>
+        {isSelected && (
+          <Ionicons name="checkmark" size={16} color="#fff" />
+        )}
+      </View>
+
+      {/* Item Image/Icon */}
+      {item.imageUrl && !imageError ? (
+        <Image
+          source={{ uri: item.imageUrl }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 8,
+            marginRight: 12,
+          }}
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <View style={{
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          backgroundColor: isSelected ? '#dbeafe' : '#f3f4f6',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12,
+        }}>
+          <placeholder.Icon size={24} color={placeholder.color} />
+        </View>
+      )}
+
+      {/* Item Info */}
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize: 16,
+          fontWeight: '600',
+          color: '#0f172a',
+          marginBottom: 2,
+        }}>
+          {item.name}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontSize: 13, color: '#6b7280' }}>
+            Qty: {item.quantity || 0}
+          </Text>
+          {item.expirationDate && expirationStatus.status !== 'unknown' && (
+            <>
+              <Text style={{ fontSize: 13, color: '#9ca3af' }}>•</Text>
+              <Text style={{
+                fontSize: 13,
+                color: expirationStatus.color,
+                fontWeight: '500',
+              }}>
+                {expirationStatus.text}
+              </Text>
+            </>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// main
 export default function InventoryScreen() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -370,6 +477,7 @@ export default function InventoryScreen() {
   // Bulk delete state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkDeleteModalVisible, setBulkDeleteModalVisible] = useState(false);
 
   // Hamburger menu state
   const [menuVisible, setMenuVisible] = useState(false);
@@ -791,9 +899,17 @@ export default function InventoryScreen() {
   }, [filtered]);
 
   const toggleSelectionMode = () => {
-    setSelectionMode(!selectionMode);
     if (selectionMode) {
+      // Closing bulk delete mode
+      setSelectionMode(false);
       setSelectedItems(new Set());
+      setBulkDeleteModalVisible(false);
+    } else {
+      // Opening bulk delete mode
+      setSelectionMode(true);
+      setSelectedItems(new Set());
+      setBulkDeleteModalVisible(true);
+      setMenuVisible(false);
     }
   };
 
@@ -844,6 +960,7 @@ export default function InventoryScreen() {
               showToast(`${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} deleted`, 'info');
               setSelectedItems(new Set());
               setSelectionMode(false);
+              setBulkDeleteModalVisible(false);
             } catch (err) {
               console.error("Bulk delete failed:", err);
               showToast("Failed to delete some items", 'error');
@@ -860,8 +977,8 @@ export default function InventoryScreen() {
         item={item}
         onEdit={edit}
         onDelete={del}
-        isSelectionMode={selectionMode}
-        isSelected={selectedItems.has(item.id)}
+        isSelectionMode={false}
+        isSelected={false}
         onToggleSelect={toggleItemSelection}
       />
     );
@@ -878,82 +995,6 @@ export default function InventoryScreen() {
             type={toast.type}
             onHide={hideToast}
           />
-
-          {/* Bulk Delete Controls */}
-          {selectionMode && (
-            <View style={{
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              backgroundColor: '#FEF2F2',
-              borderBottomWidth: 1,
-              borderBottomColor: '#FECACA',
-            }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#991B1B' }}>
-                  {selectedItems.size} selected
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 12,
-                      backgroundColor: '#FFF',
-                      borderWidth: 1,
-                      borderColor: '#DC2626',
-                    }}
-                    onPress={selectAll}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#DC2626' }}>
-                      Select All
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 12,
-                      backgroundColor: '#FFF',
-                      borderWidth: 1,
-                      borderColor: '#9CA3AF',
-                    }}
-                    onPress={deselectAll}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280' }}>
-                      Deselect All
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 12,
-                      backgroundColor: selectedItems.size > 0 ? '#DC2626' : '#D1D5DB',
-                    }}
-                    onPress={bulkDelete}
-                    disabled={selectedItems.size === 0}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
-                      Delete
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 12,
-                      backgroundColor: '#6B7280',
-                    }}
-                    onPress={toggleSelectionMode}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#FFF' }}>
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
 
           {/* search + filter */}
           <View style={styles.controlsRow}>
@@ -1587,6 +1628,162 @@ export default function InventoryScreen() {
                       year: 'numeric'
                     })}
                   </Text>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Bulk Delete Modal */}
+          <Modal visible={bulkDeleteModalVisible} animationType="slide" transparent>
+            <View style={{
+              flex: 1,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            }}>
+              <View style={{
+                flex: 1,
+                backgroundColor: '#fff',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                marginTop: 60,
+              }}>
+                {/* Header */}
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingHorizontal: 20,
+                  paddingVertical: 16,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#e5e7eb',
+                }}>
+                  <View>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#0f172a', marginBottom: 4 }}>
+                      Bulk Delete
+                    </Text>
+                    <Text style={{ fontSize: 14, color: '#6b7280' }}>
+                      {selectedItems.size} of {items.length} selected
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={toggleSelectionMode}
+                    style={{
+                      padding: 8,
+                      borderRadius: 8,
+                      backgroundColor: '#f3f4f6',
+                    }}
+                  >
+                    <Ionicons name="close" size={24} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Action Buttons Row */}
+                <View style={{
+                  flexDirection: 'row',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  gap: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#e5e7eb',
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      backgroundColor: '#fff',
+                      borderWidth: 1.5,
+                      borderColor: '#128AFA',
+                      alignItems: 'center',
+                    }}
+                    onPress={selectAll}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#128AFA' }}>
+                      Select All
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 12,
+                      backgroundColor: '#fff',
+                      borderWidth: 1.5,
+                      borderColor: '#9ca3af',
+                      alignItems: 'center',
+                    }}
+                    onPress={deselectAll}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#6b7280' }}>
+                      Deselect All
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Scrollable Items List */}
+                <ScrollView
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 }}
+                >
+                  {items.map((item, index) => {
+                    const isSelected = selectedItems.has(item.id);
+                    const placeholder = getPlaceholderIcon(item.name, item.ingredientType);
+                    const expirationStatus = getExpirationStatus(item);
+
+                    return (
+                      <BulkDeleteItem
+                        key={item.id}
+                        item={item}
+                        isSelected={isSelected}
+                        placeholder={placeholder}
+                        expirationStatus={expirationStatus}
+                        onToggle={toggleItemSelection}
+                      />
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Bottom Action Buttons */}
+                <View style={{
+                  flexDirection: 'row',
+                  paddingHorizontal: 20,
+                  paddingTop: 16,
+                  paddingBottom: 20,
+                  gap: 12,
+                  borderTopWidth: 1,
+                  borderTopColor: '#e5e7eb',
+                  backgroundColor: '#fff',
+                }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      backgroundColor: '#f3f4f6',
+                      alignItems: 'center',
+                    }}
+                    onPress={toggleSelectionMode}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#6b7280' }}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      paddingVertical: 14,
+                      borderRadius: 12,
+                      backgroundColor: selectedItems.size > 0 ? '#DC2626' : '#d1d5db',
+                      alignItems: 'center',
+                    }}
+                    onPress={bulkDelete}
+                    disabled={selectedItems.size === 0}
+                  >
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#fff' }}>
+                      Delete ({selectedItems.size})
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>

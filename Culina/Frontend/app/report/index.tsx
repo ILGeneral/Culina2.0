@@ -57,8 +57,6 @@ export default function ReportIssueScreen() {
       const { db } = await import("@/lib/firebaseConfig");
       const { collection, addDoc, serverTimestamp } = await import("firebase/firestore");
 
-      console.log("Submitting report directly to Firestore...");
-
       const reportsCollection = collection(db, "reports");
       const docRef = await addDoc(reportsCollection, {
         reporterId: user.uid,
@@ -71,8 +69,6 @@ export default function ReportIssueScreen() {
         createdAt: serverTimestamp(),
       });
 
-      // Log success and show confirmation
-      console.log("Report submitted successfully with ID:", docRef.id);
       Alert.alert("Report Sent!", "Thank you for your feedback! We'll review it soon.");
 
       // Reset form and navigate back

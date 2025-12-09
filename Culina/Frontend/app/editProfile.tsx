@@ -144,7 +144,6 @@ export default function EditProfileScreen() {
       });
 
       await batch.commit();
-      console.log(`Updated ${snapshot.docs.length} shared recipes with new profile info`);
     } catch (error) {
       console.error('Error updating shared recipes:', error);
       // Don't throw - this is a non-critical update

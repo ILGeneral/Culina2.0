@@ -93,7 +93,7 @@ export default function ProfileScreen() {
   const [toastMessage, setToastMessage] = useState("");
 
   // Refs
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<Animated.ScrollView>(null);
 
   // Animation values
   const scrollY = useSharedValue(0);
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Reset scroll position when screen comes into focus
+      // Reset position when screen comes into focus
       scrollY.value = 0;
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
 

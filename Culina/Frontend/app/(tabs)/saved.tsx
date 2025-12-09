@@ -357,7 +357,6 @@ export default function SavedRecipesScreen() {
       (error: any) => {
         // Silently handle permission-denied errors (occurs when user logs out)
         if (error?.code === 'permission-denied') {
-          console.log('User logged out, cleaning up recipes listener');
           setRecipes([]);
           setLoading(false);
           return;
@@ -393,7 +392,6 @@ export default function SavedRecipesScreen() {
       (error: any) => {
         // Silently handle permission-denied errors (occurs when user logs out)
         if (error?.code === 'permission-denied') {
-          console.log('User logged out, cleaning up inventory listener');
           setInventoryCounts({});
           return;
         }

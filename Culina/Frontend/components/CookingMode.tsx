@@ -233,8 +233,6 @@ export default function CookingMode({
     // Detect required equipment
     const equipment = detectEquipment(instructions, ingredients);
     setRequiredEquipment(equipment);
-
-    console.log('Equipment detected:', equipment.map(e => e.name));
   }, [instructions, ingredients]);
 
   // ========== SHOW REMINDERS FOR CURRENT STEP ==========

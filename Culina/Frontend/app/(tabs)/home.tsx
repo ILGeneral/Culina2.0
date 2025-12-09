@@ -91,7 +91,7 @@ export default function HomeScreen() {
         const countB = b.ratings?.totalRatings || 0;
         return countB - countA; // Most rated first
       }
-      // Default: recent (already sorted by sharedAt in hook)
+      // Default is recent (sorted by sharedAt)
       return 0;
     });
 

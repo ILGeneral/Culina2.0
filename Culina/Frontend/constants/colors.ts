@@ -28,7 +28,7 @@ export const Colors = {
     darker: '#EA580C',
   },
 
-  // Tertiary - Yellow/Gold
+  // Tertiary - Yellow
   tertiary: {
     main: '#FBBF24',
     light: '#FCD34D',
@@ -48,7 +48,7 @@ export const Colors = {
     successDarker: '#047857',
   },
 
-  // Semantic Colors
+  // Warning 
   error: {
     main: '#EF4444',
     light: '#F87171',
@@ -67,7 +67,7 @@ export const Colors = {
     darker: '#92400E',
   },
 
-  // Neutral/Gray Scale
+  // Shades
   neutral: {
     white: '#FFFFFF',
     lightest: '#F8FAFC',
@@ -82,7 +82,7 @@ export const Colors = {
     black: '#0F172A',
   },
 
-  // Special/Extra Colors
+  // Misc
   extra: {
     purple: '#8B5CF6',
     purpleLight: '#A78BFA',
