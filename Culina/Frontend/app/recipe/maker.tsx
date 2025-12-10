@@ -24,7 +24,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { shareRecipe } from "@/lib/utils/shareRecipe";
+import { shareRecipe, getSharedRecipeId, updateSharedRecipe } from "@/lib/utils/shareRecipe";
 import { makerStyles as styles } from "@/styles/recipe/makerStyles";
 import { EQUIPMENT_DB } from "@/lib/equipmentDetector";
 
@@ -427,11 +427,25 @@ export default function RecipeMakerScreen() {
         ? doc(db, "users", uid, "recipes", recipeId)
         : doc(collection(db, "users", uid, "recipes"));
 
+      let wasSynced = false;
+
       if (isEditing) {
         await updateDoc(recipeRef, {
           ...recipePayload,
           updatedAt: serverTimestamp(),
         });
+
+        // Auto-sync: If this recipe is shared, update the shared version too
+        const sharedRecipeId = await getSharedRecipeId(recipeId, uid);
+        if (sharedRecipeId) {
+          const syncResult = await updateSharedRecipe(sharedRecipeId, recipePayload, uid);
+          if (syncResult.success) {
+            wasSynced = true;
+          } else {
+            console.error('Failed to sync shared recipe:', syncResult.error);
+            // Don't block the save if sync fails, just log it
+          }
+        }
       } else {
         await setDoc(recipeRef, {
           ...recipePayload,
@@ -474,9 +488,16 @@ export default function RecipeMakerScreen() {
       if (!isEditing) {
         resetForm();
       }
+
+      const successMessage = isEditing
+        ? (wasSynced
+            ? "Recipe updated. Changes synced to community version."
+            : "Recipe updated.")
+        : "Recipe saved to your collection.";
+
       Alert.alert(
         "Saved",
-        isEditing ? "Recipe updated." : "Recipe saved to your collection.",
+        successMessage,
         [
           {
             text: "OK",
