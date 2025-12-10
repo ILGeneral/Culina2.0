@@ -466,19 +466,20 @@ const ChatBotScreen = () => {
       resizeMode="cover"
     >
       <SafeAreaView style={chatBotStyles.safeArea} edges={["top"]}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={chatBotStyles.contentContainer}>
-            <View style={chatBotStyles.culinaWrapper} pointerEvents="none">
-              <Image
-                source={currentPose}
-                style={chatBotStyles.culinaModel}
-                resizeMode="contain"
-              />
-            </View>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={chatBotStyles.culinaWrapper} pointerEvents="box-none">
+                <Image
+                  source={currentPose}
+                  style={chatBotStyles.culinaModel}
+                  resizeMode="contain"
+                />
+              </View>
+            </TouchableWithoutFeedback>
             <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              behavior={Platform.OS === "ios" ? "position" : undefined}
               style={chatBotStyles.overlay}
-              keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+              keyboardVerticalOffset={0}
             >
               <View style={chatBotStyles.overlayContent}>
                 <View style={chatBotStyles.controlsContainer}>
@@ -527,8 +528,11 @@ const ChatBotScreen = () => {
                       ) : (
                         <ScrollView
                           style={chatBotStyles.collapsedScrollView}
+                          contentContainerStyle={{ paddingVertical: 4 }}
                           showsVerticalScrollIndicator={true}
                           nestedScrollEnabled={true}
+                          scrollEnabled={true}
+                          bounces={true}
                         >
                           <Animated.Text
                             entering={FadeIn.duration(400).delay(100)}
@@ -557,8 +561,13 @@ const ChatBotScreen = () => {
                         renderItem={renderMessage}
                         contentContainerStyle={chatBotStyles.messages}
                         style={chatBotStyles.messageList}
-                        showsVerticalScrollIndicator={false}
+                        showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
+                        scrollEnabled={true}
+                        nestedScrollEnabled={true}
+                        bounces={true}
+                        alwaysBounceVertical={true}
+                        keyboardDismissMode="interactive"
                       />
                     </View>
                   ) : (
@@ -594,7 +603,6 @@ const ChatBotScreen = () => {
               </View>
             </KeyboardAvoidingView>
           </View>
-        </TouchableWithoutFeedback>
       </SafeAreaView>
     </ImageBackground>
   );

@@ -71,8 +71,8 @@ const chatBotStyles = StyleSheet.create({
     borderRadius: 20,
   },
   chatPanelExpanded: {
-    height: "70%",
-    minHeight: 200,
+    height: "75%",
+    minHeight: 650,
     borderRadius: 20,
   },
   voiceButton: {
@@ -108,7 +108,7 @@ const chatBotStyles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   messageList: {
-    flexGrow: 0,
+    flex: 1,
   },
   messages: {
     paddingHorizontal: 10,
@@ -126,18 +126,22 @@ const chatBotStyles = StyleSheet.create({
     zIndex: 0,
     maxWidth: "85%",
     alignSelf: "center",
-    maxHeight: 300,
+    minHeight: 80,
+    maxHeight: 350,
   },
   collapsedBubble: {
     backgroundColor: "#0F172ACC",
     borderRadius: 18,
     padding: 16,
-    alignSelf: "center", // Center the bubble
+    alignSelf: "center",
     maxWidth: "100%",
     marginBottom: 0,
+    minHeight: 80,
+    maxHeight: 350,
   },
   collapsedScrollView: {
-    maxHeight: 268,
+    maxHeight: 318,
+    flexGrow: 0,
   },
   collapsedText: {
     fontSize: 18,
