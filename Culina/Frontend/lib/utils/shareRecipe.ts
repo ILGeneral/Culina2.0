@@ -1,4 +1,6 @@
-// lib/utils/shareRecipe.ts
+// Recipe Sharing Utilities
+// Functions: share, unshare, and sync recipes with the community
+// Manages user's saved recipes and community-shared recipes
 import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { normalizeRecipeSource } from '@/lib/utils/recipeSource';

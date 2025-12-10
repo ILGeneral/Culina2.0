@@ -1,6 +1,8 @@
+// Current API: Groq  
 import { verifyAuthToken } from '../lib/firebase-admin.js';
 import { chatbotLimiter } from '../lib/rate-limiter.js';
 
+// Keeps the last 10 responses to stay within token limits
 const sanitizeHistory = (history = []) => {
   if (!Array.isArray(history)) return [];
 
@@ -13,9 +15,10 @@ const sanitizeHistory = (history = []) => {
         typeof entry.content === "string" &&
         entry.content.trim().length > 0
     )
-    .slice(-10); // keeps last 10 exchanges
+    .slice(-10); // keeps last 10 responses
 };
 
+// Culina's personality and behavior prompt
 const SYSTEM_PROMPT = `You are Culina 🍳, a cheerful, confident, and supportive AI kitchen companion.
 \nYou speak like a warm friend who loves cooking, always encouraging and making the user feel excited.
 \nUse natural, human-like tone (like "Let's whip this up!" or "Ooo, that combo sounds delicious!").

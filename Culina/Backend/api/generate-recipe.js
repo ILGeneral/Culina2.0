@@ -1,7 +1,12 @@
+// AI Recipe Generation API Endpoint for Culina App
+// This serverless function generates personalized recipes using Groq AI based on user's inventory and dietary preferences
+// Deployed on Vercel at: https://culina-backend.vercel.app/api/generate-recipe
+
 import admin from 'firebase-admin';
 import { recipeGenLimiter } from '../lib/rate-limiter.js';
 
-// Initialize Firebase Admin (only once)
+// Initialize Firebase Admin SDK to access Firestore db
+// Initializes once per serverless function instance
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -12,8 +17,11 @@ if (!admin.apps.length) {
   });
 }
 
+// Firestore database instance for querying user data
 const db = admin.firestore();
 
+// Fetches user preferences and inventory from Firestore
+// And returns user's dietary restrictions, religious preferences, and available ingredients
 async function getUserContext(uid) {
   const userDoc = await db.collection('users').doc(uid).get();
   if (!userDoc.exists) {
@@ -35,21 +43,25 @@ async function getUserContext(uid) {
   return { preferences, inventory };
 }
 
+// Main API handler function for recipe generation requests
+// Accepts POST requests with user token, applies rate limiting, generates recipes via Groq AI
 export default async function handler(req, res) {
-  // CORS
+  // Enable CORS to allow requests from React Native app
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
+  // Handle preflight OPTIONS request for CORS
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // Only accept POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // STEP 1: Apply rate limiting
+  // STEP 1: Apply rate limiting to prevent API abuse
   try {
     await new Promise((resolve, reject) => {
       recipeGenLimiter(req, res, (result) => {
@@ -64,19 +76,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    // STEP 2: Verify Firebase auth token
+    // STEP 2: Verify Firebase authentication token from request header
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Unauthorized - No token provided' });
     }
 
+    // Extract and verify the JWT token
     const token = authHeader.split('Bearer ')[1];
     const decodedToken = await admin.auth().verifyIdToken(token);
     const uid = decodedToken.uid;
 
     console.log('User authenticated:', uid);
 
-    // Gather user data
+    // Gather user's dietary preferences and inventory from db
     const { preferences, inventory } = await getUserContext(uid);
     const diet = preferences?.diet || 'none';
     const religion = preferences?.religion || preferences?.religiousPreference || 'none';
@@ -93,13 +106,13 @@ export default async function handler(req, res) {
       allergies: allergies.length > 0 ? allergies : 'none'
     });
 
-    // Stricter formatting reqs and Culina's personality
+    // Prepare allergy info for AI 
     const allergyText = allergies.length > 0 ? allergies.join(', ') : 'none';
 
-    // Extract just ingredient names for clearer prompt
+    // Take ingredient names from inventory for AI context
     const availableIngredients = inventory.map(item => item.name || item.ingredient).filter(Boolean);
 
-    // Creates inventory context with quantities
+    // Format inventory with quantities for detailed AI understanding
     const inventoryContext = inventory.map(item => {
       const name = item.name || item.ingredient;
       const qty = item.quantity || '';
@@ -107,7 +120,7 @@ export default async function handler(req, res) {
       return `- ${name}${qty ? ` (${qty} ${unit})` : ''}`;
     }).join('\n');
 
-    // Defines dietary restrictions manually
+    // Restrictions per user preferences
     const getDietaryRestrictions = (dietType) => {
       const restrictions = {
         'vegetarian': {

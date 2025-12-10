@@ -1,3 +1,6 @@
+// Features: expiration tracking, bulk delete, search, sorting, and TheMealDB image integration
+// Supports multiple views: all items, categories, expiring soon
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/styles/inventoryStyle";
 import {

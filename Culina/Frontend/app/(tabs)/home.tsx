@@ -1,3 +1,5 @@
+// Features: sorting, filtering, infinite scroll, and recipe management
+// Users can edit/unshare their recipes and view community recipes with ratings
 import React, { useState, useMemo, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

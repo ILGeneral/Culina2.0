@@ -1,3 +1,5 @@
+// Create and Edit Recipes
+// Supports sharing recipes to community and auto-syncs changes to shared versions
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,

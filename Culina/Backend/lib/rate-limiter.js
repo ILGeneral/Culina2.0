@@ -1,9 +1,6 @@
+// Uses express-rate-limit midware with different limits for different endpoints
 import rateLimit from 'express-rate-limit';
 
-/**
- * Helper function to generate rate limit key based on user ID from auth token
- * Falls back to IP address if no valid auth token is present
- */
 const getUserKeyGenerator = (req) => {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {

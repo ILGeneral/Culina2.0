@@ -1,3 +1,6 @@
+// Displays shared recipe cards with animations in the home screen
+// Shows recipe details, ratings, comments count, and action buttons (edit/unshare)
+// Tap to view full recipe details and ratings
 import React, { useMemo, useState } from "react";
 import { View, Text, Image, TouchableOpacity, Alert } from "react-native";
 import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
@@ -11,6 +14,7 @@ import { styles } from "@/styles/components/home/animatedRecipeCardStyles";
 import { unshareRecipe } from "@/lib/utils/shareRecipe";
 import { auth } from "@/lib/firebaseConfig";
 
+// Converts Firestore timestamp to readable date string
 const formatTimestamp = (val: any): string | null => {
   if (!val) return null;
   try {
