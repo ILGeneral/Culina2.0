@@ -10,7 +10,7 @@ import Background from "@/components/Background";
 import { useSharedRecipes, SharedRecipe } from "@/hooks/useSharedRecipe";
 import { homeStyles as styles } from "@/styles/tabs/homeStyles";
 import { auth, db } from "@/lib/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -57,24 +57,33 @@ export default function HomeScreen() {
     transform: [{ rotate: `${chevronRotation.value}deg` }],
   }));
 
-  // Fetch user profile picture
+  // Set up real-time listener for user profile picture
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const user = auth.currentUser;
+    if (!user) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.data();
+    const userDocRef = doc(db, 'users', user.uid);
+
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        const userData = docSnap.data();
         if (userData?.profilePicture) {
           setUserProfilePicture(userData.profilePicture);
         }
-      } catch (error) {
+      },
+      (error: any) => {
+        // Silently handle permission errors (user not authenticated or logged out)
+        if (error?.code === 'permission-denied') {
+          return;
+        }
         console.error('Error fetching user profile:', error);
       }
-    };
+    );
 
-    fetchUserProfile();
+    // Clean up listener on unmount
+    return () => unsubscribe();
   }, []);
 
   // Filter and sort recipes
@@ -317,13 +326,12 @@ export default function HomeScreen() {
                   showUnshareButton={activeTab === 'my'}
                   showEditButton={activeTab === 'my'}
                   onRecipeUnshared={() => {
-                    // Real-time listener will automatically update the list
-                    // No need for manual refresh
+                    // Real-time listener will auto update the list
                   }}
                 />
               ))}
 
-              {/* Load More Button - Only show for community tab */}
+              {/* Load More - Community */}
               {activeTab === 'community' && hasMore && (
                 <TouchableOpacity
                   style={styles.loadMoreButton}

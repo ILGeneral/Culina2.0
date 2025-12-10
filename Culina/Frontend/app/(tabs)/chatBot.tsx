@@ -245,19 +245,18 @@ const ChatBotScreen = () => {
         </View>
 
         {/* === LAYER 2: KEYBOARD HANDLING === */}
-        {/* We use behavior 'padding' on iOS and standard behavior on Android */}
+        {/* Keyboard avoiding for Android */}
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior="height"
           style={chatBotStyles.keyboardContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+          keyboardVerticalOffset={20}
         >
           {/* This container pushes content to the bottom using justifyContent: 'flex-end' */}
           <View style={chatBotStyles.contentContainer}>
-            
+
             {/* Top Empty Space - Touch to dismiss */}
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
               <View style={{ flex: 1, width: '100%' }} pointerEvents="box-none">
-
                 {/* Controls (Absolute top right) */}
                 <View style={chatBotStyles.controlsContainer}>
                   <TouchableOpacity onPress={toggleVoice} style={[chatBotStyles.voiceButton, !voiceEnabled && chatBotStyles.voiceButtonDisabled]}>
@@ -268,41 +267,40 @@ const ChatBotScreen = () => {
                     {expanded ? <ChevronDown size={20} color="#f8fafc" /> : <ChevronUp size={20} color="#f8fafc" />}
                   </TouchableOpacity>
                 </View>
-
-                {/* Collapsed Bubble - Shows only when NOT expanded */}
-                {!expanded && displayedMessages.length > 0 && (
-                  <View style={chatBotStyles.collapsedMessageContainer}>
-                    <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
-                      {sending ? (
-                        <View style={chatBotStyles.typingIndicatorContainer}>
-                          <Text style={chatBotStyles.typingText}>Culina is typing</Text>
-                          <View style={chatBotStyles.typingDotsContainer}>
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot1Style]} />
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot2Style]} />
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot3Style]} />
-                          </View>
-                        </View>
-                      ) : (
-                        <ScrollView
-                          style={chatBotStyles.collapsedScrollView}
-                          showsVerticalScrollIndicator={true}
-                          scrollEnabled={true}
-                          nestedScrollEnabled={true}
-                          bounces={true}
-                        >
-                          <Animated.Text entering={FadeIn.duration(400)} style={chatBotStyles.collapsedText}>
-                            {displayedMessages[0]?.content || ''}
-                          </Animated.Text>
-                        </ScrollView>
-                      )}
-                    </Animated.View>
-                  </View>
-                )}
-
               </View>
             </TouchableWithoutFeedback>
 
-            {/* Chat Panel - Naturally sits at the bottom */}
+            {/* Collapsed Bubble - OUTSIDE TouchableWithoutFeedback so it can scroll */}
+            {!expanded && displayedMessages.length > 0 && (
+              <View style={chatBotStyles.collapsedMessageContainer}>
+                <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
+                  {sending ? (
+                    <View style={chatBotStyles.typingIndicatorContainer}>
+                      <Text style={chatBotStyles.typingText}>Culina is typing</Text>
+                      <View style={chatBotStyles.typingDotsContainer}>
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot1Style]} />
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot2Style]} />
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot3Style]} />
+                      </View>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      style={chatBotStyles.collapsedScrollView}
+                      showsVerticalScrollIndicator={true}
+                      scrollEnabled={true}
+                      nestedScrollEnabled={true}
+                      bounces={true}
+                      directionalLockEnabled={false}
+                    >
+                      <Animated.Text entering={FadeIn.duration(400)} style={chatBotStyles.collapsedText}>
+                        {displayedMessages[0]?.content || ''}
+                      </Animated.Text>
+                    </ScrollView>
+                  )}
+                </Animated.View>
+              </View>
+            )}
+
             <View style={[
               chatBotStyles.chatPanel,
               expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed

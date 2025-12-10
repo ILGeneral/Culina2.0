@@ -12,7 +12,7 @@ import { styles } from '@/styles/tabs/savedStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { db, auth } from '@/lib/firebaseConfig';
-import { collection, doc, deleteDoc, onSnapshot, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import {
   ChefHat,
   Users,
@@ -306,24 +306,33 @@ export default function SavedRecipesScreen() {
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const router = useRouter();
 
-  // Fetch user profile picture
+  // Set up real-time listener for user profile picture
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const user = auth.currentUser;
+    if (!user) return;
 
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.data();
+    const userDocRef = doc(db, 'users', user.uid);
+
+    // Set up real-time listener
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        const userData = docSnap.data();
         if (userData?.profilePicture) {
           setUserProfilePicture(userData.profilePicture);
         }
-      } catch (error) {
+      },
+      (error: any) => {
+        // Silently handle permission errors (user not authenticated or logged out)
+        if (error?.code === 'permission-denied') {
+          return;
+        }
         console.error('Error fetching user profile:', error);
       }
-    };
+    );
 
-    fetchUserProfile();
+    // Clean up listener on unmount
+    return () => unsubscribe();
   }, []);
 
   // Filter recipes based on active tab

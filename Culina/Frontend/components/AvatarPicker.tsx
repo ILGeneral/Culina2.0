@@ -104,6 +104,7 @@ export default function AvatarPicker({ onSelect, onClose, currentAvatar }: Avata
                     <Image
                       source={{ uri: avatarUrl }}
                       style={styles.avatarImage}
+                      resizeMode="cover"
                       onError={(error) => {
                         console.warn('Failed to load avatar image:', avatarUrl, error);
                       }}
@@ -115,18 +116,8 @@ export default function AvatarPicker({ onSelect, onClose, currentAvatar }: Avata
           </ScrollView>
         </View>
 
-        {/* Preview and Confirm */}
+        {/* Confirm Button */}
         <View style={styles.footer}>
-          <View style={styles.preview}>
-            <Text style={styles.previewLabel}>Preview:</Text>
-            <Image
-              source={{ uri: generateAvatarUrl(selectedStyle, selectedSeed) }}
-              style={styles.previewImage}
-              onError={(error) => {
-                console.warn('Failed to load preview avatar image:', error);
-              }}
-            />
-          </View>
           <TouchableOpacity style={styles.confirmButton} onPress={handleSelect}>
             <Text style={styles.confirmText}>Select Avatar</Text>
           </TouchableOpacity>

@@ -22,7 +22,7 @@ import {
 } from "lucide-react-native";
 import { auth, db } from "@/lib/firebaseConfig";
 import { signOut, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, {
@@ -112,17 +112,30 @@ export default function ProfileScreen() {
   const toastParam = typeof params.toastMessage === "string" ? params.toastMessage : undefined;
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let unsubscribeUserData: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      // Clean up previous listener if exists
+      if (unsubscribeUserData) {
+        unsubscribeUserData();
+        unsubscribeUserData = undefined;
+      }
+
       setUser(currentUser);
       if (currentUser) {
         setLoading(true);
-        await fetchUserData(currentUser.uid);
+        unsubscribeUserData = await fetchUserData(currentUser.uid);
       } else {
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserData) {
+        unsubscribeUserData();
+      }
+    };
   }, []);
 
   useFocusEffect(
@@ -131,13 +144,7 @@ export default function ProfileScreen() {
       scrollY.value = 0;
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
 
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        setLoading(true);
-        fetchUserData(currentUser.uid);
-      } else {
-        setLoading(false);
-      }
+      // No need to manually fetch - the real-time listener will handle updates
       return () => {};
     }, [scrollY])
   );
@@ -216,19 +223,32 @@ export default function ProfileScreen() {
   };
 
   const fetchUserData = async (uid: string) => {
-    /* ... (same as before) */
     try {
       const docRef = doc(db, "users", uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setUserData(docSnap.data());
-      } else {
-        setUserData(null);
-      }
+
+      // Set up real-time listener for profile updates
+      const unsubscribe = onSnapshot(
+        docRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            setUserData(docSnap.data());
+          } else {
+            setUserData(null);
+          }
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error fetching user data:", error);
+          showToast("Failed to load profile.");
+          setLoading(false);
+        }
+      );
+
+      // Return unsubscribe function to clean up listener
+      return unsubscribe;
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error("Error setting up user data listener:", error);
       showToast("Failed to load profile.");
-    } finally {
       setLoading(false);
     }
   };
@@ -279,7 +299,9 @@ export default function ProfileScreen() {
       {/* Parallax Avatar */}
       <Animated.View style={[styles.avatarContainer, animatedAvatarContainerStyle]}>
         <Image
-          source={{ uri: user?.photoURL || "https://avatar.iran.liara.run/public" }}
+          source={{
+            uri: userData?.profilePicture || `https://api.dicebear.com/7.x/avataaars/png?seed=${user?.uid}&size=200`
+          }}
           style={styles.avatar}
         />
       </Animated.View>

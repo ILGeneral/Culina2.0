@@ -147,7 +147,12 @@ export const useSharedRecipes = () => {
               setLoading(false);
             }
           },
-          (err) => {
+          (err: any) => {
+            // Silently handle permission errors (user not authenticated)
+            if (err?.code === 'permission-denied') {
+              setLoading(false);
+              return;
+            }
             console.error('Error fetching my shared recipes:', err);
             setError('Failed to load your shared recipes');
             setLoading(false);
@@ -190,7 +195,12 @@ export const useSharedRecipes = () => {
               setLoading(false);
             }
           },
-          (err) => {
+          (err: any) => {
+            // Silently handle permission errors (user not authenticated)
+            if (err?.code === 'permission-denied') {
+              setLoading(false);
+              return;
+            }
             console.error('Error fetching community recipes:', err);
             setError('Failed to load community recipes');
             setLoading(false);

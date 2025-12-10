@@ -1,4 +1,4 @@
-import { StyleSheet, Platform, Dimensions } from "react-native";
+import { StyleSheet, Dimensions } from "react-native";
 import { Colors } from "@/constants/colors";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -156,8 +156,8 @@ const chatBotStyles = StyleSheet.create({
     color: "#f8fafc",
     maxHeight: 100,
     minHeight: 40,
-    paddingTop: Platform.OS === 'ios' ? 10 : 5,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 5,
+    paddingTop: 5,
+    paddingBottom: 5,
     fontSize: 15,
   },
   sendButton: {
