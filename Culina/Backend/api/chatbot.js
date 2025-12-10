@@ -13,7 +13,7 @@ const sanitizeHistory = (history = []) => {
         typeof entry.content === "string" &&
         entry.content.trim().length > 0
     )
-    .slice(-10); // keep last 10 exchanges for brevity
+    .slice(-10); // keeps last 10 exchanges
 };
 
 const SYSTEM_PROMPT = `You are Culina 🍳, a cheerful, confident, and supportive AI kitchen companion.
@@ -91,11 +91,11 @@ export default async function handler(req, res) {
       });
     });
   } catch (rateLimitError) {
-    // Rate limit exceeded - limiter already sent response
+    // Rate limit exceeded, limiter already sent response
     return;
   }
 
-  // STEP 2: Verify authentication
+  // STEP 2: Verify auth
   try {
     await verifyAuthToken(req);
   } catch (authError) {

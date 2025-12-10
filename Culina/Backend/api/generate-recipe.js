@@ -431,7 +431,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
             model,
             messages: [{ role: 'user', content: prompt }],
             temperature: temperature,
-            max_tokens: 5000, // Reduced from 6000 to avoid hitting token limits
+            max_tokens: 5000, // To avoid hitting token limits
             response_format: { type: 'json_object' },
           }),
         });
@@ -441,7 +441,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
           const errorText = await groqResponse.text();
           console.log(`Rate limit hit (attempt ${retryCount + 1}/${maxRetries}). Retrying...`);
 
-          // Parse retry-after header or wait time from error message
+          // Parse retry after header or wait time from error message
           let waitTime = Math.pow(2, retryCount) * 500; // Exponential backoff: 500ms, 1s, 2s
 
           try {
@@ -459,10 +459,10 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
           console.log(`Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           retryCount++;
-          continue; // Retry the request
+          continue; // Retry request
         }
 
-        // If not 429 or exceeded retries, break the loop
+        // If not 429 or exceeded retries, break loop
         break;
 
       } catch (fetchError) {
@@ -476,7 +476,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
       console.error('Groq API error:', errorText);
       console.error('Groq response status:', groqResponse.status);
 
-      // Provide user-friendly error messages
+      // Error messages
       try {
         const errorJson = JSON.parse(errorText);
         const errorMessage = errorJson?.error?.message || errorText;
@@ -514,15 +514,15 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
 
     const recipes = parsedData.recipes;
 
-    // Log what we got
+    // Log what user got
     console.log(`AI returned ${recipes.length} recipes`);
     
-    // Create a set of available ingredient names for quick lookup (case-insensitive)
+    // Create a set of avail. ingre names for quick lookup 
     const availableIngredientsSet = new Set(
       inventory.map(item => (item.name || item.ingredient || '').toLowerCase().trim())
     );
 
-    // Define allowed unit types
+    // Allowed unit types
     const allowedUnits = new Set([
       'g', 'kg', 'cups', 'tbsp', 'tsp', 'ml', 'l', 'oz', 'lb',
       'pieces', 'slices', 'cloves', 'bunches', 'cans', 'bottles', ''
@@ -548,15 +548,15 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
         return false;
       }
 
-      // Fix/validate ingredient units
+      // Fix/validate ingre units
       recipe.ingredients = recipe.ingredients.map(ing => {
         const unit = (ing.unit || '').toLowerCase().trim();
 
-        // If unit is not in allowed list, try to map it or remove it
+        // If unit is not in allowed list, map or remove
         if (!allowedUnits.has(unit)) {
           console.log(`Recipe "${recipe.title}": Invalid unit "${unit}" for ingredient "${ing.name}". Attempting to fix...`);
 
-          // Try to map common variations to allowed units
+          // Common variations to allowed units
           const unitMappings = {
             'head': 'pieces',
             'heads': 'pieces',
@@ -605,7 +605,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
         return ing;
       });
 
-      // To check if all ingredients are in inventory
+      // Check if all ingredients are in inventory
       const missingIngredients = recipe.ingredients.filter(ing => {
         const ingredientName = (ing.name || '').toLowerCase().trim();
         return !availableIngredientsSet.has(ingredientName);
@@ -617,7 +617,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
         return false;
       }
 
-      // To check if recipe violates user dietary or religious restrictions
+      // Check if recipe disobeys user dietary or religious restrictions
       if (allForbidden.length > 0) {
         const violatingIngredients = recipe.ingredients.filter(ing => {
           const ingredientName = (ing.name || '').toLowerCase().trim();
@@ -634,7 +634,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
           return false;
         }
 
-        // To also check recipe title and description for forbidden terms (catch things like "Chicken Salad")
+        // Also checks recipe title and description for stupid terms
         const recipeText = `${recipe.title} ${recipe.description}`.toLowerCase();
         const titleViolations = allForbidden.filter(forbidden =>
           recipeText.includes(forbidden.toLowerCase())
@@ -648,7 +648,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
         }
       }
 
-      // To check if recipe violates allergy restrictions
+      // To check if recipe is ignoring allergy restrictions
       if (allergies.length > 0) {
         const allergyViolations = recipe.ingredients.filter(ing => {
           const ingredientName = (ing.name || '').toLowerCase().trim();
@@ -669,16 +669,16 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
 
     console.log(`${validRecipes.length} valid recipes after filtering`);
 
-    // To remove duplicate recipes based on similarity
+    // Removes duplicate recipes based on similarity
     const deduplicatedRecipes = [];
     const seenTitles = new Set();
     const seenIngredientSets = new Set();
 
     for (const recipe of validRecipes) {
-      // Normalize title for comparison
+      // Normalizes title for comparison
       const normalizedTitle = recipe.title.toLowerCase().trim();
 
-      // Create a signature from ingredients (sorted to catch reordered duplicates)
+      // Creates a signature from ingre (sorted to catch reordered duplicates)
       const ingredientSignature = recipe.ingredients
         .map(ing => (ing.name || '').toLowerCase().trim())
         .sort()
@@ -688,7 +688,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
       const isTitleDuplicate = seenTitles.has(normalizedTitle);
       const isIngredientDuplicate = seenIngredientSets.has(ingredientSignature);
 
-      // Also check for very similar titles (e.g., "Tomato Pasta" vs "Pasta with Tomatoes")
+      // Also check for similar titles 
       const isSimilarTitle = Array.from(seenTitles).some(existingTitle => {
         const titleWords = normalizedTitle.split(/\s+/);
         const existingWords = existingTitle.split(/\s+/);
@@ -708,7 +708,7 @@ NOW create 3-5 NEW and DIFFERENT recipes following the exact same format. Be cre
 
     console.log(`${deduplicatedRecipes.length} unique recipes after deduplication`);
 
-    // Return error only if we have zero recipes
+    // Returns error only if zero recipes could be generated
     if (deduplicatedRecipes.length === 0) {
       console.error('No valid recipes could be generated');
       throw new Error('Unable to generate recipes with the available ingredients and dietary restrictions. Try adding more ingredients to your pantry.');

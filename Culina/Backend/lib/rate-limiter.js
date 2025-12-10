@@ -27,7 +27,7 @@ const getUserKeyGenerator = (req) => {
  */
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute window
-  max: 30, // 30 requests per minute per IP
+  max: 30, // 30 requests per min per IP
   message: {
     error: 'Too many requests from this IP. Please try again later.',
     retryAfter: '1 minute',
@@ -41,10 +41,7 @@ export const apiLimiter = rateLimit({
   },
 });
 
-/**
- * Chatbot-specific rate limiter
- * More restrictive due to expensive LLM calls
- */
+// Chatbot Limiter
 export const chatbotLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // 10 chatbot messages per minute per user
@@ -70,10 +67,10 @@ export const uploadLimiter = rateLimit({
   keyGenerator: getUserKeyGenerator,
 });
 
-// Recipe generation rate limiter
+// Recipe gen rate limiter
 export const recipeGenLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15, // Increased to 15 requests per minute per user (accounts for retries)
+  max: 15, // 15 requests per minute per user accounts for retries
   message: {
     error: 'You\'re generating recipes too quickly. Please wait a moment and try again.',
     limit: '15 requests per minute',

@@ -151,6 +151,7 @@ export default function RecipeMakerScreen() {
   const [initializing, setInitializing] = useState(isEditing);
   const [originalSource, setOriginalSource] = useState<string | undefined>();
   const [currentRecipe, setCurrentRecipe] = useState<Record<string, any> | null>(null);
+  const [isAlreadyShared, setIsAlreadyShared] = useState(false);
   const isMountedRef = useRef(true);
 
   // Track screen dimensions for responsive layout
@@ -201,6 +202,7 @@ export default function RecipeMakerScreen() {
         const data = snapshot.data() as Record<string, any>;
 
         setCurrentRecipe(data);
+        setIsAlreadyShared(data.isShared === true);
         setOriginalSource(typeof data.source === "string" ? data.source : undefined);
         setTitle(typeof data.title === "string" ? data.title : "");
         setDescription(typeof data.description === "string" ? data.description : "");
@@ -430,10 +432,19 @@ export default function RecipeMakerScreen() {
       let wasSynced = false;
 
       if (isEditing) {
-        await updateDoc(recipeRef, {
-          ...recipePayload,
+        // Filter out undefined values for Firestore updateDoc
+        const updateData: Record<string, any> = {
           updatedAt: serverTimestamp(),
+        };
+
+        // Only add defined fields from recipePayload
+        Object.keys(recipePayload).forEach(key => {
+          if (recipePayload[key as keyof typeof recipePayload] !== undefined) {
+            updateData[key] = recipePayload[key as keyof typeof recipePayload];
+          }
         });
+
+        await updateDoc(recipeRef, updateData);
 
         // Auto-sync: If this recipe is shared, update the shared version too
         const sharedRecipeId = await getSharedRecipeId(recipeId, uid);
@@ -863,25 +874,41 @@ export default function RecipeMakerScreen() {
 
                 {/* Buttons below both columns */}
                 <View style={styles.buttonGroup}>
-                  <TouchableOpacity
-                    style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
-                    onPress={() => handleSave(false)}
-                    disabled={saving || sharing}
-                  >
-                    <Text style={styles.primaryButtonText}>
-                      {saving ? "Saving..." : "Save Recipe"}
-                    </Text>
-                  </TouchableOpacity>
+                  {isEditing && isAlreadyShared ? (
+                    // Show only one button when editing an already shared recipe
+                    <TouchableOpacity
+                      style={[styles.primaryButton, styles.fullWidthButton, saving && styles.disabledButton]}
+                      onPress={() => handleSave(false)}
+                      disabled={saving}
+                    >
+                      <Text style={styles.primaryButtonText}>
+                        {saving ? "Saving..." : "Save Recipe"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    // Show both buttons for new recipes or unshared recipes
+                    <>
+                      <TouchableOpacity
+                        style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(false)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.primaryButtonText}>
+                          {saving ? "Saving..." : "Save Recipe"}
+                        </Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
-                    onPress={() => handleSave(true)}
-                    disabled={saving || sharing}
-                  >
-                    <Text style={styles.secondaryButtonText}>
-                      {sharing ? "Sharing..." : "Save & Share"}
-                    </Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(true)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.secondaryButtonText}>
+                          {sharing ? "Sharing..." : "Save & Share"}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               </>
             ) : (
@@ -1197,25 +1224,41 @@ export default function RecipeMakerScreen() {
                 </View>
 
                 <View style={styles.buttonGroup}>
-                  <TouchableOpacity
-                    style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
-                    onPress={() => handleSave(false)}
-                    disabled={saving || sharing}
-                  >
-                    <Text style={styles.primaryButtonText}>
-                      {saving ? "Saving..." : "Save Recipe"}
-                    </Text>
-                  </TouchableOpacity>
+                  {isEditing && isAlreadyShared ? (
+                    // Show only one button when editing an already shared recipe
+                    <TouchableOpacity
+                      style={[styles.primaryButton, styles.fullWidthButton, saving && styles.disabledButton]}
+                      onPress={() => handleSave(false)}
+                      disabled={saving}
+                    >
+                      <Text style={styles.primaryButtonText}>
+                        {saving ? "Saving..." : "Save Recipe"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    // Show both buttons for new recipes or unshared recipes
+                    <>
+                      <TouchableOpacity
+                        style={[styles.primaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(false)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.primaryButtonText}>
+                          {saving ? "Saving..." : "Save Recipe"}
+                        </Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
-                    onPress={() => handleSave(true)}
-                    disabled={saving || sharing}
-                  >
-                    <Text style={styles.secondaryButtonText}>
-                      {sharing ? "Sharing..." : "Save & Share"}
-                    </Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.secondaryButton, (saving || sharing) && styles.disabledButton]}
+                        onPress={() => handleSave(true)}
+                        disabled={saving || sharing}
+                      >
+                        <Text style={styles.secondaryButtonText}>
+                          {sharing ? "Sharing..." : "Save & Share"}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               </>
             )}

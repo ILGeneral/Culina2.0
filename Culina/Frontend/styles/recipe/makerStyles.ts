@@ -220,13 +220,16 @@ export const makerStyles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
+  fullWidthButton: {
+    width: '100%',
+  },
   landscapeContainer: {
-    flexDirection: "column", // Changed from "row" to stack sections vertically in landscape
+    flexDirection: "column", // To stack sections in landscape mode
     gap: 20,
     width: "100%",
   },
   landscapeColumn: {
-    width: "100%", // Changed from flex: 1 to full width for vertical stacking
+    width: "100%", // Stacking in landscape mode
     gap: 20,
   },
   sectionSubtitle: {
