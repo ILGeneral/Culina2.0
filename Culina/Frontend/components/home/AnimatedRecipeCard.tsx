@@ -209,14 +209,20 @@ export default function AnimatedRecipeCard({ recipe, index, showUnshareButton = 
   const handleRatingsPress = () => {
     if (!recipe?.id) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const defaultDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const distribution = recipe.ratings?.ratingDistribution
+      ? { ...defaultDistribution, ...recipe.ratings.ratingDistribution }
+      : defaultDistribution;
+
     router.push({
       pathname: `/recipe/[id]/ratings` as any,
       params: {
         id: recipe.id,
-        title: recipe.title,
+        title: recipe.title || 'Recipe',
         averageRating: recipe.ratings?.averageRating || 0,
         totalRatings: recipe.ratings?.totalRatings || 0,
-        ratingDistribution: JSON.stringify(recipe.ratings?.ratingDistribution || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }),
+        ratingDistribution: JSON.stringify(distribution),
       },
     });
   };

@@ -476,11 +476,8 @@ const ChatBotScreen = () => {
                 />
               </View>
             </TouchableWithoutFeedback>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "position" : undefined}
-              style={chatBotStyles.overlay}
-              keyboardVerticalOffset={0}
-            >
+
+            <View style={chatBotStyles.overlay}>
               <View style={chatBotStyles.overlayContent}>
                 <View style={chatBotStyles.controlsContainer}>
                   <TouchableOpacity
@@ -514,7 +511,7 @@ const ChatBotScreen = () => {
                 </View>
 
                 {!expanded && displayedMessages.length > 0 && (
-                  <View style={chatBotStyles.collapsedMessageContainer}>
+                  <View style={chatBotStyles.collapsedMessageContainer} pointerEvents="box-none">
                     <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
                       {sending ? (
                         <View style={chatBotStyles.typingIndicatorContainer}>
@@ -546,62 +543,67 @@ const ChatBotScreen = () => {
                   </View>
                 )}
 
-                <View
-                  style={[
-                    chatBotStyles.chatPanel,
-                    expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
-                  ]}
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                  keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
                 >
-                  {expanded ? (
-                    <View style={chatBotStyles.messagesWrapper}>
-                      <FlatList
-                        ref={listRef}
-                        data={displayedMessages}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderMessage}
-                        contentContainerStyle={chatBotStyles.messages}
-                        style={chatBotStyles.messageList}
-                        showsVerticalScrollIndicator={true}
-                        keyboardShouldPersistTaps="handled"
-                        scrollEnabled={true}
-                        nestedScrollEnabled={true}
-                        bounces={true}
-                        alwaysBounceVertical={true}
-                        keyboardDismissMode="interactive"
-                      />
-                    </View>
-                  ) : (
-                    <View style={chatBotStyles.messagesPlaceholder} />
-                  )}
+                  <View
+                    style={[
+                      chatBotStyles.chatPanel,
+                      expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
+                    ]}
+                  >
+                    {expanded ? (
+                      <View style={chatBotStyles.messagesWrapper}>
+                        <FlatList
+                          ref={listRef}
+                          data={displayedMessages}
+                          keyExtractor={(item) => item.id}
+                          renderItem={renderMessage}
+                          contentContainerStyle={chatBotStyles.messages}
+                          style={chatBotStyles.messageList}
+                          showsVerticalScrollIndicator={true}
+                          keyboardShouldPersistTaps="handled"
+                          scrollEnabled={true}
+                          nestedScrollEnabled={true}
+                          bounces={true}
+                          alwaysBounceVertical={true}
+                          keyboardDismissMode="interactive"
+                        />
+                      </View>
+                    ) : (
+                      <View style={chatBotStyles.messagesPlaceholder} />
+                    )}
 
-                  <View style={chatBotStyles.inputContainer}>
-                    <TextInput
-                      style={chatBotStyles.input}
-                      placeholder="Share what you're cooking or ask me question! I am here for you!"
-                      placeholderTextColor="#94a3b8"
-                      value={input}
-                      onChangeText={setInput}
-                      multiline
-                      maxLength={500}
-                    />
-                    <TouchableOpacity
-                      style={[
-                        chatBotStyles.sendButton,
-                        (!input.trim() || sending) && chatBotStyles.sendButtonDisabled,
-                      ]}
-                      onPress={handleSend}
-                      disabled={!input.trim() || sending}
-                    >
-                      {sending ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <Send size={20} color="#fff" />
-                      )}
-                    </TouchableOpacity>
+                    <View style={chatBotStyles.inputContainer}>
+                      <TextInput
+                        style={chatBotStyles.input}
+                        placeholder="Share what you're cooking or ask me question! I am here for you!"
+                        placeholderTextColor="#94a3b8"
+                        value={input}
+                        onChangeText={setInput}
+                        multiline
+                        maxLength={500}
+                      />
+                      <TouchableOpacity
+                        style={[
+                          chatBotStyles.sendButton,
+                          (!input.trim() || sending) && chatBotStyles.sendButtonDisabled,
+                        ]}
+                        onPress={handleSend}
+                        disabled={!input.trim() || sending}
+                      >
+                        {sending ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Send size={20} color="#fff" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                </KeyboardAvoidingView>
               </View>
-            </KeyboardAvoidingView>
+            </View>
           </View>
       </SafeAreaView>
     </ImageBackground>
