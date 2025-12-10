@@ -995,7 +995,7 @@ export default function RecipeDetailsScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-                {openIngredients && (
+                {openIngredients && recipe.ingredients && Array.isArray(recipe.ingredients) && (
                   <View style={styles.ingredientList}>
                     {recipe.ingredients.map((ing, idx) => {
                       const normalized = normalizeIngredientEntry(ing);
@@ -1122,7 +1122,7 @@ export default function RecipeDetailsScreen() {
                   <Text style={styles.cardTitle}>Instructions</Text>
                   <ChevronDown color="#0F172A" style={{ transform: [{ rotate: openInstructions ? "180deg" : "0deg" }] }} />
                 </TouchableOpacity>
-                {openInstructions && (
+                {openInstructions && recipe.instructions && Array.isArray(recipe.instructions) && (
                   <View style={styles.instructionsContainer}>
                     {recipe.instructions.map((step, idx) => (
                       <View key={idx} style={styles.instructionStep}>

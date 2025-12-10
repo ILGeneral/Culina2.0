@@ -467,6 +467,7 @@ const ChatBotScreen = () => {
     >
       <SafeAreaView style={chatBotStyles.safeArea} edges={["top"]}>
           <View style={chatBotStyles.contentContainer}>
+            {/* Component 1: Culina Image (Independent - Absolute) */}
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
               <View style={chatBotStyles.culinaWrapper} pointerEvents="box-none">
                 <Image
@@ -477,133 +478,133 @@ const ChatBotScreen = () => {
               </View>
             </TouchableWithoutFeedback>
 
-            <View style={chatBotStyles.overlay}>
-              <View style={chatBotStyles.overlayContent}>
-                <View style={chatBotStyles.controlsContainer}>
+            {/* Component 2: Top Controls (Independent - Absolute) */}
+            <View style={chatBotStyles.controlsContainer}>
+              <TouchableOpacity
+                onPress={toggleVoice}
+                style={[
+                  chatBotStyles.voiceButton,
+                  !voiceEnabled && chatBotStyles.voiceButtonDisabled,
+                ]}
+                activeOpacity={0.8}
+              >
+                {voiceEnabled ? (
+                  <Volume2 size={18} color="#f8fafc" />
+                ) : (
+                  <VolumeX size={18} color="#94a3b8" />
+                )}
+                <Text style={chatBotStyles.voiceLabel}>
+                  {voiceEnabled ? "Voice ON" : "Voice OFF"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={toggleExpanded}
+                style={chatBotStyles.expandButton}
+                activeOpacity={0.8}
+              >
+                {expanded ? (
+                  <ChevronDown size={20} color="#f8fafc" />
+                ) : (
+                  <ChevronUp size={20} color="#f8fafc" />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Component 3: Collapsed Message (Independent - Absolute) */}
+            {!expanded && displayedMessages.length > 0 && (
+              <View style={chatBotStyles.collapsedMessageContainer} pointerEvents="box-none">
+                <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
+                  {sending ? (
+                    <View style={chatBotStyles.typingIndicatorContainer}>
+                      <Text style={chatBotStyles.typingText}>Culina is typing</Text>
+                      <View style={chatBotStyles.typingDotsContainer}>
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot1Style]} />
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot2Style]} />
+                        <Animated.View style={[chatBotStyles.typingDot, typingDot3Style]} />
+                      </View>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      style={chatBotStyles.collapsedScrollView}
+                      contentContainerStyle={{ paddingVertical: 4 }}
+                      showsVerticalScrollIndicator={true}
+                      nestedScrollEnabled={true}
+                      scrollEnabled={true}
+                      bounces={true}
+                    >
+                      <Animated.Text
+                        entering={FadeIn.duration(400).delay(100)}
+                        style={chatBotStyles.collapsedText}
+                      >
+                        {displayedMessages[0]?.content || ''}
+                      </Animated.Text>
+                    </ScrollView>
+                  )}
+                </Animated.View>
+              </View>
+            )}
+
+            {/* Component 4: Chat Panel with Keyboard Handling (Independent - Absolute with KeyboardAvoidingView) */}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+            >
+              <View
+                style={[
+                  chatBotStyles.chatPanel,
+                  expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
+                ]}
+              >
+                {expanded ? (
+                  <View style={chatBotStyles.messagesWrapper}>
+                    <FlatList
+                      ref={listRef}
+                      data={displayedMessages}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderMessage}
+                      contentContainerStyle={chatBotStyles.messages}
+                      style={chatBotStyles.messageList}
+                      showsVerticalScrollIndicator={true}
+                      keyboardShouldPersistTaps="handled"
+                      scrollEnabled={true}
+                      nestedScrollEnabled={true}
+                      bounces={true}
+                      alwaysBounceVertical={true}
+                      keyboardDismissMode="interactive"
+                    />
+                  </View>
+                ) : (
+                  <View style={chatBotStyles.messagesPlaceholder} />
+                )}
+
+                <View style={chatBotStyles.inputContainer}>
+                  <TextInput
+                    style={chatBotStyles.input}
+                    placeholder="Share what you're cooking or ask me question! I am here for you!"
+                    placeholderTextColor="#94a3b8"
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                    maxLength={500}
+                  />
                   <TouchableOpacity
-                    onPress={toggleVoice}
                     style={[
-                      chatBotStyles.voiceButton,
-                      !voiceEnabled && chatBotStyles.voiceButtonDisabled,
+                      chatBotStyles.sendButton,
+                      (!input.trim() || sending) && chatBotStyles.sendButtonDisabled,
                     ]}
-                    activeOpacity={0.8}
+                    onPress={handleSend}
+                    disabled={!input.trim() || sending}
                   >
-                    {voiceEnabled ? (
-                      <Volume2 size={18} color="#f8fafc" />
+                    {sending ? (
+                      <ActivityIndicator color="#fff" size="small" />
                     ) : (
-                      <VolumeX size={18} color="#94a3b8" />
-                    )}
-                    <Text style={chatBotStyles.voiceLabel}>
-                      {voiceEnabled ? "Voice ON" : "Voice OFF"}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={toggleExpanded}
-                    style={chatBotStyles.expandButton}
-                    activeOpacity={0.8}
-                  >
-                    {expanded ? (
-                      <ChevronDown size={20} color="#f8fafc" />
-                    ) : (
-                      <ChevronUp size={20} color="#f8fafc" />
+                      <Send size={20} color="#fff" />
                     )}
                   </TouchableOpacity>
                 </View>
-
-                {!expanded && displayedMessages.length > 0 && (
-                  <View style={chatBotStyles.collapsedMessageContainer} pointerEvents="box-none">
-                    <Animated.View style={[chatBotStyles.collapsedBubble, pulseStyle, shimmerStyle]}>
-                      {sending ? (
-                        <View style={chatBotStyles.typingIndicatorContainer}>
-                          <Text style={chatBotStyles.typingText}>Culina is typing</Text>
-                          <View style={chatBotStyles.typingDotsContainer}>
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot1Style]} />
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot2Style]} />
-                            <Animated.View style={[chatBotStyles.typingDot, typingDot3Style]} />
-                          </View>
-                        </View>
-                      ) : (
-                        <ScrollView
-                          style={chatBotStyles.collapsedScrollView}
-                          contentContainerStyle={{ paddingVertical: 4 }}
-                          showsVerticalScrollIndicator={true}
-                          nestedScrollEnabled={true}
-                          scrollEnabled={true}
-                          bounces={true}
-                        >
-                          <Animated.Text
-                            entering={FadeIn.duration(400).delay(100)}
-                            style={chatBotStyles.collapsedText}
-                          >
-                            {displayedMessages[0].content}
-                          </Animated.Text>
-                        </ScrollView>
-                      )}
-                    </Animated.View>
-                  </View>
-                )}
-
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === "ios" ? "padding" : "height"}
-                  keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-                >
-                  <View
-                    style={[
-                      chatBotStyles.chatPanel,
-                      expanded ? chatBotStyles.chatPanelExpanded : chatBotStyles.chatPanelCollapsed,
-                    ]}
-                  >
-                    {expanded ? (
-                      <View style={chatBotStyles.messagesWrapper}>
-                        <FlatList
-                          ref={listRef}
-                          data={displayedMessages}
-                          keyExtractor={(item) => item.id}
-                          renderItem={renderMessage}
-                          contentContainerStyle={chatBotStyles.messages}
-                          style={chatBotStyles.messageList}
-                          showsVerticalScrollIndicator={true}
-                          keyboardShouldPersistTaps="handled"
-                          scrollEnabled={true}
-                          nestedScrollEnabled={true}
-                          bounces={true}
-                          alwaysBounceVertical={true}
-                          keyboardDismissMode="interactive"
-                        />
-                      </View>
-                    ) : (
-                      <View style={chatBotStyles.messagesPlaceholder} />
-                    )}
-
-                    <View style={chatBotStyles.inputContainer}>
-                      <TextInput
-                        style={chatBotStyles.input}
-                        placeholder="Share what you're cooking or ask me question! I am here for you!"
-                        placeholderTextColor="#94a3b8"
-                        value={input}
-                        onChangeText={setInput}
-                        multiline
-                        maxLength={500}
-                      />
-                      <TouchableOpacity
-                        style={[
-                          chatBotStyles.sendButton,
-                          (!input.trim() || sending) && chatBotStyles.sendButtonDisabled,
-                        ]}
-                        onPress={handleSend}
-                        disabled={!input.trim() || sending}
-                      >
-                        {sending ? (
-                          <ActivityIndicator color="#fff" size="small" />
-                        ) : (
-                          <Send size={20} color="#fff" />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </KeyboardAvoidingView>
               </View>
-            </View>
+            </KeyboardAvoidingView>
           </View>
       </SafeAreaView>
     </ImageBackground>

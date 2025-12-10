@@ -130,16 +130,22 @@ export const useSharedRecipes = () => {
         unsubscribeMy = onSnapshot(
           myRecipesQuery,
           (snapshot) => {
-            const recipes = snapshot.docs.map((doc) => {
-              const data = doc.data() as SharedRecipe;
-              return {
-                ...data,
-                id: doc.id,
-                source: normalizeRecipeSource((data as any)?.source),
-              };
-            });
-            setMySharedRecipes(recipes);
-            setLoading(false);
+            try {
+              const recipes = snapshot.docs.map((doc) => {
+                const data = doc.data() as SharedRecipe;
+                return {
+                  ...data,
+                  id: doc.id,
+                  source: normalizeRecipeSource((data as any)?.source),
+                };
+              });
+              setMySharedRecipes(recipes);
+              setLoading(false);
+            } catch (err) {
+              console.error('Error processing my shared recipes:', err);
+              setError('Failed to process your shared recipes');
+              setLoading(false);
+            }
           },
           (err) => {
             console.error('Error fetching my shared recipes:', err);
@@ -157,26 +163,32 @@ export const useSharedRecipes = () => {
         unsubscribeCommunity = onSnapshot(
           communityQuery,
           (snapshot) => {
-            const recipes = snapshot.docs
-              .map((doc) => {
-                const data = doc.data() as SharedRecipe;
-                return {
-                  ...data,
-                  id: doc.id,
-                  source: normalizeRecipeSource((data as any)?.source),
-                };
-              })
-              .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
-            setCommunityRecipes(recipes);
+            try {
+              const recipes = snapshot.docs
+                .map((doc) => {
+                  const data = doc.data() as SharedRecipe;
+                  return {
+                    ...data,
+                    id: doc.id,
+                    source: normalizeRecipeSource((data as any)?.source),
+                  };
+                })
+                .filter((recipe: any) => recipe.userId !== uid) as SharedRecipe[];
+              setCommunityRecipes(recipes);
 
-            // Set the last document for pagination
-            if (snapshot.docs.length > 0) {
-              setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+              // Set the last document for pagination
+              if (snapshot.docs.length > 0) {
+                setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+              }
+
+              // Check if there might be more recipes
+              setHasMore(snapshot.docs.length >= 50);
+              setLoading(false);
+            } catch (err) {
+              console.error('Error processing community recipes:', err);
+              setError('Failed to process community recipes');
+              setLoading(false);
             }
-
-            // Check if there might be more recipes
-            setHasMore(snapshot.docs.length >= 50);
-            setLoading(false);
           },
           (err) => {
             console.error('Error fetching community recipes:', err);

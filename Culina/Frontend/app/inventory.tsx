@@ -959,14 +959,22 @@ export default function InventoryScreen() {
               const deletePromises = Array.from(selectedItems).map(itemId =>
                 deleteDoc(doc(db, "users", user.uid, "ingredients", itemId))
               );
-              await Promise.all(deletePromises);
-              showToast(`${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} deleted`, 'info');
+              const results = await Promise.allSettled(deletePromises);
+              const failed = results.filter(r => r.status === 'rejected');
+
+              if (failed.length > 0) {
+                console.error(`${failed.length} deletions failed:`, failed);
+                showToast(`Failed to delete ${failed.length} item(s)`, 'error');
+              } else {
+                showToast(`${selectedItems.size} ${selectedItems.size === 1 ? 'item' : 'items'} deleted`, 'info');
+              }
+
               setSelectedItems(new Set());
               setSelectionMode(false);
               setBulkDeleteModalVisible(false);
             } catch (err) {
               console.error("Bulk delete failed:", err);
-              showToast("Failed to delete some items", 'error');
+              showToast("Failed to delete items", 'error');
             }
           },
         },

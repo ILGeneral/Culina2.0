@@ -40,15 +40,27 @@ type SavedRecipe = Recipe & {
 const formatDate = (val: any): string | null => {
   if (!val) return null;
   try {
-    if (typeof val?.seconds === 'number') {
-      return new Date(val.seconds * 1000).toLocaleDateString();
+    let timestamp: number;
+
+    // Handle Firestore Timestamp object with toDate() method
+    if (val?.toDate && typeof val.toDate === 'function') {
+      timestamp = val.toDate().getTime();
     }
-    if (typeof val === 'number') {
-      return new Date(val).toLocaleDateString();
+    // Handle Firestore Timestamp-like object with seconds property
+    else if (typeof val?.seconds === 'number') {
+      timestamp = val.seconds * 1000;
     }
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.toLocaleDateString();
-    return null;
+    // Handle direct number timestamp
+    else if (typeof val === 'number') {
+      timestamp = val;
+    }
+    // Invalid format
+    else {
+      return null;
+    }
+
+    const d = new Date(timestamp);
+    return !isNaN(d.getTime()) ? d.toLocaleDateString() : null;
   } catch {
     return null;
   }
