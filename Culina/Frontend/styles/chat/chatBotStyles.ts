@@ -71,9 +71,9 @@ const chatBotStyles = StyleSheet.create({
     borderRadius: 20,
   },
   chatPanelExpanded: {
-    height: "75%",
-    minHeight: 650,
-    borderRadius: 20,
+    height: "100%",
+    minHeight: 600,
+    borderRadius: 5,
   },
   voiceButton: {
     flexDirection: "row",
