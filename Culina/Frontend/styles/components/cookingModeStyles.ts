@@ -77,7 +77,6 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   mainContentLandscape: {
-    // No longer using two-column layout, just full-width for auto mode
   },
   stepContainer: {
     flex: 1,

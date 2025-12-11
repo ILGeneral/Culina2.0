@@ -804,8 +804,6 @@ export default function CookingMode({
       speakFeedback('Listening');
 
       // Note: Web Speech API for voice recognition
-      // This is a placeholder - React Native doesn't have built-in speech recognition
-      // In a real implementation, you'd use expo-speech-recognition or similar
       Alert.alert(
         'Voice Command',
         'Say a command:\n\n' +
