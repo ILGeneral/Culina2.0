@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { detectTechniques, type TechniqueGuide } from '@/lib/cookingTechniques';
 import TechniqueGuideModal from './TechniqueGuideModal';
 import { detectEquipment, groupEquipmentByCategory, type Equipment } from '@/lib/equipmentDetector';
@@ -153,6 +154,10 @@ export default function CookingMode({
   const [readingCountdown, setReadingCountdown] = useState(5);
   const readingIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Timer settings from AsyncStorage
+  const [defaultAutoTimer, setDefaultAutoTimer] = useState(60);
+  const [defaultHeadstartTimer, setDefaultHeadstartTimer] = useState(5);
+
   // Multiple timers state
   const [customTimers, setCustomTimers] = useState<CustomTimer[]>([]);
   const [showAddTimerModal, setShowAddTimerModal] = useState(false);
@@ -221,6 +226,32 @@ export default function CookingMode({
 
   const progress = instructions.length > 0 ? (completedSteps.size / instructions.length) * 100 : 0;
   const isFullyComplete = progress === 100;
+
+  // ========== LOAD TIMER SETTINGS FROM ASYNCSTORAGE ==========
+  useEffect(() => {
+    const loadTimerSettings = async () => {
+      try {
+        const savedAutoTimer = await AsyncStorage.getItem('@auto_timer');
+        const savedHeadstartTimer = await AsyncStorage.getItem('@headstart_timer');
+
+        if (savedAutoTimer) {
+          const value = parseInt(savedAutoTimer);
+          setDefaultAutoTimer(value);
+          setAutoModeTimer(value);
+        }
+
+        if (savedHeadstartTimer) {
+          const value = parseInt(savedHeadstartTimer);
+          setDefaultHeadstartTimer(value);
+          setReadingCountdown(value);
+        }
+      } catch (error) {
+        console.error('Error loading timer settings:', error);
+      }
+    };
+
+    loadTimerSettings();
+  }, []);
 
   // ========== DETECT CRITICAL STEPS ON MOUNT ==========
   useEffect(() => {
@@ -329,7 +360,7 @@ export default function CookingMode({
         // Switch to landscape and enable auto mode
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         setAutoModeActive(true);
-        setAutoModeTimer(60); // Reset timer
+        setAutoModeTimer(defaultAutoTimer); // Reset timer
         setAutoModePaused(false);
       }
     } catch (error) {
@@ -356,10 +387,10 @@ export default function CookingMode({
   useEffect(() => {
     if (autoModeActive && !autoModePaused) {
       setShowReadingOverlay(true);
-      setReadingCountdown(5);
+      setReadingCountdown(defaultHeadstartTimer);
       setAutoModePaused(true); // Pause auto timer during reading
     }
-  }, [currentStep, autoModeActive]);
+  }, [currentStep, autoModeActive, defaultHeadstartTimer]);
 
   // Reading countdown logic
   useEffect(() => {
@@ -412,7 +443,7 @@ export default function CookingMode({
     } else {
       // Timer reached 0, move to next step
       handleNext();
-      setAutoModeTimer(60); // Reset for next step
+      setAutoModeTimer(defaultAutoTimer); // Reset for next step
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
@@ -471,7 +502,7 @@ export default function CookingMode({
             // If auto-cook mode is active, auto-advance to next step
             if (autoModeActive) {
               handleNext();
-              setAutoModeTimer(60); // Reset timer for next step
+              setAutoModeTimer(defaultAutoTimer); // Reset timer for next step
             } else {
               Alert.alert('Timer Complete!', 'Your timer has finished.', [
                 { text: 'OK', onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) }
@@ -586,7 +617,7 @@ export default function CookingMode({
 
       // Reset auto-mode timer when manually marking as complete
       if (autoModeActive) {
-        setAutoModeTimer(60);
+        setAutoModeTimer(defaultAutoTimer);
       }
 
       // Auto-advance to next step when marking as complete

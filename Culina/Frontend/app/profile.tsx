@@ -19,6 +19,7 @@ import {
   Flame,
   WheatOff,
   History,
+  Settings,
 } from "lucide-react-native";
 import { auth, db } from "@/lib/firebaseConfig";
 import { signOut, onAuthStateChanged } from "firebase/auth";
@@ -353,6 +354,11 @@ export default function ProfileScreen() {
                 icon={<Edit3 color="#0f172a" size={20} />}
                 text="Edit Profile"
                 onPress={handleEditProfile}
+              />
+              <MenuItem
+                icon={<Settings color="#6366f1" size={20} />}
+                text="Settings"
+                onPress={() => router.push('/settings')}
               />
               <MenuItem
                 icon={<History color="#0ea5e9" size={20} />}
