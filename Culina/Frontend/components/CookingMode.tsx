@@ -148,6 +148,11 @@ export default function CookingMode({
   const [autoModePaused, setAutoModePaused] = useState(false);
   const autoModeIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Reading preparation countdown state
+  const [showReadingOverlay, setShowReadingOverlay] = useState(false);
+  const [readingCountdown, setReadingCountdown] = useState(5);
+  const readingIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Multiple timers state
   const [customTimers, setCustomTimers] = useState<CustomTimer[]>([]);
   const [showAddTimerModal, setShowAddTimerModal] = useState(false);
@@ -346,10 +351,57 @@ export default function CookingMode({
     }
   }, [isLandscape]);
 
+  // ========== READING PREPARATION COUNTDOWN ==========
+  // Show reading overlay when step changes in auto mode
+  useEffect(() => {
+    if (autoModeActive && !autoModePaused) {
+      setShowReadingOverlay(true);
+      setReadingCountdown(5);
+      setAutoModePaused(true); // Pause auto timer during reading
+    }
+  }, [currentStep, autoModeActive]);
+
+  // Reading countdown logic
+  useEffect(() => {
+    if (!showReadingOverlay || readingCountdown <= 0) {
+      return;
+    }
+
+    readingIntervalRef.current = setTimeout(() => {
+      setReadingCountdown(prev => {
+        if (prev <= 1) {
+          // Countdown finished, hide overlay and start auto timer
+          setShowReadingOverlay(false);
+          setAutoModePaused(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (readingIntervalRef.current) {
+        clearTimeout(readingIntervalRef.current);
+      }
+    };
+  }, [showReadingOverlay, readingCountdown]);
+
+  const handleSkipReading = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowReadingOverlay(false);
+    setReadingCountdown(0);
+    setAutoModePaused(false);
+    // Clean up reading interval
+    if (readingIntervalRef.current) {
+      clearTimeout(readingIntervalRef.current);
+      readingIntervalRef.current = null;
+    }
+  };
+
   // Auto-mode timer countdown
   useEffect(() => {
-    // Pause auto-mode if there's a detected timer in the current step
-    if (!autoModeActive || autoModePaused || currentStep >= instructions.length - 1 || timerSeconds !== null) {
+    // Pause auto-mode if there's a detected timer in the current step or reading overlay is shown
+    if (!autoModeActive || autoModePaused || currentStep >= instructions.length - 1 || timerSeconds !== null || showReadingOverlay) {
       return;
     }
 
@@ -369,7 +421,7 @@ export default function CookingMode({
         clearTimeout(autoModeIntervalRef.current);
       }
     };
-  }, [autoModeActive, autoModePaused, autoModeTimer, currentStep, instructions.length, timerSeconds]);
+  }, [autoModeActive, autoModePaused, autoModeTimer, currentStep, instructions.length, timerSeconds, showReadingOverlay]);
 
   // Handle tap to pause/resume auto mode
   const handleAutoModeTap = () => {
@@ -500,6 +552,14 @@ export default function CookingMode({
 
   const handleNext = () => {
     if (currentStep < instructions.length - 1) {
+      // Mark current step as complete before moving to next
+      const newCompleted = new Set(completedSteps);
+      if (!completedSteps.has(currentStep)) {
+        newCompleted.add(currentStep);
+        setCompletedSteps(newCompleted);
+        checkAchievements(newCompleted);
+      }
+
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentStep(currentStep + 1);
     }
@@ -593,6 +653,35 @@ export default function CookingMode({
     setTimeout(() => {
       setShowAchievement(false);
     }, 3000);
+  };
+
+  // ========== AUTO MODE TIMER COLOR CODING ==========
+  const getAutoModeTimerColors = () => {
+    const maxTime = 60; // Auto mode timer starts at 60 seconds
+    const timePercentage = (autoModeTimer / maxTime) * 100;
+
+    if (timePercentage > 50) {
+      // Blue: More than 50% time remaining
+      return {
+        backgroundColor: '#0ea5e9',
+        borderColor: '#38bdf8',
+        shadowColor: '#0ea5e9',
+      };
+    } else if (timePercentage > 25) {
+      // Orange: 25-50% time remaining
+      return {
+        backgroundColor: '#f97316',
+        borderColor: '#fb923c',
+        shadowColor: '#f97316',
+      };
+    } else {
+      // Red: Less than 25% time remaining
+      return {
+        backgroundColor: '#ef4444',
+        borderColor: '#f87171',
+        shadowColor: '#ef4444',
+      };
+    }
   };
 
   const handleClose = async () => {
@@ -1300,7 +1389,7 @@ export default function CookingMode({
           </ScrollView>
 
           {/* Automatic Mode Overlay - Tap to Pause/Resume */}
-          {isLandscape && autoModeActive && (
+          {isLandscape && autoModeActive && !showReadingOverlay && (
             <TouchableOpacity
               style={styles.autoModeOverlay}
               onPress={handleAutoModeTap}
@@ -1310,14 +1399,30 @@ export default function CookingMode({
                 entering={FadeIn.duration(300)}
               >
                 {autoModePaused ? (
-                  <View style={styles.autoModeTimerCircle}>
+                  <View style={[styles.autoModeTimerCircle, getAutoModeTimerColors()]}>
                     <Pause size={24} color="#fff" fill="#fff" />
                   </View>
                 ) : (
-                  <View style={styles.autoModeTimerCircle}>
+                  <View style={[styles.autoModeTimerCircle, getAutoModeTimerColors()]}>
                     <Text style={styles.autoModeTimerText}>{autoModeTimer}</Text>
                   </View>
                 )}
+              </Animated.View>
+            </TouchableOpacity>
+          )}
+
+          {/* Reading Preparation Overlay - Tap anywhere to skip */}
+          {isLandscape && autoModeActive && showReadingOverlay && (
+            <TouchableOpacity
+              style={styles.readingOverlay}
+              onPress={handleSkipReading}
+              activeOpacity={1}
+            >
+              <Animated.View
+                style={styles.readingCountdownCircle}
+                entering={FadeIn.duration(300)}
+              >
+                <Text style={styles.readingCountdownNumber}>{readingCountdown}</Text>
               </Animated.View>
             </TouchableOpacity>
           )}

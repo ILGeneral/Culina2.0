@@ -1271,4 +1271,33 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
+  // Reading Preparation Overlay Styles
+  readingOverlay: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  readingCountdownCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: '#38bdf8',
+    shadowColor: '#0ea5e9',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  readingCountdownNumber: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

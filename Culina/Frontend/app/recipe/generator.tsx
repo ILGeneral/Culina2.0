@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
   Alert,
+  Modal,
 } from "react-native";
 import { ChefHat, Save, UtensilsCrossed } from "lucide-react-native";
 import { useInventory } from "@/hooks/useInventory";
@@ -21,6 +22,7 @@ import {
 } from "firebase/firestore";
 import type { Recipe } from "@/types/recipe";
 import { generateRecipe } from "@/lib/generateRecipe";
+import CookingMode from "@/components/CookingMode";
 
 
 interface InventoryItem {
@@ -37,7 +39,7 @@ export default function RecipeGeneratorScreen() {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [cooking, setCooking] = useState(false);
+  const [cookingMode, setCookingMode] = useState(false);
 
   const handleGenerate = async () => {
     try {
@@ -84,46 +86,40 @@ export default function RecipeGeneratorScreen() {
     }
   };
 
-  const handleCookThis = async () => {
-    if (!recipe) return;
-    try {
-      setCooking(true);
-      const uid = auth.currentUser?.uid;
-      if (!uid) {
-        Alert.alert("Error", "You must be logged in to cook recipes.");
-        return;
-      }
-
-      const batch = writeBatch(db);
-      const invRef = collection(db, "users", uid, "ingredients");
-      const snapshot = await getDocs(invRef);
-      const invData: InventoryItem[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<InventoryItem, "id">),
-      }));
-
-      // Handle both string[] and object[] types
-      recipe.ingredients.forEach((ri) => {
-        const ingredientName = typeof ri === 'string' ? ri : ri.name;
-        
-        const match = invData.find((inv) =>
-          ingredientName.toLowerCase().includes(inv.name.toLowerCase())
-        );
-        if (match) {
-          const ref = doc(invRef, match.id);
-          const newQty = Math.max(0, (match.quantity || 0) - 1);
-          batch.update(ref, { quantity: newQty });
-        }
-      });
-
-      await batch.commit();
-      Alert.alert("Success!", "Ingredients deducted from inventory!");
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Failed to update inventory.");
-    } finally {
-      setCooking(false);
+  const handleDeductIngredients = async (ingredients: (string | { name: string; qty?: string; unit?: string })[]) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      throw new Error("You must be logged in to deduct ingredients.");
     }
+
+    const batch = writeBatch(db);
+    const invRef = collection(db, "users", uid, "ingredients");
+    const snapshot = await getDocs(invRef);
+    const invData: InventoryItem[] = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<InventoryItem, "id">),
+    }));
+
+    // Handle both string[] and object[] types
+    ingredients.forEach((ri) => {
+      const ingredientName = typeof ri === 'string' ? ri : ri.name;
+
+      const match = invData.find((inv) =>
+        ingredientName.toLowerCase().includes(inv.name.toLowerCase())
+      );
+      if (match) {
+        const ref = doc(invRef, match.id);
+        const newQty = Math.max(0, (match.quantity || 0) - 1);
+        batch.update(ref, { quantity: newQty });
+      }
+    });
+
+    await batch.commit();
+  };
+
+  const handleStartCooking = () => {
+    if (!recipe) return;
+    setCookingMode(true);
   };
 
   return (
@@ -226,20 +222,37 @@ export default function RecipeGeneratorScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={handleCookThis}
-              disabled={cooking}
+              onPress={handleStartCooking}
               className="flex-1 bg-orange-500 py-3 rounded-xl active:opacity-80"
             >
               <View className="flex-row justify-center items-center gap-2">
                 <UtensilsCrossed color="#fff" size={20} />
                 <Text className="text-white text-lg font-semibold">
-                  {cooking ? "Cooking..." : "Cook This!"}
+                  Start Cooking
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
         </ScrollView>
       )}
+
+      {/* Cooking Mode Modal */}
+      <Modal
+        visible={cookingMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setCookingMode(false)}
+      >
+        {recipe?.instructions && (
+          <CookingMode
+            instructions={recipe.instructions}
+            recipeTitle={recipe.title}
+            onClose={() => setCookingMode(false)}
+            ingredients={recipe.ingredients}
+            onDeductIngredients={handleDeductIngredients}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
