@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { SplashScreen, Stack, useRouter } from "expo-router";
 import {
   useFonts,
@@ -11,6 +11,7 @@ import {
 } from "@expo-google-fonts/baloo-2";
 import { auth } from "@/lib/firebaseConfig";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { styles } from "@/styles/layoutStyles";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -60,12 +61,3 @@ export default function RootLayout() {
     </Stack>
   );
 }
-
-const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-  },
-});

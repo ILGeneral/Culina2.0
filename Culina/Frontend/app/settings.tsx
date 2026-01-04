@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Clock, Timer, Check } from "lucide-react-native";
@@ -15,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { styles } from "@/styles/settingsStyles";
 
 const HEADSTART_OPTIONS = [3, 5, 10, 15, 20, 30, 60];
 const AUTO_TIMER_OPTIONS = [60, 80, 120, 180];
@@ -109,7 +109,6 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Gradient */}
       <LinearGradient
         colors={["#0ea5e9", "#06b6d4"]}
         start={{ x: 0, y: 0 }}
@@ -185,7 +184,7 @@ export default function SettingsScreen() {
             <View style={styles.customInputContainer}>
               <TextInput
                 style={styles.customInput}
-                placeholder="1-300 seconds"
+                placeholder="Input preffered time"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
                 value={customHeadstart}
@@ -262,7 +261,7 @@ export default function SettingsScreen() {
             <View style={styles.customInputContainer}>
               <TextInput
                 style={styles.customInput}
-                placeholder="10-600 seconds"
+                placeholder="Input preferred time"
                 placeholderTextColor="#94a3b8"
                 keyboardType="numeric"
                 value={customAutoTimer}
@@ -306,212 +305,3 @@ export default function SettingsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#fff",
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "#dbeafe",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  cardHeaderText: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1e293b",
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: "#64748b",
-  },
-  optionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  optionButton: {
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-    position: "relative",
-    minWidth: 70,
-    alignItems: "center",
-  },
-  optionButtonActive: {
-    backgroundColor: "#dbeafe",
-    borderColor: "#0ea5e9",
-  },
-  optionButtonActiveGreen: {
-    backgroundColor: "#dcfce7",
-    borderColor: "#10b981",
-  },
-  checkBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "#0ea5e9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  optionText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#475569",
-  },
-  optionTextActive: {
-    color: "#1e293b",
-    fontWeight: "700",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e2e8f0",
-    marginVertical: 20,
-  },
-  customSection: {
-    gap: 10,
-  },
-  customLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#475569",
-    marginBottom: 4,
-  },
-  customInputContainer: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  customInput: {
-    flex: 1,
-    backgroundColor: "#f1f5f9",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    fontSize: 15,
-    color: "#1e293b",
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-  },
-  customButton: {
-    backgroundColor: "#0ea5e9",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 70,
-  },
-  customButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  currentBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#f0f9ff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#0ea5e9",
-    alignSelf: "flex-start",
-  },
-  currentBadgeText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#0ea5e9",
-  },
-  saveButton: {
-    marginTop: 8,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#0ea5e9",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  saveButtonGradient: {
-    paddingVertical: 18,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 17,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-});

@@ -247,7 +247,7 @@ export const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: 24,
-    paddingBottom: 60,
+    paddingBottom: 100,
     paddingTop: 16,
     backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderTopWidth: 1,
